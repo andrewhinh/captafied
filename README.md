@@ -17,7 +17,7 @@ A full-stack ML-powered website that helps users understand their spreadsheet da
 ## Inference Pipeline
 The pipeline involves the following steps:
 1. If the user wants to modify the table, they can specify how in natural language. We then use [OpenAI's API](#credit) to convert the command into an SQL query to modify the table accordingly.
-2. If the user has a question about the table, they can ask it in natural language. 
+2. If the user has a question about the table, they can ask it in natural language. As decided by [OpenAI's API](#credit):
     - If the question requires a numerical or text answer, we use [Google's Tapas](#credit) through the HF Inference API to answer the question.
     - If the question requires a graph, we use [OpenAI's API](#credit) to pick a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
 ## Usage
