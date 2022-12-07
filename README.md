@@ -21,7 +21,7 @@ The pipeline involves the following steps:
     - If the question requires a numerical or text answer, we use [Google's Tapas](#credit) through the HF Inference API to answer the question.
     - If the question requires a graph, we use [OpenAI's API](#credit) to pick a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
 ## Usage
-Some examples of filter conditions and questions that the pipeline can handle:
+Some examples of requests and questions that the pipeline can handle:
 - Modify Request: 
     - "Show me all the users whose name is John and age is greater than 20."
     - "Add 13 to every user who has more than 4 keys."
