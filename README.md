@@ -16,16 +16,24 @@ A full-stack ML-powered website that helps users understand their spreadsheet da
 
 ## Inference Pipeline
 The pipeline involves the following steps:
-1. If the user wants to filter the table, they can specify a filter condition in natural language. We then use [OpenAI's API](#credit) to convert the condition into an SQL query to parse the table accordingly.
+1. If the user wants to modify the table, they can specify how in natural language. We then use [OpenAI's API](#credit) to convert the command into an SQL query to modify the table accordingly.
 2. If the user has a question about the table, they can ask it in natural language. 
     - If the question requires a numerical or text answer, we use [Google's Tapas](#credit) through the HF Inference API to answer the question.
     - If the question requires a graph, we use [OpenAI's API](#credit) to pick a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
 ## Usage
 Some examples of filter conditions and questions that the pipeline can handle:
-- Filter Condition: "Show me all the users whose name is John and age is greater than 20."
-- Numerical Question: "How many users were born in 1990?"
-- Graph Univariate Question: "What does the distribution of the number of orders look like?"
-- Graph Multivariate Question: "What is the relationship between the number of users and the number of orders?"
+- Modify Request: 
+    - "Show me all the users whose name is John and age is greater than 20."
+    - "Add 13 to every user who has more than 4 keys."
+- Numerical Questions: 
+    - "How many users were born in 1990?"
+    - "What month is the weather the highest?"
+- Univariate Graph Question: 
+    - "What does the distribution of the number of orders look like?"
+    - "What categories does the pasta come in?"
+- Multivariate Graph Question: 
+    - "What is the relationship between the number of users and the number of orders?"
+    - "How does month, year, and number of customers relate?"
 
 # Production
 To setup the production server for the website in an AWS EC2 instance, we:
