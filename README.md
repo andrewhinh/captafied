@@ -25,12 +25,12 @@ Some examples of filter conditions and questions that the pipeline can handle:
 - Modify Request: 
     - "Show me all the users whose name is John and age is greater than 20."
     - "Add 13 to every user who has more than 4 keys."
-- Numerical Questions: 
+- Simple Questions: 
     - "How many users were born in 1990?"
     - "What month is the weather the highest?"
 - Univariate Graph Question: 
     - "What does the distribution of the number of orders look like?"
-    - "What categories does the pasta come in?"
+    - "Is the distribution of the categories of pasta left or right skew?"
 - Multivariate Graph Question: 
     - "What is the relationship between the number of users and the number of orders?"
     - "How does month, year, and number of customers relate?"
