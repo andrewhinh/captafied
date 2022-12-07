@@ -1,0 +1,16 @@
+{
+  "name": "GPU Development Environment",
+
+  "build": {
+    "dockerfile": "dev-gpu.Dockerfile"
+  },
+
+  "runArgs": [
+	  "--gpus",
+	  "all"
+  ],
+
+ "extensions": [
+    "ms-python.python"
+  ]
+}

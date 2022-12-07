@@ -1,0 +1,14 @@
+{
+  "name": "GPU Development Environment",
+
+  "image": "admirer/development:latest",
+
+  "runArgs": [
+	  "--gpus",
+	  "all"
+  ],
+
+ "extensions": [
+    "ms-python.python"
+  ]
+}
