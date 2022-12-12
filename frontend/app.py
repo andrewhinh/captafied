@@ -1,4 +1,4 @@
-"""Provide a webcam screenshot and a burning question and get back a lover-like accurate answer!"""
+"""Edit or ask any question about your table!"""
 import argparse
 import json
 import logging
@@ -7,12 +7,11 @@ from pathlib import Path
 from typing import Callable
 
 import gradio as gr
-from PIL import ImageStat
-from PIL.Image import Image
+import pandas as pd
 import requests
 
-from question_answer import util
-from question_answer.inference import Pipeline
+from backend.inference import util
+from backend.inference.inference import Pipeline
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""  # do not use GPU
@@ -37,24 +36,48 @@ def main(args):
     )
 
 
-def make_frontend(fn: Callable[[Image, str], str], flagging: bool = False):
-    """Creates a gradio.Interface frontend for an image + text to text function."""
-    img_examples_dir = Path("question_answer") / "tests" / "support" / "images"
-    img_example_fnames = [elem for elem in os.listdir(img_examples_dir) if elem.endswith(".jpg")]
-    img_example_paths = [img_examples_dir / fname for fname in img_example_fnames]
-    img_example_paths = sorted(img_example_paths)
+def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False):
+    """Creates a gradio.Interface frontend for an table + text to table, text, or plot function."""
+    test_path = Path("backend") / "inference" / "tests" / "support"
+    table_examples_dir = test_path / "tables"
+    table_example_fnames = [elem for elem in os.listdir(table_examples_dir) if elem.endswith(".csv")]
+    table_example_paths = [table_examples_dir / fname for fname in table_example_fnames]
+    table_example_paths = sorted(table_example_paths)
 
-    question_examples_dir = Path("question_answer") / "tests" / "support" / "questions"
-    question_example_fnames = [elem for elem in os.listdir(question_examples_dir) if elem.endswith(".txt")]
-    question_example_paths = [question_examples_dir / fname for fname in question_example_fnames]
-    question_example_paths = sorted(question_example_paths)
+    table_request_examples_dir = test_path / "table_requests"
+    table_request_example_fnames = [elem for elem in os.listdir(table_request_examples_dir) if elem.endswith(".txt")]
+    table_request_example_paths = [table_request_examples_dir / fname for fname in table_request_example_fnames]
+    table_request_example_paths = sorted(table_request_example_paths)
 
-    questions = []
-    for path in question_example_paths:
+    text_request_examples_dir = test_path / "text_requests"
+    text_request_example_fnames = [elem for elem in os.listdir(text_request_examples_dir) if elem.endswith(".txt")]
+    text_request_example_paths = [text_request_examples_dir / fname for fname in text_request_example_fnames]
+    text_request_example_paths = sorted(text_request_example_paths)
+
+    plot_request_examples_dir = test_path / "plot_requests"
+    plot_request_example_fnames = [elem for elem in os.listdir(plot_request_examples_dir) if elem.endswith(".txt")]
+    plot_request_example_paths = [plot_request_examples_dir / fname for fname in plot_request_example_fnames]
+    plot_request_example_paths = sorted(plot_request_example_paths)
+
+    table_requests = []
+    text_requests = []
+    plot_requests = []
+
+    for path in table_request_example_paths:
         with open(path, "r") as f:
-            questions.append(f.readline())
+            table_requests.append(f.readline())
 
-    examples = [[str(img_path), question] for img_path, question in zip(img_example_paths, questions)]
+    for path in text_request_example_paths:
+        with open(path, "r") as f:
+            text_requests.append(f.readline())
+
+    for path in plot_request_example_paths:
+        with open(path, "r") as f:
+            plot_requests.append(f.readline())
+
+    table_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths, table_requests)]
+    text_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths, text_requests)]
+    plot_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths, plot_requests)]
 
     allow_flagging = "never"
     if flagging:  # logging user feedback to a local CSV file
@@ -67,24 +90,59 @@ def make_frontend(fn: Callable[[Image, str], str], flagging: bool = False):
     readme = _load_readme(with_logging=allow_flagging == "manual")
 
     # build a basic browser interface to a Python function
-    frontend = gr.Interface(
+    table = gr.Interface(
         fn=fn,  # which Python function are we interacting with?
-        outputs=gr.components.Textbox(),  # what output widgets does it need? the default text widget
-        # what input widgets does it need? we configure an image widget
-        inputs=[
-            gr.components.Image(type="pil", label="Webcam Image", source="webcam"),
-            gr.components.Textbox(label="Question"),
-        ],
-        title="Admirer",  # what should we display at the top of the page?
+        outputs=[gr.components.DataFrame()], # what output widgets does it need?
+        # what input widgets does it need?
+        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
+        title="Captafied",  # what should we display at the top of the page?
         thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
         description=__doc__,  # what should we display just above the interface?
         article=readme,  # what long-form content should we display below the interface?
-        examples=examples,  # which potential inputs should we provide?
+        examples=table_examples,  # which potential inputs should we provide?
         cache_examples=False,  # should we cache those inputs for faster inference? slows down start
         allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
         flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
         flagging_callback=flagging_callback,
         flagging_dir=flagging_dir,
+    )
+
+    text = gr.Interface(
+        fn=fn,  # which Python function are we interacting with?
+        outputs=[gr.components.Textbox()], # what output widgets does it need?
+        # what input widgets does it need?
+        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
+        title="Captafied",  # what should we display at the top of the page?
+        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
+        description=__doc__,  # what should we display just above the interface?
+        article=readme,  # what long-form content should we display below the interface?
+        examples=text_examples,  # which potential inputs should we provide?
+        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
+        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
+        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+        flagging_callback=flagging_callback,
+        flagging_dir=flagging_dir,
+    )
+
+    plot = gr.Interface(
+        fn=fn,  # which Python function are we interacting with?
+        outputs=[gr.components.Plot()], # what output widgets does it need?
+        # what input widgets does it need?
+        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
+        title="Captafied",  # what should we display at the top of the page?
+        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
+        description=__doc__,  # what should we display just above the interface?
+        article=readme,  # what long-form content should we display below the interface?
+        examples=plot_examples,  # which potential inputs should we provide?
+        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
+        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
+        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+        flagging_callback=flagging_callback,
+        flagging_dir=flagging_dir,
+    )
+
+    frontend = gr.TabbedInterface(interface_list=[table, text, plot],
+                                  tab_names=["Table", "Text", "Plot"],
     )
 
     return frontend
@@ -106,14 +164,14 @@ class PredictorBackend:
             model = Pipeline()
             self._predict = model.predict
 
-    def run(self, image, question):
-        pred, metrics = self._predict_with_metrics(image, question)
-        self._log_inference(pred, metrics)
+    def run(self, table, request):
+        pred = self._predict_with_metrics(table, request) #, metrics
+        self._log_inference(pred) #, metrics
         return pred
 
-    def _predict_with_metrics(self, image, question):
-        pred = self._predict(image, question)
-
+    def _predict_with_metrics(self, table, request):
+        pred = self._predict(table, request)
+        """
         stats = ImageStat.Stat(image)
         metrics = {
             "image_mean_intensity": stats.mean,
@@ -122,21 +180,22 @@ class PredictorBackend:
             "image_area": image.size[0] * image.size[1],
             "pred_length": len(pred),
         }
-        return pred, metrics
+        """
+        return pred#, metrics
 
-    def _predict_from_endpoint(self, image, question):
-        """Send an image and question to an endpoint that accepts JSON and return the predicted text.
+    def _predict_from_endpoint(self, table, request):
+        """Send an table and request to an endpoint that accepts JSON and return the predictions.
 
         The endpoint should expect a base64 representation of the image, encoded as a string,
-        under the key "image" and a str representation of the question. It should return the predicted text under the key "pred".
+        under the key "image" and a str representation of the request. It should return the predicted text under the key "pred".
 
         Parameters
         ----------
         image
             A PIL image of handwritten text to be converted into a string
 
-        question
-            A string containing the user's question
+        request
+            A string containing the user's request
 
         Returns
         -------
@@ -147,7 +206,7 @@ class PredictorBackend:
 
         headers = {"Content-type": "application/json"}
         payload = json.dumps(
-            {"image": "data:image/jpg;base64," + encoded_image, "question": "data:question/str;str," + question}
+            {"image": "data:image/jpg;base64," + encoded_image, "request": "data:request/str;str," + request}
         )
 
         response = requests.post(self.url, data=payload, headers=headers)
@@ -155,9 +214,9 @@ class PredictorBackend:
 
         return pred
 
-    def _log_inference(self, pred, metrics):
-        for key, value in metrics.items():
-            logging.info(f"METRIC {key} {value}")
+    def _log_inference(self, pred): #, metrics
+        #for key, value in metrics.items():
+            #logging.info(f"METRIC {key} {value}")
         logging.info(f"PRED >begin\n{pred}\nPRED >end")
 
 
