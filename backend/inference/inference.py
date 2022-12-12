@@ -1,12 +1,9 @@
 # Imports
 import argparse
-from collections import defaultdict
-import json
 import os
 from pathlib import Path
-import random
 import requests
-from typing import Any, Dict, List, Tuple, Union
+from typing import Union
 
 from dotenv import load_dotenv
 import matplotlib
@@ -15,7 +12,6 @@ import numpy as np
 from onnxruntime import InferenceSession
 import openai
 import pandas as pd
-import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
@@ -108,39 +104,7 @@ class Pipeline:
         
         # Question Handling
         elif request_type == 'False': # Need to add more logic to check for image/text columns + speed of clustering + handle different types of plots
-            result_type = openai.Completion.create(
-                model=engine,
-                prompt="You are given the following question: " + 
-                        request_str + "\n" +
-                        "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
-                        ', '.join(list(df.columns)) + "\n" +
-                        "The Python types of each column mentioned are listed in order:" +
-                        ', '.join([str(type(column)) for column in df.columns]) + "\n" +
-                        "Write 'True' if it is possible to answer the question with a number, statement, or list, or " + 
-                        "'False' otherwise, meaning a graph is required to answer the question: ",
-                temperature=0,
-                max_tokens=3,
-                top_p=1.0,
-                frequency_penalty=0.0,
-                presence_penalty=0.0
-            )["choices"][0]["text"].strip()
-
-            if result_type == "True":
-                df_to_json = df.to_dict(orient="list")
-                for col in df_to_json:
-                    df_to_json[col] = [str(x) for x in df_to_json[col]]
-                while 'cells' not in list(result.keys()):
-                    result = self.tapas_query({
-                        "inputs": {
-                            "query": request_str,
-                            "table": df_to_json,
-                        },
-                    })
-                result = result['cells']
-                result = ", ".join(result)
-            
-            elif result_type == "False":
-                columns = openai.Completion.create(
+            columns = openai.Completion.create(
                     model=engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
@@ -153,68 +117,108 @@ class Pipeline:
                     frequency_penalty=0.0,
                     presence_penalty=0.0
                 )["choices"][0]["text"].strip()
-                columns = columns.split(", ")
-
-                column_data = {}
-                for column in columns:
-                    test = df.loc[0, column]
-                    if type(test) == str:
-                        if validators.url(test):
-                            column_data[column] = "image"
-                        elif len(test) > 3:
-                            column_data[column] = "text"
-
-                if column_data: # If there are image or text columns
-                    images = []
-                    texts = []
-                    if "image" not in column_data.values(): # Only text data present
-                        images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(df))]
-                        texts = list(df[column])
-                    elif "text" not in column_data.values(): # Only image data present
-                        images = list(df[column])
-                        texts = ["Placeholder value" for _ in range(len(df))]
+            columns = columns.split(", ")
+            column_data = {}
+            for column in columns:
+                test = df.loc[0, column]
+                if type(test) == str:
+                    if validators.url(test):
+                        column_data[column] = "image"
+                    if len(list(set(list(df[column])))) >= len(df):
+                        column_data[column] = "text"
                     
-                    # Generating image and/or question embeddings
-                    inputs = self.clip_processor(text=texts, images=images, return_tensors="np", padding=True)
-                    clip_outputs = self.clip_session.run(
-                        output_names=["logits_per_image", "logits_per_text", "text_embeds", "image_embeds"], input_feed=dict(inputs)
-                    )
+            if column_data: # If there are image or text columns
+                images = []
+                texts = []
+                if "image" not in column_data.values(): # Only text data present
+                    images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(df))]
+                    texts = list(df[column])
+                elif "text" not in column_data.values(): # Only image data present
+                    images = list(df[column])
+                    texts = ["Placeholder value" for _ in range(len(df))]
+                
+                # Generating image and/or question embeddings
+                inputs = self.clip_processor(text=texts, images=images, return_tensors="np", padding=True)
+                clip_outputs = self.clip_session.run(
+                    output_names=["logits_per_image", "logits_per_text", "text_embeds", "image_embeds"], input_feed=dict(inputs)
+                )
 
-                    if "image" not in column_data.values(): # Only text data present
-                        embeds = clip_outputs[2]
-                    elif "text" not in column_data.values(): # Only image data present
-                        embeds = clip_outputs[3]
-                    
-                    # Creating clustering graph
-                    # Calculating optimal number of clusters
-                    range_n_clusters = list(range(1, 10))
-                    silhouette_scores = []
-                    for num_clusters in range_n_clusters:
-                        # initialise kmeans
-                        kmeans = KMeans(n_clusters=num_clusters)
-                        kmeans.fit(embeds)
-                        cluster_labels = kmeans.labels_
-                        # silhouette score
-                        silhouette_scores.append(silhouette_score(embeds, cluster_labels))
-                    n_clusters = silhouette_scores.index(max(silhouette_scores))
-
-                    kmeans = KMeans(n_clusters=n_clusters, init="k-means++", random_state=42)
+                if "image" not in column_data.values(): # Only text data present
+                    embeds = clip_outputs[2]
+                elif "text" not in column_data.values(): # Only image data present
+                    embeds = clip_outputs[3]
+                
+                # Creating clustering graph
+                # Calculating optimal number of clusters
+                range_n_clusters = list(range(2, len(df)))
+                silhouette_scores = []
+                for num_clusters in range_n_clusters:
+                    # initialise kmeans
+                    kmeans = KMeans(n_clusters=num_clusters)
                     kmeans.fit(embeds)
-                    labels = kmeans.labels_
+                    cluster_labels = kmeans.labels_
+                    # silhouette score
+                    silhouette_scores.append(silhouette_score(embeds, cluster_labels))
+                n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
 
-                    tsne = TSNE(
-                        n_components=2, perplexity=15, random_state=42, init="random", learning_rate=200
-                    )
-                    vis_dims2 = tsne.fit_transform(embeds)
+                kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
+                kmeans.fit(embeds)
+                labels = kmeans.labels_
 
-                    cats = []
-                    for category in range(n_clusters):
-                        vis_dims = np.array(vis_dims2)[labels == category]
-                        cats.append(vis_dims.assign(dataset=category))
-                    cats = pd.concat(cats)
+                tsne = TSNE(
+                    n_components=2, perplexity=15, init="random", learning_rate=200
+                )
+                vis_dims2 = tsne.fit_transform(embeds)
 
-                    result = sns.scatterplot(data=cats, style='dataset')
-                else: # No image or text data present
+                x = [x for x, y in vis_dims2]
+                y = [y for x, y in vis_dims2]
+
+                for category in range(n_clusters):
+                    xs = np.array(x)[labels == category]
+                    ys = np.array(y)[labels == category]
+                    plt.scatter(xs, ys, alpha=0.3)
+
+                    avg_x = xs.mean()
+                    avg_y = ys.mean()
+
+                    plt.scatter(avg_x, avg_y, marker="x", s=100)
+                plt.title("Clusters identified and visualized in language 2d using t-SNE")
+
+                result = plt
+
+            else:
+                result_type = openai.Completion.create(
+                    model=engine,
+                    prompt="You are given the following question: " + 
+                            request_str + "\n" +
+                            "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
+                            ', '.join(list(df.columns)) + "\n" +
+                            "The Python types of each column mentioned are listed in order:" +
+                            ', '.join([str(type(column)) for column in df.columns]) + "\n" +
+                            "Write 'True' if it is possible to answer the question with a number, statement, or list, or " + 
+                            "'False' otherwise, meaning a graph is required to answer the question: ",
+                    temperature=0,
+                    max_tokens=3,
+                    top_p=1.0,
+                    frequency_penalty=0.0,
+                    presence_penalty=0.0
+                )["choices"][0]["text"].strip()
+
+                if result_type == "True":
+                    df_to_json = df.to_dict(orient="list")
+                    for col in df_to_json:
+                        df_to_json[col] = [str(x) for x in df_to_json[col]]
+                    while 'cells' not in list(result.keys()):
+                        result = self.tapas_query({
+                            "inputs": {
+                                "query": request_str,
+                                "table": df_to_json,
+                            },
+                        })
+                    result = result['cells']
+                    result = ", ".join(result)
+                
+                elif result_type == "False":
                     plot_func = openai.Completion.create(
                         model=engine,
                         prompt="You are given the following question: " + 
@@ -250,14 +254,7 @@ def main():
     pipeline = Pipeline()
     result = pipeline.predict(args.table, args.request) # Outputs the modified table, string, or seaborn plot
 
-    if type(result) == pd.DataFrame:
-        print(result.head())
-    elif type(result) == str:
-        print(result)
-    elif type(result) == sns.Figure:
-        result.show()
-    else:
-        print("Couldn't show result")
+    print(result)
 
 
 if __name__ == "__main__":

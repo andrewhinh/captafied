@@ -89,8 +89,6 @@ gitpython==3.1.29
     # via wandb
 gradio==3.0.21
     # via -r requirements/prod.in
-greenlet==2.0.1
-    # via sqlalchemy
 h11==0.12.0
     # via
     #   httpcore
@@ -118,7 +116,6 @@ importlib-metadata==4.11.3
     #   -r requirements/prod.in
     #   click
     #   huggingface-hub
-    #   sqlalchemy
     #   transformers
 intel-openmp==2022.2.0
     # via mkl
@@ -145,7 +142,9 @@ markupsafe==1.1.1
     #   -r requirements/prod.in
     #   jinja2
 matplotlib==3.5.2
-    # via gradio
+    # via
+    #   -r requirements/prod.in
+    #   gradio
 mdit-py-plugins==0.3.0
     # via markdown-it-py
 mdurl==0.1.1
@@ -171,7 +170,6 @@ numpy==1.21.6
     #   onnxruntime
     #   openai
     #   pandas
-    #   pandasql
     #   scikit-learn
     #   scipy
     #   torchvision
@@ -194,11 +192,8 @@ pandas==1.3.5
     # via
     #   gradio
     #   openai
-    #   pandasql
 pandas-stubs==1.2.0.62
     # via openai
-pandasql==0.7.3
-    # via -r requirements/prod.in
 paramiko==2.11.0
     # via gradio
 pathtools==0.1.2
@@ -300,8 +295,6 @@ sniffio==1.2.0
     #   anyio
     #   httpcore
     #   httpx
-sqlalchemy==1.4.44
-    # via pandasql
 starlette==0.19.1
     # via fastapi
 sympy==1.10.1
