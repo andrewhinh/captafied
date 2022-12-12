@@ -59,12 +59,14 @@ conda activate captafied
 ```bash
 pip3 uninstall torch torchvision torchaudio -y
 ```
-3. Sign up for OpenAI's API [here](https://openai.com/api/), populate a `.env` file with your OpenAI API key in the format of `.env.template`, and reactivate (just activate again) the environment.
-4. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and setup your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+3. Sign up for an OpenAI's API account [here](https://openai.com/api/).
+4. Sign up for a HuggingFace account [here](https://huggingface.co/).
+5. Populate a `.env` file with your OpenAI and HuggingFace API keys in the format of `.env.template`, and reactivate (just activate again) the environment.
+6. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and setup your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 ```bash
 aws configure
 ```
-5. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the models and context examples locally:
+7. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the models and context examples locally:
 ```bash
 wandb login
 python ./training/stage_model.py --fetch --from_project captafied
