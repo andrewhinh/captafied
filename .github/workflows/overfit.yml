@@ -34,4 +34,4 @@ jobs:
         env:
           PYTHONPATH: .
           WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
-          WANDB_PROJECT: admirer-ci
+          WANDB_PROJECT: captafied-ci

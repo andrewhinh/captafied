@@ -1,7 +1,7 @@
 {
   "name": "GPU Development Environment",
 
-  "image": "admirer/development:latest",
+  "image": "captafied/development:latest",
 
   "runArgs": [
 	  "--gpus",

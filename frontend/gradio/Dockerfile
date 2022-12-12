@@ -15,10 +15,10 @@ ENV PYTHONPATH ".:"
 
 # Copy only the relevant directories
 #   note that we use a .dockerignore file to avoid copying logs etc.
-COPY question_answer/ ./question_answer
-COPY app_gradio/ ./app_gradio
+COPY backend/inference/ ./backend/inference
+COPY frontend/gradio/ ./frontend/gradio
 COPY ./.aws/config ./.aws/config
 
 # Use docker run -it --rm -p$PORT:11717 to run the web server and listen on host $PORT
 #   add --help top see help for the Python script
-ENTRYPOINT ["python3", "app_gradio/app.py", "--port", "11717"]
+ENTRYPOINT ["python3", "frontend/gradio/app.py", "--port", "11717"]
