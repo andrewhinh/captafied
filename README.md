@@ -42,11 +42,11 @@ To setup the production server for the website in an AWS EC2 instance, we:
 1. Setup the instance: install packages such as `pip`, pull the repo, and install the environment requirements:
 2. Setup the Gradio app with an AWS Lambda backend:
 ```bash
-python3 frontend/app.py --flagging --model_url=AWS_LAMBDA_URL
+python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 ```
 3. Serve the Gradio app over a permanent localtunnel link:
 ```bash
-. ./frontend/localtunnel.sh
+. ./frontend/gradio/localtunnel.sh
 ```
 4. Implement continual development by updating the AWS Lambda backend when signaled by a pushed commit to the repo and checking if the pipeline performance has improved:
 ```bash
@@ -99,11 +99,11 @@ The repo is separated into main folders that each describe a part of the ML-proj
 From the main directory, there are various ways to test the pipeline:
 - To start the Gradio app locally:
 ```bash
-python frontend/app.py --flagging
+python frontend/gradio/app.py --flagging
 ```
 - To test the Gradio frontend by launching and pinging the frontend locally:
 ```bash
-python -c "from frontend.tests.test_app import test_local_run; test_local_run()"
+python -c "from frontend.gradio.tests.test_app import test_local_run; test_local_run()"
 ```
 - To test various aspects of the model pipeline:
 ```bash

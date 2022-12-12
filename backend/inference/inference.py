@@ -7,6 +7,7 @@ from typing import Union
 
 from dotenv import load_dotenv
 import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from onnxruntime import InferenceSession
@@ -58,6 +59,9 @@ class Pipeline:
         return response.json()
 
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
+        # Handling repeated uses of matplotlib
+        plt.clf()
+
         # Type handling
         if not isinstance(table, pd.DataFrame): # Need to add more logic to handle different types of files (.csv, .xlsx, .json, .txt, .html, .pdf, etc.)
             df = pd.read_csv(table.name) 
