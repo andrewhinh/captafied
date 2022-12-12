@@ -35,6 +35,9 @@ clip_onnx = onnx_path / "clip.onnx"
 # Loading env variables
 load_dotenv()
 
+# OpenAI Engine
+engine = "text-davinci-003"
+
 
 # Main Class
 class Pipeline:
@@ -71,25 +74,25 @@ class Pipeline:
             request_str = request
 
         request_type = openai.Completion.create(
-            model="text-davinci-003",
+            model=engine,
             prompt="You are given the following sentence: " + 
                     request_str + "\n" +
                     "Write True if the sentence ends with a period or exclamation point or is a statement, and " + 
                     "False if the sentence ends with a question mark or is a question: ",
             temperature=0,
-            max_tokens=5,
+            max_tokens=3,
             top_p=1.0,
             frequency_penalty=0.0,
             presence_penalty=0.0
         )["choices"][0]["text"].strip()
-        result = None
+        result = {}
 
         # Table Modification Handling
         if request_type == 'True':
-            func = openai.Completion.create(
-                model="text-davinci-003",
+            mod_func = openai.Completion.create(
+                model=engine,
                 prompt="You are given a Python pandas DataFrame named 'df' that has the following columns: " + 
-                        ', '.join(list(df.columns)) + ". " +
+                        ', '.join(list(df.columns)) + "\n" +
                         "Write a Python pandas function named 'f' to " + request_str + ". " + 
                         "Make sure to not return the entire function definition; " + 
                         "only return everything after and not including the 'return' statement: ",
@@ -99,23 +102,24 @@ class Pipeline:
                 frequency_penalty=0.0,
                 presence_penalty=0.0,
             )["choices"][0]["text"].strip()
-            result = eval(func)
+            result = eval(mod_func)
             if type(result) != pd.DataFrame:
                 result = result.to_frame()
         
         # Question Handling
         elif request_type == 'False': # Need to add more logic to check for image/text columns + speed of clustering + handle different types of plots
             result_type = openai.Completion.create(
-                model="text-davinci-003",
+                model=engine,
                 prompt="You are given the following question: " + 
                         request_str + "\n" +
                         "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
                         ', '.join(list(df.columns)) + "\n" +
-                        "Assume you are given the values for the DataFrame. "
+                        "The Python types of each column mentioned are listed in order:" +
+                        ', '.join([str(type(column)) for column in df.columns]) + "\n" +
                         "Write 'True' if it is possible to answer the question with a number, statement, or list, or " + 
                         "'False' otherwise, meaning a graph is required to answer the question: ",
-                temperature=0.3,
-                max_tokens=60,
+                temperature=0,
+                max_tokens=3,
                 top_p=1.0,
                 frequency_penalty=0.0,
                 presence_penalty=0.0
@@ -125,20 +129,19 @@ class Pipeline:
                 df_to_json = df.to_dict(orient="list")
                 for col in df_to_json:
                     df_to_json[col] = [str(x) for x in df_to_json[col]]
-                result = self.tapas_query({
-                    "inputs": {
-                        "query": request_str,
-                        "table": df_to_json,
-                    },
-                })
-                print(result) # For whatever reason, this is needed for result to have the 'cells' attribute (yes, this is stupid)
-                if 'cells' in list(result.keys()): 
-                    result = result['cells']
+                while 'cells' not in list(result.keys()):
+                    result = self.tapas_query({
+                        "inputs": {
+                            "query": request_str,
+                            "table": df_to_json,
+                        },
+                    })
+                result = result['cells']
                 result = ", ".join(result)
             
             elif result_type == "False":
                 columns = openai.Completion.create(
-                    model="text-davinci-003",
+                    model=engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
                             "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
@@ -212,21 +215,23 @@ class Pipeline:
 
                     result = sns.scatterplot(data=cats, style='dataset')
                 else: # No image or text data present
-                    graph_type = openai.Completion.create(
-                        model="text-davinci-003",
-                        prompt="You are given the following question:\n\n" + 
-                                request_str + "\n\n" +
-                                "The Python types of each variable mentioned are listed in order:\n\n" +
-                                ', '.join([str(type(column)) for column in columns]) + ".\n\n" +
-                                "Write the best Python Seaborn plot to represent the data as a string:",
-                        temperature=0,
-                        max_tokens=10,
+                    plot_func = openai.Completion.create(
+                        model=engine,
+                        prompt="You are given the following question: " + 
+                                request_str + "\n" +
+                                "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
+                                ', '.join(list(df.columns)) + "\n" +
+                                "The Python types of each column mentioned are listed in order:" +
+                                ', '.join([str(type(column)) for column in df.columns]) + "\n" +
+                                "Answer the question by writing Python Matplolib code to best plot the data" + ". " +
+                                "Make sure to separate newlines with semicolons, and not include any imports: ",
+                        temperature=0.3,
+                        max_tokens=500,
                         top_p=1.0,
                         frequency_penalty=0.0,
                         presence_penalty=0.0
                     )["choices"][0]["text"].strip()
-                    #sns.scatterplot(x=columns[0], y=columns[1], data=df)
-                    plt.scatter(x=df[columns[0]], y=df[columns[1]])
+                    exec(plot_func)
                     result = plt
 
         return result
