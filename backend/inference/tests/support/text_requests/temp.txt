@@ -1,1 +1,1 @@
-How many repos have ten stars?
+How many repos have more than 200 stars?
