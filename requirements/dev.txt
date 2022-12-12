@@ -5,10 +5,7 @@
 #    pip-compile requirements/dev.in
 #
 absl-py==1.0.0
-    # via
-    #   ml-metadata
-    #   ml-pipelines-sdk
-    #   tensorboard
+    # via tensorboard
 aiohttp==3.8.1
     # via
     #   -c requirements/prod.txt
@@ -19,10 +16,6 @@ aiosignal==1.2.0
     #   aiohttp
 altair==4.2.0
     # via great-expectations
-analytics-python==1.4.0
-    # via
-    #   -c requirements/prod.txt
-    #   zenml
 anyio==3.6.1
     # via
     #   -c requirements/prod.txt
@@ -47,22 +40,13 @@ attrs==20.3.0
     #   -c requirements/prod.txt
     #   aiohttp
     #   jsonschema
-    #   ml-metadata
     #   pytest
 backcall==0.2.0
     # via ipython
-backoff==1.10.0
-    # via
-    #   -c requirements/prod.txt
-    #   analytics-python
 backports.zoneinfo==0.2.1
     # via
     #   pytz-deprecation-shim
     #   tzlocal
-bcrypt==3.2.2
-    # via
-    #   -c requirements/prod.txt
-    #   passlib
 beautifulsoup4==4.11.1
     # via nbconvert
 bleach==5.0.0
@@ -80,7 +64,6 @@ cffi==1.15.0
     # via
     #   -c requirements/prod.txt
     #   argon2-cffi-bindings
-    #   bcrypt
     #   cryptography
 cfgv==3.3.1
     # via pre-commit
@@ -92,17 +75,11 @@ charset-normalizer==2.0.12
 click==8.1.2
     # via
     #   -c requirements/prod.txt
-    #   click-params
     #   great-expectations
     #   nltk
     #   wandb
-    #   zenml
-click-params==0.3.0
-    # via zenml
 colorama==0.4.6
     # via great-expectations
-commonmark==0.9.1
-    # via rich
 coverage[toml]==6.4
     # via
     #   -r requirements/dev.in
@@ -117,18 +94,14 @@ cycler==0.11.0
     #   matplotlib
 decorator==5.1.1
     # via
+    #   -c requirements/prod.txt
     #   ipython
-    #   validators
 defusedxml==0.7.1
     # via
     #   -r requirements/dev.in
     #   nbconvert
 distlib==0.3.4
     # via virtualenv
-distro==1.8.0
-    # via zenml
-docker==4.4.4
-    # via ml-pipelines-sdk
 docker-pycreds==0.4.0
     # via
     #   -c requirements/prod.txt
@@ -138,8 +111,6 @@ entrypoints==0.4
     #   altair
     #   jupyter-client
     #   nbconvert
-fasteners==0.18
-    # via google-apitools
 fastjsonschema==2.15.3
     # via nbformat
 filelock==3.8.0
@@ -167,41 +138,16 @@ gitpython==3.1.29
     # via
     #   -c requirements/prod.txt
     #   wandb
-    #   zenml
-google-api-core==2.10.2
-    # via google-api-python-client
-google-api-python-client==1.12.11
-    # via ml-pipelines-sdk
-google-apitools==0.5.32
-    # via ml-pipelines-sdk
 google-auth==2.6.5
     # via
-    #   google-api-core
-    #   google-api-python-client
-    #   google-auth-httplib2
     #   google-auth-oauthlib
     #   tensorboard
-google-auth-httplib2==0.1.0
-    # via google-api-python-client
 google-auth-oauthlib==0.4.6
     # via tensorboard
-googleapis-common-protos==1.56.4
-    # via google-api-core
 great-expectations==0.15.28
     # via -r requirements/dev.in
-greenlet==1.1.3.post0
-    # via sqlalchemy
 grpcio==1.44.0
-    # via
-    #   ml-metadata
-    #   tensorboard
-httplib2==0.19.1
-    # via
-    #   google-api-python-client
-    #   google-apitools
-    #   google-auth-httplib2
-    #   oauth2client
-    #   zenml
+    # via tensorboard
 identify==2.5.1
     # via pre-commit
 idna==3.3
@@ -220,7 +166,6 @@ importlib-metadata==4.11.3
     #   pluggy
     #   pre-commit
     #   pytest
-    #   sqlalchemy
     #   virtualenv
 importlib-resources==5.9.0
     # via jsonschema
@@ -245,7 +190,6 @@ ipywidgets==7.7.1
     # via
     #   -r requirements/dev.in
     #   great-expectations
-    #   rich
 itermplot==0.331
     # via -r requirements/dev.in
 jedi==0.18.1
@@ -256,12 +200,13 @@ jinja2==2.11.3
     #   altair
     #   great-expectations
     #   jupyter-server
-    #   ml-pipelines-sdk
     #   nbclassic
     #   nbconvert
     #   notebook
 joblib==1.2.0
-    # via nltk
+    # via
+    #   -c requirements/prod.txt
+    #   nltk
 jsonpatch==1.32
     # via great-expectations
 jsonpointer==2.3
@@ -308,7 +253,6 @@ markupsafe==1.1.1
     # via
     #   -c requirements/prod.txt
     #   jinja2
-    #   zenml
 marshmallow==3.18.0
     # via great-expectations
 matplotlib==3.5.2
@@ -323,14 +267,6 @@ mistune==0.8.4
     # via
     #   great-expectations
     #   nbconvert
-ml-metadata==1.8.0
-    # via ml-pipelines-sdk
-ml-pipelines-sdk==1.8.0
-    # via zenml
-monotonic==1.6
-    # via
-    #   -c requirements/prod.txt
-    #   analytics-python
 multidict==6.0.2
     # via
     #   -c requirements/prod.txt
@@ -345,7 +281,6 @@ nbconvert==6.4.4
     #   jupyter-server
     #   nbclassic
     #   notebook
-    #   zenml
 nbformat==5.3.0
     # via
     #   great-expectations
@@ -379,14 +314,11 @@ numpy==1.21.6
     #   itermplot
     #   matplotlib
     #   pandas
-    #   pyarrow
     #   pytorch-lightning
     #   scipy
     #   seaborn
     #   tensorboard
     #   torchmetrics
-oauth2client==4.1.3
-    # via google-apitools
 oauthlib==3.2.0
     # via requests-oauthlib
 packaging==20.9
@@ -396,7 +328,6 @@ packaging==20.9
     #   jupyter-server
     #   marshmallow
     #   matplotlib
-    #   ml-pipelines-sdk
     #   pytest
     #   pytorch-lightning
     #   torchmetrics
@@ -406,13 +337,10 @@ pandas==1.3.5
     #   altair
     #   great-expectations
     #   seaborn
-    #   zenml
 pandocfilters==1.5.0
     # via nbconvert
 parso==0.8.3
     # via jedi
-passlib[bcrypt]==1.7.4
-    # via zenml
 pathtools==0.1.2
     # via
     #   -c requirements/prod.txt
@@ -429,8 +357,6 @@ platformdirs==2.5.2
     # via virtualenv
 pluggy==1.0.0
     # via pytest
-portpicker==1.5.2
-    # via ml-pipelines-sdk
 pre-commit==2.19.0
     # via -r requirements/dev.in
 prometheus-client==0.15.0
@@ -447,16 +373,11 @@ prompt-toolkit==3.0.29
 protobuf==3.20.3
     # via
     #   -c requirements/prod.txt
-    #   google-api-core
-    #   googleapis-common-protos
-    #   ml-metadata
-    #   ml-pipelines-sdk
     #   tensorboard
     #   wandb
 psutil==5.9.3
     # via
     #   -c requirements/prod.txt
-    #   portpicker
     #   wandb
 ptyprocess==0.7.0
     # via
@@ -464,26 +385,16 @@ ptyprocess==0.7.0
     #   terminado
 py==1.11.0
     # via pytest
-pyarrow==7.0.0
-    # via zenml
 pyasn1==0.4.8
     # via
-    #   oauth2client
     #   pyasn1-modules
     #   rsa
 pyasn1-modules==0.2.8
-    # via
-    #   google-auth
-    #   oauth2client
+    # via google-auth
 pycparser==2.21
     # via
     #   -c requirements/prod.txt
     #   cffi
-pydantic==1.9.1
-    # via
-    #   -c requirements/prod.txt
-    #   sqlmodel
-    #   zenml
 pydeprecate==0.3.2
     # via
     #   pytorch-lightning
@@ -492,15 +403,12 @@ pygments==2.11.2
     # via
     #   ipython
     #   nbconvert
-    #   rich
 pyparsing==2.4.2
     # via
     #   -c requirements/prod.txt
     #   great-expectations
-    #   httplib2
     #   matplotlib
     #   packaging
-    #   zenml
 pyrsistent==0.18.1
     # via jsonschema
 pytest==7.1.1
@@ -512,15 +420,11 @@ pytest-cov==3.0.0
 python-dateutil==2.8.2
     # via
     #   -c requirements/prod.txt
-    #   analytics-python
     #   great-expectations
     #   jupyter-client
     #   matplotlib
     #   pandas
     #   wandb
-    #   zenml
-python-terraform==0.10.1
-    # via zenml
 pytorch-lightning==1.6.3
     # via -r requirements/dev.in
 pytz==2022.1
@@ -536,7 +440,6 @@ pyyaml==5.4.1
     #   pre-commit
     #   pytorch-lightning
     #   wandb
-    #   zenml
 pyzmq==24.0.1
     # via
     #   jupyter-client
@@ -550,10 +453,7 @@ regex==2022.9.13
 requests==2.27.1
     # via
     #   -c requirements/prod.txt
-    #   analytics-python
-    #   docker
     #   fsspec
-    #   google-api-core
     #   great-expectations
     #   language-tool-python
     #   requests-oauthlib
@@ -561,18 +461,15 @@ requests==2.27.1
     #   wandb
 requests-oauthlib==1.3.1
     # via google-auth-oauthlib
-rich[jupyter]==12.6.0
-    # via zenml
 rsa==4.8
-    # via
-    #   google-auth
-    #   oauth2client
+    # via google-auth
 ruamel.yaml==0.17.17
     # via great-expectations
 ruamel.yaml.clib==0.2.7
     # via ruamel.yaml
 scipy==1.7.3
     # via
+    #   -c requirements/prod.txt
     #   -r requirements/dev.in
     #   great-expectations
     #   seaborn
@@ -599,21 +496,13 @@ six==1.16.0
     # via
     #   -c requirements/prod.txt
     #   absl-py
-    #   analytics-python
     #   bleach
-    #   docker
     #   docker-pycreds
-    #   google-api-python-client
-    #   google-apitools
     #   google-auth
-    #   google-auth-httplib2
     #   grpcio
     #   itermplot
-    #   ml-metadata
-    #   oauth2client
     #   promise
     #   python-dateutil
-    #   validators
     #   virtualenv
     #   wandb
 smmap==5.0.0
@@ -626,12 +515,6 @@ sniffio==1.2.0
     #   anyio
 soupsieve==2.3.2.post1
     # via beautifulsoup4
-sqlalchemy==1.4.41
-    # via sqlmodel
-sqlalchemy2-stubs==0.0.2a29
-    # via sqlmodel
-sqlmodel==0.0.8
-    # via zenml
 tensorboard==2.8.0
     # via pytorch-lightning
 tensorboard-data-server==0.6.1
@@ -707,26 +590,19 @@ typing-extensions==4.1.1
     #   importlib-metadata
     #   jsonschema
     #   kiwisolver
-    #   pydantic
     #   pytorch-lightning
-    #   rich
-    #   sqlalchemy2-stubs
     #   torch
     #   yarl
 tzdata==2022.5
     # via pytz-deprecation-shim
 tzlocal==4.2
     # via great-expectations
-uritemplate==3.0.1
-    # via google-api-python-client
 urllib3==1.26.12
     # via
     #   -c requirements/prod.txt
     #   great-expectations
     #   requests
     #   sentry-sdk
-validators==0.18.2
-    # via click-params
 virtualenv==20.14.1
     # via pre-commit
 wandb==0.12.17
@@ -738,9 +614,7 @@ wcwidth==0.2.5
 webencodings==0.5.1
     # via bleach
 websocket-client==1.4.1
-    # via
-    #   docker
-    #   jupyter-server
+    # via jupyter-server
 werkzeug==2.1.2
     # via tensorboard
 wheel==0.37.1
@@ -751,8 +625,6 @@ yarl==1.7.2
     # via
     #   -c requirements/prod.txt
     #   aiohttp
-zenml==0.20.5
-    # via -r requirements/dev.in
 zipp==3.8.0
     # via
     #   -c requirements/prod.txt

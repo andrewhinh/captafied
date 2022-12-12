@@ -8,7 +8,7 @@ data/interim
 /data/downloaded/
 
 # Production files
-/question_answer/artifacts/
+/backend/inference/artifacts/inference/
 
 # OpenAI API Key
 .env

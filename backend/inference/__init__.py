@@ -1,1 +1,1 @@
-"""Modules for creating and running a image captioner."""
+"""Modules for running a table understander."""

@@ -1,7 +1,7 @@
-## Outside Knowledge Visual Question Answering
+## Multimodal Table Understanding 
 
 For more on how this application works,
-[check out the GitHub repo](https://github.com/andrewhinh/admirer).
+[check out the GitHub repo](https://github.com/andrewhinh/captafied).
 
 <!-- logging content below -->
 ### Flagging
