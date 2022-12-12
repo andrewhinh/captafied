@@ -75,9 +75,9 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         with open(path, "r") as f:
             plot_requests.append(f.readline())
 
-    table_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths, table_requests)]
-    text_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths, text_requests)]
-    plot_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths, plot_requests)]
+    table_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(table_requests), table_requests)]
+    text_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(text_requests), text_requests)]
+    plot_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(plot_requests), plot_requests)]
 
     allow_flagging = "never"
     if flagging:  # logging user feedback to a local CSV file

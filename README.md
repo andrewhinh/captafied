@@ -30,7 +30,8 @@ Some examples of requests and questions that the pipeline can handle:
     - "What month is the weather the highest?"
 - Univariate Graph Question: 
     - "What does the distribution of the number of orders look like?"
-    - "Is the distribution of the categories of pasta left or right skew?"
+    - "What does the distribution of the review summaries look like?"
+    - "What does the distribution of the images look like?"
 - Multivariate Graph Question: 
     - "What is the relationship between the number of users and the number of orders?"
     - "How does month, year, and number of customers relate?"
