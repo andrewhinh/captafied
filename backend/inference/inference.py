@@ -19,10 +19,11 @@ import tabula as tb
 from transformers import CLIPProcessor
 import validators
 
+
+# Setup
+# Disabling matplotlib GUI
 matplotlib.use('agg')
 
-
-# Variables
 # Artifact path
 artifact_path = Path(__file__).resolve().parent / "artifacts" / "inference"
 onnx_path = artifact_path / "onnx"
@@ -30,12 +31,6 @@ onnx_path = artifact_path / "onnx"
 # CLIP Encoders config
 clip_processor = artifact_path / "clip-vit-base-patch16"
 clip_onnx = onnx_path / "clip.onnx"
-
-# Loading env variables
-load_dotenv()
-
-# OpenAI Engine
-engine = "text-davinci-003"
 
 
 # Main Class
@@ -49,13 +44,19 @@ class Pipeline:
         self.clip_session = InferenceSession(str(clip_onnx))
         self.clip_processor = CLIPProcessor.from_pretrained(clip_processor)
 
+        # Loading env variables
+        load_dotenv()
+
         # OpenAI API Setup
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
-        # HF API Setup
-        self.TAPAS_API_URL = "https://api-inference.huggingface.co/models/google/tapas-base-finetuned-wtq"
-        self.headers = {"Authorization": "Bearer " + os.getenv("HF_API_KEY")}
+        # OpenAI Engine
+        self.engine = "text-davinci-003"
 
+        # HF API Setup
+        self.TAPAS_API_URL = "https://api-inference.huggingface.co/models/google/tapas-large-finetuned-wtq"
+        self.headers = {"Authorization": "Bearer " + os.getenv("HF_API_KEY")}
+        
     def tapas_query(self, payload):
         response = requests.post(self.TAPAS_API_URL, headers=self.headers, json=payload)
         return response.json()
@@ -87,7 +88,7 @@ class Pipeline:
             request_str = request
 
         request_type = openai.Completion.create(
-            model=engine,
+            model=self.engine,
             prompt="You are given the following sentence: " + 
                     request_str + "\n" +
                     "Write True if the sentence ends with a period or exclamation point or is a statement, and " + 
@@ -103,12 +104,11 @@ class Pipeline:
         # Table Modification Handling
         if request_type == 'True':
             mod_func = openai.Completion.create(
-                model=engine,
+                model=self.engine,
                 prompt="You are given a Python pandas DataFrame named 'df' that has the following columns: " + 
                         ', '.join(list(df.columns)) + "\n" +
-                        "Write a Python pandas function named 'f' to " + request_str + ". " + 
-                        "Make sure to not return the entire function definition; " + 
-                        "only return everything after and not including the 'return' statement: ",
+                        "Write a Python pandas '.query()' statement to " + request_str + ". " + 
+                        "Don't modify `df` in your statement: ",
                 temperature=0.3,
                 max_tokens=60,
                 top_p=1.0,
@@ -116,13 +116,13 @@ class Pipeline:
                 presence_penalty=0.0,
             )["choices"][0]["text"].strip()
             result = eval(mod_func)
-            if type(result) != pd.DataFrame:
+            if type(result) != pd.DataFrame: # In case pd.Series is returned
                 result = result.to_frame()
         
         # Question Handling
         elif request_type == 'False':
             columns = openai.Completion.create(
-                    model=engine,
+                    model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
                             "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
@@ -205,7 +205,7 @@ class Pipeline:
             
             else:
                 result_type = openai.Completion.create(
-                    model=engine,
+                    model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
                             "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
@@ -237,7 +237,7 @@ class Pipeline:
                 
                 elif result_type == "False":
                     plot_func = openai.Completion.create(
-                        model=engine,
+                        model=self.engine,
                         prompt="You are given the following question: " + 
                                 request_str + "\n" +
                                 "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
