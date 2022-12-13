@@ -13,7 +13,8 @@
 - [Credit](#credit)
 
 # Description
-A full-stack ML-powered website that helps users understand their spreadsheet data whether it contains images, text, or numbers.
+A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, we automatically generate sliced tables, answers, and plots. 
+
 
 ## Inference Pipeline
 The pipeline involves the following steps:
