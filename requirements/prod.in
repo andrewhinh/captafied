@@ -17,10 +17,12 @@ torchvision>=0.13.0
 markupsafe<2.1
 # for models
 matplotlib
+odfpy
 onnxruntime==1.12.1
 openai==0.23.1
 python-dotenv
 scikit-learn
+tabula-py
 transformers
 timm
 validators

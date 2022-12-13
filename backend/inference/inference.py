@@ -7,7 +7,6 @@ from typing import Union
 
 from dotenv import load_dotenv
 import matplotlib
-matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from onnxruntime import InferenceSession
@@ -16,8 +15,11 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
+import tabula as tb
 from transformers import CLIPProcessor
 import validators
+
+matplotlib.use('agg')
 
 
 # Variables
@@ -63,8 +65,19 @@ class Pipeline:
         plt.clf()
 
         # Type handling
-        if not isinstance(table, pd.DataFrame): # Need to add more logic to handle different types of files (.csv, .xlsx, .json, .txt, .html, .pdf, etc.)
-            df = pd.read_csv(table.name) 
+        if not isinstance(table, pd.DataFrame):
+            if "csv" in table.name:
+                df = pd.read_csv(table.name) 
+            elif "tsv" in table.name:
+                df = pd.read_csv(table.name, sep='\t')
+            elif "xlsx" in table.name:
+                df = pd.read_excel(table.name) 
+            elif "ods" in table.name:
+                df = pd.read_excel(table.name, engine="odf")
+            elif "pdf" in table.name:
+                df = tb.read_pdf(table.name, pages='all')
+            elif "html" in table.name:
+                df = pd.read_html(table.name)                    
         else:
             df = table
         if isinstance(request, Path) | os.path.exists(request):
@@ -107,7 +120,7 @@ class Pipeline:
                 result = result.to_frame()
         
         # Question Handling
-        elif request_type == 'False': # Need to add more logic to check for image/text columns + speed of clustering + handle different types of plots
+        elif request_type == 'False':
             columns = openai.Completion.create(
                     model=engine,
                     prompt="You are given the following question: " + 
