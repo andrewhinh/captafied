@@ -1,1 +1,1 @@
-What is the relationship between stars and forks?
+What does the distribution of the repos' stars look like?

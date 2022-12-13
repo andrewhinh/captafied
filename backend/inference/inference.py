@@ -199,10 +199,10 @@ class Pipeline:
                     avg_y = ys.mean()
 
                     plt.scatter(avg_x, avg_y, marker="x", s=100)
+                
                 plt.title("Clusters identified and visualized in language 2d using t-SNE")
-
                 result = plt
-
+            
             else:
                 result_type = openai.Completion.create(
                     model=engine,

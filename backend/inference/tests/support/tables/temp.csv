@@ -1,4 +1,4 @@
-Repos,Stars,Forks,Icons,Summary
-Transformers,76000,17200,./images/temp.png,"Transformers provides thousands of pretrained models to perform tasks on different modalities such as text, vision, and audio."
-Tapas,894,184,./images/temp1.png,"TAble PArSing (TAPAS)"
-CLIP,11200,1700,./images/temp2.png,"CLIP (Contrastive Language-Image Pre-Training) is a neural network trained on a variety of (image, text) pairs."
+Repos,Stars,Forks,"Release Year",Icons,Summary
+Transformers,76000,17200,2020,../images/temp.png,"Transformers provides thousands of pretrained models to perform tasks on different modalities such as text, vision, and audio."
+Tapas,894,184,2020,../images/temp1.png,"TAble PArSing (TAPAS)"
+CLIP,11200,1700,2021,../images/temp2.png,"CLIP (Contrastive Language-Image Pre-Training) is a neural network trained on a variety of (image, text) pairs."
