@@ -18,9 +18,6 @@ import wandb
 from wandb import Artifact
 from wandb.sdk.wandb_run import Run
 
-from question_answer.lit_models import GPT2
-from training.util import setup_data_and_model_from_args
-
 
 # Variables
 # these names are all set by the pl.loggers.WandbLogger
@@ -33,19 +30,16 @@ STAGED_MODEL_TYPE = "prod-ready"
 STAGED_MODEL_FILENAME = "model.pt"  # standard nomenclature; pytorch_model.bin is also used
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DIRECTORY = Path("question_answer/")
-
-LITMODEL_CLASS = GPT2
 
 api = wandb.Api()
 
 DEFAULT_ENTITY = api.default_entity
-DEFAULT_FROM_PROJECT = "admirer-training"
-DEFAULT_TO_PROJECT = "admirer-training"
-DEFAULT_STAGED_MODEL_NAME = "answer"
+DEFAULT_FROM_PROJECT = "captafied"
+DEFAULT_TO_PROJECT = "captafied"
+DEFAULT_STAGED_MODEL_NAME = "inference"
 
-PROD_STAGING_ROOT = PROJECT_ROOT / DIRECTORY / Path("artifacts")
-PROD_PATHS = ["coco_annotations", "coco_clip_new", "transformers", "onnx"]
+PROD_STAGING_ROOT = PROJECT_ROOT / Path("artifacts")
+PROD_PATHS = ["clip-vit-base-patch16", "onnx"]
 
 load_dotenv()
 
@@ -63,26 +57,7 @@ def main(args):
     # otherwise, we'll need to download the weights, compile the model, and save it
     with wandb.init(
         job_type="stage", project=args.to_project, dir=LOG_DIR
-    ):  # log staging to W&B so prod and training are connected
-        # find the model checkpoint and retrieve its artifact name and an api handle
-        if args.run:
-            ckpt_at, ckpt_api = find_artifact(
-                project=args.from_project, type=MODEL_CHECKPOINT_TYPE, alias=args.ckpt_alias, run=args.run
-            )
-
-            # get the run that produced that checkpoint
-            logging_run = get_logging_run(ckpt_api)
-            print_info(ckpt_api, logging_run)
-            metadata = get_checkpoint_metadata(logging_run, ckpt_api)
-
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                # download the checkpoint to a temporary directory
-                download_artifact(ckpt_at, tmp_dir)
-                # reload the model from that checkpoint
-                model = load_model_from_checkpoint(metadata, directory=tmp_dir)
-                # save the model to .pt in the staging directory
-                save_model_to_pt(model, directory=prod_staging_directory / "transformers" / "trained_caption")
-
+    ):
         # create an artifact for the staged, deployable model
         staged_at = wandb.Artifact(args.staged_model_name, type=STAGED_MODEL_TYPE)
         # upload the staged model so it can be downloaded elsewhere
@@ -162,27 +137,6 @@ def download_artifact(artifact_path: str, target_directory: Path) -> Artifact:
     return artifact
 
 
-def load_model_from_checkpoint(ckpt_metadata, directory):
-    config = ckpt_metadata["config"]
-    args = argparse.Namespace(**config)
-
-    _, model = setup_data_and_model_from_args(args)
-
-    # load LightningModule from checkpoint
-    pth = Path(directory) / MODEL_CHECKPOINT_PATH
-    lit_model = LITMODEL_CLASS.load_from_checkpoint(
-        checkpoint_path=pth, args=args, model=model.vit2gpt2, tokenizer=model.gpt2_tokenizer, strict=False
-    )
-    lit_model.eval()
-
-    return lit_model
-
-
-def save_model_to_pt(model, directory):
-    path = Path(directory) / STAGED_MODEL_FILENAME
-    torch.save(model.state_dict(), path)
-
-
 def upload_staged_model(staged_at: Artifact, from_directory: Path) -> None:
     """Uploads a staged arfifact to W&B"""
     staged_at.add_dir(from_directory)
@@ -239,18 +193,6 @@ def _setup_parser():
         type=str,
         default=DEFAULT_TO_PROJECT,
         help=f"Project to which to upload the compiled model. Default is {DEFAULT_TO_PROJECT}.",
-    )
-    parser.add_argument(
-        "--run",
-        type=str,
-        default=None,
-        help=f"Optionally, the name of a run to check for an artifact of type {MODEL_CHECKPOINT_TYPE} that has the provided CKPT_ALIAS. Default is None.",
-    )
-    parser.add_argument(
-        "--ckpt_alias",
-        type=str,
-        default=BEST_CHECKPOINT_ALIAS,
-        help=f"Alias that identifies which model checkpoint should be staged.The artifact's alias can be set manually or programmatically elsewhere. Default is '{BEST_CHECKPOINT_ALIAS}'.",
     )
     parser.add_argument(
         "--staged_model_name",
