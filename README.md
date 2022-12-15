@@ -1,5 +1,5 @@
 # captafied
-<img width="1507" alt="Screenshot 2022-12-12 at 9 50 59 AM" src="https://user-images.githubusercontent.com/40700820/207117767-008addb1-2e0a-49bc-b91c-8b1a24e4d162.png">
+![demo](./demo.png)
 
 # Contents
 - [Description](#description)
@@ -14,7 +14,6 @@
 
 # Description
 A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, and plots. 
-
 
 ## Inference Pipeline
 The pipeline involves the following steps:
@@ -37,7 +36,6 @@ Some examples of requests and questions that the pipeline can handle:
 - Multivariate Graph Question: 
     - "What is the relationship between the number of users and the number of orders?"
     - "How does month, year, and number of customers relate?"
-    - "How do the movie reviews change by year?"
 
 # Production
 To setup the production server for the website in an AWS EC2 instance, we:

@@ -21,19 +21,19 @@ import validators
 
 
 # Setup
-# Disabling matplotlib GUI
+# Disabling matplotlib GUI for Gradio
 matplotlib.use('agg')
 
-# Artifact path
+# Artifacts (models, etc.) path
 artifact_path = Path(__file__).resolve().parent / "artifacts" / "inference"
 onnx_path = artifact_path / "onnx"
 
-# CLIP Encoders config
+# CLIP encoders config
 clip_processor = artifact_path / "clip-vit-base-patch16"
 clip_onnx = onnx_path / "clip.onnx"
 
 
-# Main Class
+# Main class
 class Pipeline:
     """
     Main inference class
@@ -87,6 +87,7 @@ class Pipeline:
         else:
             request_str = request
 
+        # Figure out what type of request is being made
         request_type = openai.Completion.create(
             model=self.engine,
             prompt="You are given the following sentence: " + 
@@ -102,7 +103,7 @@ class Pipeline:
         result = {}
 
         # Table Modification Handling
-        if request_type == 'True':
+        if request_type == 'True': # Create a pd.query() function with OpenAI's API
             mod_func = openai.Completion.create(
                 model=self.engine,
                 prompt="You are given a Python pandas DataFrame named 'df' that has the following columns: " + 
@@ -120,7 +121,7 @@ class Pipeline:
                 result = result.to_frame()
         
         # Question Handling
-        elif request_type == 'False':
+        elif request_type == 'False': # First figure out what columns are needed to answer the question
             columns = openai.Completion.create(
                     model=self.engine,
                     prompt="You are given the following question: " + 
@@ -136,21 +137,26 @@ class Pipeline:
                 )["choices"][0]["text"].strip()
             columns = columns.split(", ")
             column_data = {}
-            for column in columns:
+            for column in columns: # Check for image and text columns
                 test = df.loc[0, column]
                 if type(test) == str:
                     if validators.url(test):
                         column_data[column] = "image"
-                    if len(list(set(list(df[column])))) >= len(df):
+                    if len(list(set(list(df[column])))) >= len(df) and len(test.split(" ")) > 3:
                         column_data[column] = "text"
                     
             if column_data: # If there are image or text columns
+                # Preparing data for CLIP
                 images = []
                 texts = []
+                image_present = False
+                text_present = False
                 if "image" not in column_data.values(): # Only text data present
+                    text_present = True
                     images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(df))]
                     texts = list(df[column])
                 elif "text" not in column_data.values(): # Only image data present
+                    image_present = True
                     images = list(df[column])
                     texts = ["Placeholder value" for _ in range(len(df))]
                 
@@ -159,10 +165,9 @@ class Pipeline:
                 clip_outputs = self.clip_session.run(
                     output_names=["logits_per_image", "logits_per_text", "text_embeds", "image_embeds"], input_feed=dict(inputs)
                 )
-
-                if "image" not in column_data.values(): # Only text data present
+                if text_present:
                     embeds = clip_outputs[2]
-                elif "text" not in column_data.values(): # Only image data present
+                elif image_present:
                     embeds = clip_outputs[3]
                 
                 # Creating clustering graph
@@ -178,6 +183,7 @@ class Pipeline:
                     silhouette_scores.append(silhouette_score(embeds, cluster_labels))
                 n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
 
+                # Generating labels and visualizing clusters
                 kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
                 kmeans.fit(embeds)
                 labels = kmeans.labels_
@@ -186,7 +192,6 @@ class Pipeline:
                     n_components=2, perplexity=15, init="random", learning_rate=200
                 )
                 vis_dims2 = tsne.fit_transform(embeds)
-
                 x = [x for x, y in vis_dims2]
                 y = [y for x, y in vis_dims2]
 
@@ -203,8 +208,8 @@ class Pipeline:
                 plt.title("Clusters identified and visualized in language 2d using t-SNE")
                 result = plt
             
-            else:
-                result_type = openai.Completion.create(
+            else: # Figure out whether to use TAPAS or not
+                result_type = openai.Completion.create( 
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
@@ -212,8 +217,8 @@ class Pipeline:
                             ', '.join(list(df.columns)) + "\n" +
                             "The Python types of each column mentioned are listed in order:" +
                             ', '.join([str(type(column)) for column in df.columns]) + "\n" +
-                            "Write 'True' if it is possible to answer the question with a number, statement, or list, or " + 
-                            "'False' otherwise, meaning a graph is required to answer the question: ",
+                            "Write 'False' if the question mentions statistical relationships, " + 
+                            "distributions of data, or categorical data, and 'True' otherwise: ",
                     temperature=0,
                     max_tokens=3,
                     top_p=1.0,
@@ -235,7 +240,7 @@ class Pipeline:
                     result = result['cells']
                     result = ", ".join(result)
                 
-                elif result_type == "False":
+                elif result_type == "False": # Create a plot using Matplotlib and OpenAI
                     plot_func = openai.Completion.create(
                         model=self.engine,
                         prompt="You are given the following question: " + 
