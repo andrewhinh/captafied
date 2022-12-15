@@ -24,6 +24,13 @@ import validators
 # Disabling matplotlib GUI for Gradio
 matplotlib.use('agg')
 
+# Loading env variables
+load_dotenv()
+
+# OpenAI API Setup
+openai.organization = "org-SenjN6vfnkIealcfn6t9JOJj"
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 # Artifacts (models, etc.) path
 artifact_path = Path(__file__).resolve().parent / "artifacts" / "inference"
 onnx_path = artifact_path / "onnx"
@@ -43,12 +50,6 @@ class Pipeline:
         # CLIP Setup
         self.clip_session = InferenceSession(str(clip_onnx))
         self.clip_processor = CLIPProcessor.from_pretrained(clip_processor)
-
-        # Loading env variables
-        load_dotenv()
-
-        # OpenAI API Setup
-        openai.api_key = os.getenv("OPENAI_API_KEY")
 
         # OpenAI Engine
         self.engine = "text-davinci-003"
