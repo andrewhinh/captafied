@@ -1,5 +1,5 @@
 # captafied
-<img width="1507" alt="Screenshot 2022-12-12 at 9 50 59 AM" src="https://user-images.githubusercontent.com/40700820/207117767-008addb1-2e0a-49bc-b91c-8b1a24e4d162.png">
+![demo](./demo.png)
 
 # Contents
 - [Description](#description)
@@ -15,10 +15,9 @@
 # Description
 A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, and plots. 
 
-
 ## Inference Pipeline
 The pipeline involves the following steps:
-1. If the user wants to modify the table, they can specify how in natural language. We then use [OpenAI's API](#credit) to convert the command into an SQL query to modify the table accordingly.
+1. If the user wants to modify the table, they can specify how in natural language. We then use [OpenAI's API](#credit) to convert the command into a pandas query to modify the table accordingly.
 2. If the user has a question about the table, they can ask it in natural language. As decided by [OpenAI's API](#credit):
     - If the question requires a numerical or text answer, we use [Google's Tapas](#credit) through the HF Inference API to answer the question.
     - If the question requires a graph, we use [OpenAI's API](#credit) to code up a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
@@ -37,7 +36,6 @@ Some examples of requests and questions that the pipeline can handle:
 - Multivariate Graph Question: 
     - "What is the relationship between the number of users and the number of orders?"
     - "How does month, year, and number of customers relate?"
-    - "How do the movie reviews change by year?"
 
 # Production
 To setup the production server for the website in an AWS EC2 instance, we:

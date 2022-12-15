@@ -1,0 +1,1 @@
+Add 10 stars to all the repos that have more than 900 stars.

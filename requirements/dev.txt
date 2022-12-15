@@ -98,6 +98,7 @@ decorator==5.1.1
     #   ipython
 defusedxml==0.7.1
     # via
+    #   -c requirements/prod.txt
     #   -r requirements/dev.in
     #   nbconvert
 distlib==0.3.4
