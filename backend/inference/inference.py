@@ -209,17 +209,50 @@ class Pipeline:
                 plt.title("Clusters identified and visualized in language 2d using t-SNE")
                 result = plt
             
-            else: # Figure out whether to use TAPAS or not
-                result_type = openai.Completion.create( 
+            else: # Figure out whether to use TAPAS or matplotlib
+                plot_func = openai.Completion.create(
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
                             "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
                             ', '.join(list(df.columns)) + "\n" +
-                            "The Python types of each column mentioned are listed in order:" +
-                            ', '.join([str(type(column)) for column in df.columns]) + "\n" +
-                            "Write 'False' if the question mentions statistical relationships, " + 
-                            "distributions of data, or categorical data, and 'True' otherwise: ",
+                            "The Python types of each column mentioned are listed in order: " +
+                            ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
+                            "Answer the question by writing Python Matplolib code to best plot the data. " +
+                            "Do not include any imports: ",
+                    temperature=0.3,
+                    max_tokens=500,
+                    top_p=1.0,
+                    frequency_penalty=0.0,
+                    presence_penalty=0.0
+                )["choices"][0]["text"].strip()
+
+                df_to_json = df.to_dict(orient="list")
+                for col in df_to_json:
+                    df_to_json[col] = [str(x) for x in df_to_json[col]]
+                while 'cells' not in list(result.keys()):
+                    result = self.tapas_query({
+                        "inputs": {
+                            "query": request_str,
+                            "table": df_to_json,
+                        },
+                    })
+                result = result['cells']
+                result = ", ".join(result)
+
+                use_plot = openai.Completion.create( 
+                    model=self.engine,
+                    prompt="You are given the following question: " + 
+                            request_str + "\n" +
+                            "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
+                            ', '.join(list(df.columns)) + "\n" +
+                            "The Python types of each column mentioned are listed in order: " +
+                            ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
+                            "I have the following Python matplotlib code:\n" + plot_func + "\n" +
+                            "I also have the following text: " + result + "\n" + 
+                            "If the matplotlib code were used to draw a graph, " +
+                            "should the graph or text be used to answer the question if the answer's value and conciseness are taken into consideration? " +
+                            "Write 'True' if the graph should be used, and 'False' if the text should be used: ",
                     temperature=0,
                     max_tokens=3,
                     top_p=1.0,
@@ -227,37 +260,7 @@ class Pipeline:
                     presence_penalty=0.0
                 )["choices"][0]["text"].strip()
 
-                if result_type == "True":
-                    df_to_json = df.to_dict(orient="list")
-                    for col in df_to_json:
-                        df_to_json[col] = [str(x) for x in df_to_json[col]]
-                    while 'cells' not in list(result.keys()):
-                        result = self.tapas_query({
-                            "inputs": {
-                                "query": request_str,
-                                "table": df_to_json,
-                            },
-                        })
-                    result = result['cells']
-                    result = ", ".join(result)
-                
-                elif result_type == "False": # Create a plot using Matplotlib and OpenAI
-                    plot_func = openai.Completion.create(
-                        model=self.engine,
-                        prompt="You are given the following question: " + 
-                                request_str + "\n" +
-                                "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
-                                ', '.join(list(df.columns)) + "\n" +
-                                "The Python types of each column mentioned are listed in order:" +
-                                ', '.join([str(type(column)) for column in df.columns]) + "\n" +
-                                "Answer the question by writing Python Matplolib code to best plot the data" + ". " +
-                                "Make sure to separate newlines with semicolons, and not include any imports: ",
-                        temperature=0.3,
-                        max_tokens=500,
-                        top_p=1.0,
-                        frequency_penalty=0.0,
-                        presence_penalty=0.0
-                    )["choices"][0]["text"].strip()
+                if use_plot == "True":
                     exec(plot_func)
                     result = plt
 

@@ -1,1 +1,1 @@
-How do the number of stars, number of forks, and release year relate?
+How do stars, forks, and release year relate?

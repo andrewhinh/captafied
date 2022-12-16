@@ -1,1 +1,1 @@
-Which repo has the most forks?
+How many forks does the CLIP repo have?
