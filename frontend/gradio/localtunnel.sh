@@ -1,1 +1,1 @@
-until lt --port 11700 --subdomain captfied; do :; done
+until lt --port 11700 --subdomain captafied; do :; done

@@ -1,4 +1,4 @@
-# [captafied](https://captfied.loca.lt/)
+# [captafied](https://captafied.loca.lt/)
 ![demo](./demo.png)
 
 # Contents
