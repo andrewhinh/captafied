@@ -93,8 +93,8 @@ class Pipeline:
             model=self.engine,
             prompt="You are given the following sentence: " + 
                     request_str + "\n" +
-                    "Write True if the sentence ends with a period or exclamation point or is a statement, and " + 
-                    "False if the sentence ends with a question mark or is a question: ",
+                    "Write `True` if the sentence ends with a period or exclamation point or is a statement, and " + 
+                    "`False` if the sentence ends with a question mark or is a question: ",
             temperature=0,
             max_tokens=3,
             top_p=1.0,
@@ -104,10 +104,10 @@ class Pipeline:
         result = {}
 
         # Table Modification Handling
-        if request_type == 'True': # Create a pd.query() function with OpenAI's API
+        if request_type == "True": # Create a pd.query() function with OpenAI's API
             mod_func = openai.Completion.create(
                 model=self.engine,
-                prompt="You are given a Python pandas DataFrame named 'df' that has the following columns: " + 
+                prompt="You are given a Python pandas DataFrame named `df` that has the following columns: " + 
                         ', '.join(list(df.columns)) + "\n" +
                         "Write a Python pandas '.query()' statement to " + request_str + ". " + 
                         "Don't modify `df` in your statement: ",
@@ -122,12 +122,12 @@ class Pipeline:
                 result = result.to_frame()
         
         # Question Handling
-        elif request_type == 'False': # First figure out what columns are needed to answer the question
+        elif request_type == "False": # First figure out what columns are needed to answer the question
             columns = openai.Completion.create(
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
-                            "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
+                            "You are also given a Python pandas DataFrame named `df` that has the following columns: " + 
                             ', '.join(list(df.columns)) + "\n" +
                             "List the columns that should be used to answer the question as a comma separated list: ",
                     temperature=0.3,
@@ -214,14 +214,14 @@ class Pipeline:
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
-                            "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
-                            ', '.join(list(df.columns)) + "\n" +
+                            "You are also given a Python pandas DataFrame named `df` that has the following columns: " + 
+                            ', '.join(list(columns)) + "\n" +
                             "The Python types of each column mentioned are listed in order: " +
-                            ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
-                            "Answer the question by writing Python Matplolib code to best plot the data. " +
-                            "Do not include any imports: ",
+                            ', '.join([str(type(df.loc[0, column])) for column in columns]) + "\n" +
+                            "Answer the question by writing Python Matplolib code to plot the data in `df`. " +
+                            "Do not include any imports, and give the plot axis labels, a title, and a legend as necessary: ",
                     temperature=0.3,
-                    max_tokens=500,
+                    max_tokens=100,
                     top_p=1.0,
                     frequency_penalty=0.0,
                     presence_penalty=0.0
@@ -239,23 +239,25 @@ class Pipeline:
                     })
                 result = result['cells']
                 result = ", ".join(result)
+                result = "I don't know" if not result else result
 
                 use_plot = openai.Completion.create( 
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
                             "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
-                            ', '.join(list(df.columns)) + "\n" +
+                            ', '.join(list(columns)) + "\n" +
                             "The Python types of each column mentioned are listed in order: " +
-                            ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
-                            "I have the following Python matplotlib code:\n" + plot_func + "\n" +
-                            "I also have the following text: " + result + "\n" + 
-                            "If the matplotlib code were used to draw a graph, " +
-                            "should the graph or text be used to answer the question if the answer's value and conciseness are taken into consideration? " +
-                            "Write 'True' if the graph should be used, and 'False' if the text should be used: ",
-                    temperature=0,
+                            ', '.join([str(type(df.loc[0, column])) for column in columns]) + "\n" +
+                            "You are given the following Python matplotlib code:\n" + plot_func + "\n" +
+                            "You are given the following text: " + result + "\n" + 
+                            "If the matplotlib code were executed to draw a graph, " +
+                            "would the text or the graph be more valuable in answering the question? " +
+                            "Write 'True' if the graph should be used and/or there is any mention of statistical relationships, " +
+                            "distributions of data, or categorical data in the question, and 'False' if the text should be used: ",
+                    temperature=1,
                     max_tokens=3,
-                    top_p=1.0,
+                    top_p=0.1,
                     frequency_penalty=0.0,
                     presence_penalty=0.0
                 )["choices"][0]["text"].strip()
