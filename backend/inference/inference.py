@@ -221,7 +221,7 @@ class Pipeline:
                             "Answer the question by writing Python Matplolib code to plot the data in `df`. " +
                             "Do not include any imports, and give the plot axis labels, a title, and a legend as necessary: ",
                     temperature=0.3,
-                    max_tokens=100,
+                    max_tokens=150,
                     top_p=1.0,
                     frequency_penalty=0.0,
                     presence_penalty=0.0
