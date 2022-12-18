@@ -93,8 +93,8 @@ class Pipeline:
             model=self.engine,
             prompt="You are given the following sentence: " + 
                     request_str + "\n" +
-                    "Write `True` if the sentence ends with a period or exclamation point or is a statement, and " + 
-                    "`False` if the sentence ends with a question mark or is a question: ",
+                    "Write True if the sentence ends with a period or exclamation point or is a statement, and " + 
+                    "False if the sentence ends with a question mark or is a question: ",
             temperature=0,
             max_tokens=3,
             top_p=1.0,
@@ -107,10 +107,10 @@ class Pipeline:
         if request_type == "True": # Create a pd.query() function with OpenAI's API
             mod_func = openai.Completion.create(
                 model=self.engine,
-                prompt="You are given a Python pandas DataFrame named `df` that has the following columns: " + 
+                prompt="You are given a Python pandas DataFrame named df that has the following columns: " + 
                         ', '.join(list(df.columns)) + "\n" +
-                        "Write a Python pandas '.query()' statement to " + request_str + ". " + 
-                        "Don't modify `df` in your statement: ",
+                        "Write a Python pandas .query() statement to " + request_str + ". " + 
+                        "Don't modify df in your statement: ",
                 temperature=0.3,
                 max_tokens=60,
                 top_p=1.0,
@@ -127,7 +127,7 @@ class Pipeline:
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
-                            "You are also given a Python pandas DataFrame named `df` that has the following columns: " + 
+                            "You are also given a Python pandas DataFrame named df that has the following columns: " + 
                             ', '.join(list(df.columns)) + "\n" +
                             "List the columns that should be used to answer the question as a comma separated list: ",
                     temperature=0.3,
@@ -210,62 +210,60 @@ class Pipeline:
                 result = plt
             
             else: # Figure out whether to use TAPAS or matplotlib
-                plot_func = openai.Completion.create(
+                use_plot = openai.Completion.create( 
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
-                            "You are also given a Python pandas DataFrame named `df` that has the following columns: " + 
+                            "You are also given a Python pandas DataFrame named df that has the following columns: " + 
                             ', '.join(list(columns)) + "\n" +
                             "The Python types of each column mentioned are listed in order: " +
                             ', '.join([str(type(df.loc[0, column])) for column in columns]) + "\n" +
-                            "Answer the question by writing Python Matplolib code to plot the data in `df`. " +
-                            "Do not include any imports, and give the plot axis labels, a title, and a legend as necessary: ",
+                            "To answer the question, I will use Google Research's TAPAS model to generate text to answer to the question, and " +
+                            "I will use OpenAI's text-davinci-003 to generate a Python matplotlib graph to answer the question. " +
+                            "If you were to make an educated guess about each of their outputs, would the text answer or the graph answer be more valuable in answering the question? " +
+                            "Write True if the graph should be used and/or there is any mention of statistical relationships, " +
+                            "distributions of data, or categorical data in the question, and False if the text should be used: ",
+                    temperature=1,
+                    max_tokens=3,
+                    top_p=0.01,
+                    frequency_penalty=0.0,
+                    presence_penalty=0.0
+                )["choices"][0]["text"].strip()
+
+                if use_plot == "True":
+                    plot_func = openai.Completion.create(
+                    model=self.engine,
+                    prompt="You are given the following question: " + 
+                            request_str + "\n" +
+                            "You are also given a Python pandas DataFrame named df that has the following columns: " + 
+                            ', '.join(list(columns)) + "\n" +
+                            "The Python types of each column mentioned are listed in order: " +
+                            ', '.join([str(type(df.loc[0, column])) for column in columns]) + "\n" +
+                            "Answer the question by writing Python Matplolib code to best intuitively plot the data in df. " +
+                            "Do not include any imports and give the plot axis labels, a title, and a legend as necessary: ",
                     temperature=0.3,
                     max_tokens=150,
                     top_p=1.0,
                     frequency_penalty=0.0,
                     presence_penalty=0.0
                 )["choices"][0]["text"].strip()
-
-                df_to_json = df.to_dict(orient="list")
-                for col in df_to_json:
-                    df_to_json[col] = [str(x) for x in df_to_json[col]]
-                while 'cells' not in list(result.keys()):
-                    result = self.tapas_query({
-                        "inputs": {
-                            "query": request_str,
-                            "table": df_to_json,
-                        },
-                    })
-                result = result['cells']
-                result = ", ".join(result)
-                result = "I don't know" if not result else result
-
-                use_plot = openai.Completion.create( 
-                    model=self.engine,
-                    prompt="You are given the following question: " + 
-                            request_str + "\n" +
-                            "You are also given a Python pandas DataFrame named 'df' that has the following columns: " + 
-                            ', '.join(list(columns)) + "\n" +
-                            "The Python types of each column mentioned are listed in order: " +
-                            ', '.join([str(type(df.loc[0, column])) for column in columns]) + "\n" +
-                            "You are given the following Python matplotlib code:\n" + plot_func + "\n" +
-                            "You are given the following text: " + result + "\n" + 
-                            "If the matplotlib code were executed to draw a graph, " +
-                            "would the text or the graph be more valuable in answering the question? " +
-                            "Write 'True' if the graph should be used and/or there is any mention of statistical relationships, " +
-                            "distributions of data, or categorical data in the question, and 'False' if the text should be used: ",
-                    temperature=1,
-                    max_tokens=3,
-                    top_p=0.1,
-                    frequency_penalty=0.0,
-                    presence_penalty=0.0
-                )["choices"][0]["text"].strip()
-
-                if use_plot == "True":
                     exec(plot_func)
                     result = plt
 
+                elif use_plot == "False":
+                    df_to_json = df.to_dict(orient="list")
+                    for col in df_to_json:
+                        df_to_json[col] = [str(x) for x in df_to_json[col]]
+                    while 'cells' not in list(result.keys()):
+                        result = self.tapas_query({
+                            "inputs": {
+                                "query": request_str,
+                                "table": df_to_json,
+                            },
+                        })
+                    result = result['cells']
+                    result = ", ".join(result)
+                
         return result
 
 
