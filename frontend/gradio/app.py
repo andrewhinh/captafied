@@ -59,9 +59,15 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
     plot_request_example_paths = [plot_request_examples_dir / fname for fname in plot_request_example_fnames]
     plot_request_example_paths = sorted(plot_request_example_paths)
 
+    report_request_examples_dir = test_path / "report_requests"
+    report_request_example_fnames = [elem for elem in os.listdir(report_request_examples_dir) if elem.endswith(".txt")]
+    report_request_example_paths = [report_request_examples_dir / fname for fname in report_request_example_fnames]
+    report_request_example_paths = sorted(report_request_example_paths)
+
     table_requests = []
     text_requests = []
     plot_requests = []
+    report_requests = []
 
     for path in table_request_example_paths:
         with open(path, "r") as f:
@@ -75,9 +81,14 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         with open(path, "r") as f:
             plot_requests.append(f.readline())
 
+    for path in report_request_example_paths:
+        with open(path, "r") as f:
+            report_requests.append(f.readline())
+
     table_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(table_requests), table_requests)]
     text_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(text_requests), text_requests)]
     plot_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(plot_requests), plot_requests)]
+    report_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(report_requests), report_requests)]
 
     allow_flagging = "never"
     if flagging:  # logging user feedback to a local CSV file
@@ -141,8 +152,25 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         flagging_dir=flagging_dir,
     )
 
-    frontend = gr.TabbedInterface(interface_list=[table, text, plot],
-                                  tab_names=["Table", "Text", "Plot"],
+    report = gr.Interface(
+        fn=fn,  # which Python function are we interacting with?
+        outputs=[gr.components.HTML()], # what output widgets does it need?
+        # what input widgets does it need?
+        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
+        title="Captafied",  # what should we display at the top of the page?
+        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
+        description=__doc__,  # what should we display just above the interface?
+        article=readme,  # what long-form content should we display below the interface?
+        examples=report_examples,  # which potential inputs should we provide?
+        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
+        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
+        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+        flagging_callback=flagging_callback,
+        flagging_dir=flagging_dir,
+    )
+
+    frontend = gr.TabbedInterface(interface_list=[table, text, plot, report],
+                                  tab_names=["Table", "Text", "Plot", "Report"],
     )
 
     return frontend
