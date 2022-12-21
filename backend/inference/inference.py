@@ -12,6 +12,7 @@ import numpy as np
 from onnxruntime import InferenceSession
 import openai
 import pandas as pd
+from pandas_profiling import ProfileReport
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
@@ -88,23 +89,44 @@ class Pipeline:
         else:
             request_str = request
 
+        # Initialize result
+        result = {}
+
         # Figure out what type of request is being made
-        request_type = openai.Completion.create(
+        which_answer = openai.Completion.create(
             model=self.engine,
-            prompt="You are given the following sentence: " + 
-                    request_str + "\n" +
-                    "Write True if the sentence ends with a period or exclamation point or is a statement, and " + 
-                    "False if the sentence ends with a question mark or is a question: ",
-            temperature=0,
-            max_tokens=3,
-            top_p=1.0,
+            prompt="You are given the following user request: " + request_str + "\n" +
+                    "You are also given a Python pandas DataFrame named df that has the following columns: " + 
+                    ', '.join(list(df.columns)) + "\n" +
+                    "The Python types of each column mentioned are listed in order: " +
+                    ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
+                    "To answer the user, I could use OpenAI API's text completion endpoint to generate a " +
+                    "Python pandas.query() query to return a modified copy of df to answer their question, " +
+                    "Google Research's TAPAS model to generate a text, numerical, or list answer to their question, " +
+                    "OpenAI API's text completion endpoint to generate a " +
+                    "Python matplotlib graph to answer their question, or " +
+                    "Python's pandas-profiling package to generate an " +
+                    "HTML profile report of df to answer their question. " +
+                    "If you were to make a guess about each of their outputs, " +
+                    "would the query, text/number/list, graph, or report " +
+                    "be more valuable to answer their question? " +
+                    "Keep in mind that if the user is making a request rather than asking a question, " +
+                    "a query would be more valuable; on the other hand, " +
+                    "if the user is asking a question rather than making a request, " + 
+                    "the other three outputs should be considered instead of the query. " +
+                    "Write query if the query should be used, text if the text/number/list should be used, " +
+                    "graph if the graph should be used and/or there is any mention of statistical relationships, " +
+                    "distributions of data, or categorical data in the question, and " +
+                    "report if the report should be used: ",
+            temperature=1,
+            max_tokens=5,
+            top_p=0.001,
             frequency_penalty=0.0,
             presence_penalty=0.0
         )["choices"][0]["text"].strip()
-        result = {}
+        which_answer = which_answer[0].lower() + which_answer[1:]
 
-        # Table Modification Handling
-        if request_type == "True": # Create a pd.query() function with OpenAI's API
+        if which_answer == "query": # Use OpenAI's API to create a pd.query() statement 
             mod_func = openai.Completion.create(
                 model=self.engine,
                 prompt="You are given a Python pandas DataFrame named df that has the following columns: " + 
@@ -120,9 +142,22 @@ class Pipeline:
             result = eval(mod_func)
             if type(result) != pd.DataFrame: # In case pd.Series is returned
                 result = result.to_frame()
-        
-        # Question Handling
-        elif request_type == "False": # First figure out what columns are needed to answer the question
+
+        elif which_answer == "text": # Use TAPAS to generate a text answer
+            df_to_json = df.to_dict(orient="list")
+            for col in df_to_json:
+                df_to_json[col] = [str(x) for x in df_to_json[col]]
+            while 'cells' not in list(result.keys()):
+                result = self.tapas_query({
+                    "inputs": {
+                        "query": request_str,
+                        "table": df_to_json,
+                    },
+                })
+            result = result['cells']
+            result = ", ".join(result)
+
+        elif which_answer == "graph": # Check for image and text columns
             columns = openai.Completion.create(
                     model=self.engine,
                     prompt="You are given the following question: " + 
@@ -138,7 +173,7 @@ class Pipeline:
                 )["choices"][0]["text"].strip()
             columns = columns.split(", ")
             column_data = {}
-            for column in columns: # Check for image and text columns
+            for column in columns: 
                 test = df.loc[0, column]
                 if type(test) == str:
                     if validators.url(test):
@@ -209,29 +244,8 @@ class Pipeline:
                 plt.title("Clusters identified and visualized in language 2d using t-SNE")
                 result = plt
             
-            else: # Figure out whether to use TAPAS or matplotlib
-                use_plot = openai.Completion.create( 
-                    model=self.engine,
-                    prompt="You are given the following question: " + 
-                            request_str + "\n" +
-                            "You are also given a Python pandas DataFrame named df that has the following columns: " + 
-                            ', '.join(list(columns)) + "\n" +
-                            "The Python types of each column mentioned are listed in order: " +
-                            ', '.join([str(type(df.loc[0, column])) for column in columns]) + "\n" +
-                            "To answer the question, I will use Google Research's TAPAS model to generate text to answer to the question, and " +
-                            "I will use OpenAI's text-davinci-003 to generate a Python matplotlib graph to answer the question. " +
-                            "If you were to make an educated guess about each of their outputs, would the text answer or the graph answer be more valuable in answering the question? " +
-                            "Write True if the graph should be used and/or there is any mention of statistical relationships, " +
-                            "distributions of data, or categorical data in the question, and False if the text should be used: ",
-                    temperature=1,
-                    max_tokens=3,
-                    top_p=0.01,
-                    frequency_penalty=0.0,
-                    presence_penalty=0.0
-                )["choices"][0]["text"].strip()
-
-                if use_plot == "True":
-                    plot_func = openai.Completion.create(
+            else: # If there are no image or text columns
+                plot_func = openai.Completion.create(
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
@@ -247,22 +261,25 @@ class Pipeline:
                     frequency_penalty=0.0,
                     presence_penalty=0.0
                 )["choices"][0]["text"].strip()
-                    exec(plot_func)
-                    result = plt
+                exec(plot_func)
+                result = plt
 
-                elif use_plot == "False":
-                    df_to_json = df.to_dict(orient="list")
-                    for col in df_to_json:
-                        df_to_json[col] = [str(x) for x in df_to_json[col]]
-                    while 'cells' not in list(result.keys()):
-                        result = self.tapas_query({
-                            "inputs": {
-                                "query": request_str,
-                                "table": df_to_json,
-                            },
-                        })
-                    result = result['cells']
-                    result = ", ".join(result)
+        elif which_answer == "report": # Use pandas-profiling to generate a report
+            report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
+
+            # For Gradio
+            report.config.html.inline = True
+            report.config.html.minify_html = True
+            report.config.html.use_local_assets = True
+            report.config.html.navbar_show = False
+            report.config.html.full_width = False
+            result = report.to_html()
+
+            """
+            # For Dash
+            report.to_file("/assets/report.html")
+            result = "HTML" # Frontend will handle the logic here
+            """
                 
         return result
 
