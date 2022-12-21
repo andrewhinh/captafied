@@ -21,7 +21,9 @@ async-timeout==4.0.2
 asynctest==0.13.0
     # via aiohttp
 attrs==20.3.0
-    # via aiohttp
+    # via
+    #   aiohttp
+    #   visions
 backoff==1.10.0
     # via analytics-python
 bcrypt==3.2.2
@@ -51,6 +53,7 @@ charset-normalizer==2.0.12
     #   requests
 click==8.1.2
     # via
+    #   flask
     #   uvicorn
     #   wandb
 coloredlogs==15.0.1
@@ -77,6 +80,8 @@ filelock==3.8.0
     # via
     #   huggingface-hub
     #   transformers
+flask==2.2.2
+    # via -r requirements/prod.in
 flatbuffers==22.9.24
     # via onnxruntime
 fonttools==4.33.3
@@ -99,6 +104,8 @@ h11==0.12.0
     #   uvicorn
 h5py==3.6.0
     # via -r requirements/prod.in
+htmlmin==0.1.12
+    # via pandas-profiling
 httpcore==0.15.0
     # via httpx
 httpx==0.23.0
@@ -115,24 +122,32 @@ idna==3.3
     #   requests
     #   rfc3986
     #   yarl
+imagehash==4.3.1
+    # via visions
 importlib-metadata==4.11.3
     # via
     #   -r requirements/prod.in
     #   click
+    #   flask
     #   huggingface-hub
     #   transformers
 intel-openmp==2022.2.0
     # via mkl
-jinja2==2.11.3
+itsdangerous==2.1.2
+    # via flask
+jinja2==3.1.2
     # via
-    #   -r requirements/prod.in
+    #   flask
     #   gradio
+    #   pandas-profiling
 jmespath==1.0.1
     # via
     #   boto3
     #   botocore
 joblib==1.2.0
-    # via scikit-learn
+    # via
+    #   phik
+    #   scikit-learn
 kiwisolver==1.4.2
     # via matplotlib
 linkify-it-py==1.0.3
@@ -141,14 +156,17 @@ markdown-it-py[linkify,plugins]==2.1.0
     # via
     #   gradio
     #   mdit-py-plugins
-markupsafe==1.1.1
+markupsafe==2.1.1
     # via
-    #   -r requirements/prod.in
     #   jinja2
+    #   werkzeug
 matplotlib==3.5.2
     # via
     #   -r requirements/prod.in
     #   gradio
+    #   pandas-profiling
+    #   phik
+    #   seaborn
 mdit-py-plugins==0.3.0
     # via markdown-it-py
 mdurl==0.1.1
@@ -165,20 +183,34 @@ multidict==6.0.2
     # via
     #   aiohttp
     #   yarl
+multimethod==1.9
+    # via
+    #   pandas-profiling
+    #   visions
+networkx==2.6.3
+    # via visions
 numpy==1.21.6
     # via
     #   -r requirements/prod.in
     #   gradio
     #   h5py
+    #   imagehash
     #   matplotlib
     #   onnxruntime
     #   openai
     #   pandas
+    #   pandas-profiling
+    #   patsy
+    #   phik
+    #   pywavelets
     #   scikit-learn
     #   scipy
+    #   seaborn
+    #   statsmodels
     #   tabula-py
     #   torchvision
     #   transformers
+    #   visions
 odfpy==1.4.1
     # via -r requirements/prod.in
 onnxruntime==1.12.1
@@ -189,29 +221,43 @@ openpyxl==3.0.10
     # via openai
 orjson==3.7.2
     # via gradio
-packaging==20.9
+packaging==22.0
     # via
     #   huggingface-hub
     #   matplotlib
     #   onnxruntime
+    #   statsmodels
     #   transformers
 pandas==1.3.5
     # via
     #   gradio
     #   openai
+    #   pandas-profiling
+    #   phik
+    #   seaborn
+    #   statsmodels
     #   tabula-py
+    #   visions
+pandas-profiling==3.5.0
+    # via -r requirements/prod.in
 pandas-stubs==1.2.0.62
     # via openai
 paramiko==2.11.0
     # via gradio
 pathtools==0.1.2
     # via wandb
+patsy==0.5.3
+    # via statsmodels
+phik==0.12.3
+    # via pandas-profiling
 pillow==7.1.2
     # via
     #   -r requirements/prod.in
     #   gradio
+    #   imagehash
     #   matplotlib
     #   torchvision
+    #   visions
 promise==2.3
     # via wandb
 protobuf==3.20.3
@@ -228,6 +274,7 @@ pydantic==1.9.1
     # via
     #   fastapi
     #   gradio
+    #   pandas-profiling
 pydub==0.25.1
     # via gradio
 pynacl==1.5.0
@@ -235,9 +282,7 @@ pynacl==1.5.0
 pyngrok==5.1.0
     # via -r requirements/prod.in
 pyparsing==2.4.2
-    # via
-    #   matplotlib
-    #   packaging
+    # via matplotlib
 python-dateutil==2.8.2
     # via
     #   analytics-python
@@ -251,9 +296,12 @@ python-multipart==0.0.5
     # via gradio
 pytz==2022.1
     # via pandas
+pywavelets==1.3.0
+    # via imagehash
 pyyaml==5.4.1
     # via
     #   huggingface-hub
+    #   pandas-profiling
     #   pyngrok
     #   timm
     #   transformers
@@ -267,6 +315,7 @@ requests==2.27.1
     #   gradio
     #   huggingface-hub
     #   openai
+    #   pandas-profiling
     #   torchvision
     #   transformers
     #   wandb
@@ -277,7 +326,14 @@ s3transfer==0.6.0
 scikit-learn==1.0.2
     # via -r requirements/prod.in
 scipy==1.7.3
-    # via scikit-learn
+    # via
+    #   imagehash
+    #   pandas-profiling
+    #   phik
+    #   scikit-learn
+    #   statsmodels
+seaborn==0.12.1
+    # via pandas-profiling
 sentry-sdk==1.10.1
     # via wandb
 setproctitle==1.3.2
@@ -290,6 +346,7 @@ six==1.16.0
     #   docker-pycreds
     #   mkl-service
     #   paramiko
+    #   patsy
     #   promise
     #   python-dateutil
     #   python-multipart
@@ -305,10 +362,14 @@ sniffio==1.2.0
     #   httpx
 starlette==0.19.1
     # via fastapi
+statsmodels==0.13.5
+    # via pandas-profiling
 sympy==1.10.1
     # via onnxruntime
 tabula-py==2.6.0
     # via -r requirements/prod.in
+tangled-up-in-unicode==0.2.0
+    # via visions
 tbb==2021.7.0
     # via mkl
 threadpoolctl==3.1.0
@@ -331,9 +392,12 @@ tqdm==4.64.0
     #   -r requirements/prod.in
     #   huggingface-hub
     #   openai
+    #   pandas-profiling
     #   transformers
 transformers==4.22.2
     # via -r requirements/prod.in
+typeguard==2.13.3
+    # via pandas-profiling
 typing-extensions==4.1.1
     # via
     #   aiohttp
@@ -348,6 +412,7 @@ typing-extensions==4.1.1
     #   openai
     #   pandas-stubs
     #   pydantic
+    #   seaborn
     #   starlette
     #   torch
     #   torchvision
@@ -364,8 +429,12 @@ uvicorn==0.17.6
     # via gradio
 validators==0.20.0
     # via -r requirements/prod.in
+visions[type_image_path]==0.7.5
+    # via pandas-profiling
 wandb==0.12.17
     # via -r requirements/prod.in
+werkzeug==2.2.2
+    # via flask
 yarl==1.7.2
     # via aiohttp
 zipp==3.8.0
