@@ -13,7 +13,7 @@
 - [Credit](#credit)
 
 # Description
-A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, and plots. 
+A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, plots, and HTML pages. 
 
 ## Inference Pipeline
 The pipeline involves the following steps:
@@ -21,21 +21,25 @@ The pipeline involves the following steps:
 2. If the user has a question about the table, they can ask it in natural language. As decided by [OpenAI's API](#credit):
     - If the question requires a numerical or text answer, we use [Google's Tapas](#credit) through the HF Inference API to answer the question.
     - If the question requires a graph, we use [OpenAI's API](#credit) to code up a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
+    - If the question requires a HTML page, we use [pandas-profiling](#credit) to generate a descriptive table profile.
 ## Usage
 Some examples of requests and questions that the pipeline can handle:
-- Modify Request: 
-    - "Show me all the users whose name is John and age is greater than 20."
-    - "Add 13 to every user who has more than 4 keys."
+- Modification Request: 
+    - Find all the repos that have more than 900 stars.
+    - Add 10 stars to all the repos that have more than 900 stars.
 - Simple Questions: 
-    - "How many users were born in 1990?"
-    - "What month is the weather the highest?"
+    - How many stars does the transformers repo have?
+    - Which repo has the most stars?
 - Univariate Graph Question: 
-    - "What does the distribution of the number of orders look like?"
-    - "What does the distribution of the movie reviews look like?"
-    - "What does the distribution of the webcam images look like?"
+    - What does the distribution of the repos' stars look like?
+    - What does the distribution of the repos' summaries look like?
+    - What does the distribution of the repos' icons look like?
 - Multivariate Graph Question: 
-    - "What is the relationship between the number of users and the number of orders?"
-    - "How does month, year, and number of customers relate?"
+    - What is the relationship between stars and forks?
+    - How do stars, forks, and release year relate?
+- Report Question:
+    - What is the missing values situation for this table?
+    - What is the duplicate rows situation for this table?
 
 # Production
 To setup the production server for the website in an AWS EC2 instance, we:
@@ -114,3 +118,4 @@ python -c "from frontend.gradio.tests.test_app import test_local_run; test_local
 # Credit
 - Google for their [Table QA code](https://huggingface.co/google/tapas-base-finetuned-wtq).
 - OpenAI for their [CLIP text and image encoder code](https://huggingface.co/openai/clip-vit-base-patch16) and [GPT-3 API](https://openai.com/api/).
+- YData for [pandas-profiling](https://github.com/ydataai/pandas-profiling).
