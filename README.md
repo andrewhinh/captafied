@@ -50,7 +50,7 @@ python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 ```
 3. Serve the Gradio app over a permanent localtunnel link:
 ```bash
-. ./frontend/gradio/localtunnel.sh
+. ./frontend/localtunnel.sh
 ```
 4. Implement continual development by updating the AWS Lambda backend when signaled by a pushed commit to the repo and checking if the pipeline performance has improved:
 ```bash
