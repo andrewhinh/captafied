@@ -118,4 +118,4 @@ python -c "from frontend.gradio.tests.test_app import test_local_run; test_local
 # Credit
 - Google for their [Table QA code](https://huggingface.co/google/tapas-base-finetuned-wtq).
 - OpenAI for their [CLIP text and image encoder code](https://huggingface.co/openai/clip-vit-base-patch16) and [GPT-3 API](https://openai.com/api/).
-- YData for [pandas-profiling](https://github.com/ydataai/pandas-profiling).
+- YData for their [pandas-profiling](https://github.com/ydataai/pandas-profiling) package.
