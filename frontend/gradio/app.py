@@ -19,7 +19,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""  # do not use GPU
 logging.basicConfig(level=logging.INFO)
 
 APP_DIR = Path(__file__).resolve().parent  # what is the directory for this application?
-FRONTEND_DIR = Path("/frontend")  # what is the directory for the frontend?
+FRONTEND_DIR = Path("./frontend")  # what is the directory for the frontend?
 FAVICON = FRONTEND_DIR / "logo.png"  # path to a small image for display in browser tab and social media
 README = APP_DIR / "README.md"  # path to an app readme file in HTML/markdown
 
@@ -38,7 +38,7 @@ def main(args):
 
 
 def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False):
-    """Creates a gradio.Interface frontend for an table + text to table, text, or plot function."""
+    """Creates a gradio.Interface frontend for an table + text to table, text, graph, or HTML page function."""
     test_path = Path("backend") / "inference" / "tests" / "support"
     table_examples_dir = test_path / "tables"
     table_example_fnames = [elem for elem in os.listdir(table_examples_dir) if elem.endswith(".csv")]
@@ -55,10 +55,10 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
     text_request_example_paths = [text_request_examples_dir / fname for fname in text_request_example_fnames]
     text_request_example_paths = sorted(text_request_example_paths)
 
-    plot_request_examples_dir = test_path / "plot_requests"
-    plot_request_example_fnames = [elem for elem in os.listdir(plot_request_examples_dir) if elem.endswith(".txt")]
-    plot_request_example_paths = [plot_request_examples_dir / fname for fname in plot_request_example_fnames]
-    plot_request_example_paths = sorted(plot_request_example_paths)
+    graph_request_examples_dir = test_path / "graph_requests"
+    graph_request_example_fnames = [elem for elem in os.listdir(graph_request_examples_dir) if elem.endswith(".txt")]
+    graph_request_example_paths = [graph_request_examples_dir / fname for fname in graph_request_example_fnames]
+    graph_request_example_paths = sorted(graph_request_example_paths)
 
     report_request_examples_dir = test_path / "report_requests"
     report_request_example_fnames = [elem for elem in os.listdir(report_request_examples_dir) if elem.endswith(".txt")]
@@ -67,7 +67,7 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
 
     table_requests = []
     text_requests = []
-    plot_requests = []
+    graph_requests = []
     report_requests = []
 
     for path in table_request_example_paths:
@@ -78,9 +78,9 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         with open(path, "r") as f:
             text_requests.append(f.readline())
 
-    for path in plot_request_example_paths:
+    for path in graph_request_example_paths:
         with open(path, "r") as f:
-            plot_requests.append(f.readline())
+            graph_requests.append(f.readline())
 
     for path in report_request_example_paths:
         with open(path, "r") as f:
@@ -88,7 +88,7 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
 
     table_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(table_requests), table_requests)]
     text_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(text_requests), text_requests)]
-    plot_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(plot_requests), plot_requests)]
+    graph_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(graph_requests), graph_requests)]
     report_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(report_requests), report_requests)]
 
     allow_flagging = "never"
@@ -136,7 +136,7 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         flagging_dir=flagging_dir,
     )
 
-    plot = gr.Interface(
+    graph = gr.Interface(
         fn=fn,  # which Python function are we interacting with?
         outputs=[gr.components.Plot()], # what output widgets does it need?
         # what input widgets does it need?
@@ -145,7 +145,7 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
         description=__doc__,  # what should we display just above the interface?
         article=readme,  # what long-form content should we display below the interface?
-        examples=plot_examples,  # which potential inputs should we provide?
+        examples=graph_examples,  # which potential inputs should we provide?
         cache_examples=False,  # should we cache those inputs for faster inference? slows down start
         allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
         flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
@@ -170,8 +170,8 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         flagging_dir=flagging_dir,
     )
 
-    frontend = gr.TabbedInterface(interface_list=[table, text, plot, report],
-                                  tab_names=["Table", "Text", "Plot", "Report"],
+    frontend = gr.TabbedInterface(interface_list=[table, text, graph, report],
+                                  tab_names=["Table", "Text", "Graph", "Report"],
     )
 
     return frontend

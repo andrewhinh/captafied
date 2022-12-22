@@ -1,5 +1,6 @@
 # Imports
 import argparse
+import itertools
 import os
 from pathlib import Path
 import requests
@@ -7,12 +8,14 @@ from typing import Union
 
 from dotenv import load_dotenv
 import matplotlib
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 from onnxruntime import InferenceSession
 import openai
 import pandas as pd
 from pandas_profiling import ProfileReport
+from PIL import Image
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
@@ -58,11 +61,121 @@ class Pipeline:
         # HF API Setup
         self.TAPAS_API_URL = "https://api-inference.huggingface.co/models/google/tapas-large-finetuned-wtq"
         self.headers = {"Authorization": "Bearer " + os.getenv("HF_API_KEY")}
+
+        # Matplotlib setup
+        self.types = ["text", "image"]
         
     def tapas_query(self, payload):
         response = requests.post(self.TAPAS_API_URL, headers=self.headers, json=payload)
         return response.json()
 
+    def clip_encode(self, df, column_data):
+        texts = []
+        images = []
+
+        if self.types[1] not in column_data.values(): # Only text data present
+            images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(df))] # Placeholder value
+            texts = self.get_column_vals(df, column_data, self.types[0])
+        elif self.types[0] not in column_data.values(): # Only image data present
+            images = self.get_column_vals(df, column_data, self.types[1], True)
+            texts = ["Placeholder value" for _ in range(len(df))]
+        else: # Both image and text data present
+            images = self.get_column_vals(df, column_data, self.types[1], True)
+            texts = self.get_column_vals(df, column_data, self.types[0])
+        
+        inputs = self.clip_processor(text=texts, images=images, return_tensors="np", padding=True)
+        clip_outputs = self.clip_session.run(
+            output_names=["logits_per_image", "logits_per_text", "text_embeds", "image_embeds"], input_feed=dict(inputs)
+        )
+        
+        if self.types[1] not in column_data.values():
+            list_embeds = [clip_outputs[2]]
+            prefix = self.types[0][0].upper() + self.types[0][1:] + ' '
+        elif self.types[0] not in column_data.values():
+            list_embeds = [clip_outputs[3]]
+            prefix = self.types[1][0].upper() + self.types[1][1:] + ' '
+        else:
+            list_embeds = [clip_outputs[2], clip_outputs[3]]
+            prefix = self.types[0][0].upper() + self.types[0][1:] + ' and ' + self.types[1][0].upper() + self.types[1][1:] + ' '
+        
+        return list_embeds, prefix
+
+    def open_image(self, image): 
+        image_pil = Image.open(image)
+        if image_pil.mode != "RGB": 
+            image_pil = image_pil.convert(mode="RGB")
+        return image_pil
+
+    def get_column_vals(self, df, column_data, value, images_present=False):
+        objects = []
+        column_list = []
+        for item in column_data.items():
+            if item[1] == value:
+                column_list.append(item[0])
+        for column in column_list:
+            if images_present:
+                objects.extend([self.open_image(image) for image in df[column]])
+            else:
+                objects.extend(list(df[column]))
+        return objects
+
+    def get_embeds_graph(self, df, list_embeds, prefix):
+        _, ax = plt.subplots()
+        handles = []
+        labels = []
+        markers = itertools.cycle((".", "o", "v", "^", "<", ">", "1", "2", "3", "4", "8", "s", "p", "P", 
+                                   "*", "h", "H", "+", "x", "X", "D", "d", 4, 5, 6, 7, 8, 9, 10, 11)) 
+        colors = cm.rainbow(np.linspace(0, 1, len(list_embeds)))
+
+        for embeds, color in zip(list_embeds, colors):
+            range_n_clusters = list(range(2, len(df)))
+            silhouette_scores = []
+            for num_clusters in range_n_clusters:
+                # initialise kmeans
+                kmeans = KMeans(n_clusters=num_clusters)
+                kmeans.fit(embeds)
+                cluster_labels = kmeans.labels_
+                # silhouette score
+                silhouette_scores.append(silhouette_score(embeds, cluster_labels))
+            n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
+
+            # Generating labels and visualizing clusters
+            kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
+            kmeans.fit(embeds)
+            clusters = kmeans.labels_
+
+            tsne = TSNE(
+                n_components=2, perplexity=15, init="random", learning_rate=200
+            )
+            vis_dims2 = tsne.fit_transform(embeds)
+            x = [x for x, y in vis_dims2]
+            y = [y for x, y in vis_dims2]
+
+            for cluster in range(n_clusters):
+                xs = np.array(x)[clusters == cluster]
+                ys = np.array(y)[clusters == cluster]
+                marker = next(markers)
+
+                ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
+                artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker=marker)
+                handles.append(artist)
+                labels.append(str(cluster))
+                
+        # Legend for clusters
+        legend = ax.legend(handles, labels, loc="upper right", title="Clusters")
+        ax.add_artist(legend)
+            
+        if len(list_embeds) > 1: # Adding legend for image and text groups
+            handles = []
+            labels = []           
+            for color, type in zip(colors, self.types):
+                artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker="o")
+                handles.append(artist)
+                labels.append(type[0].upper() + type[1:])
+            ax.legend(handles, labels, loc="lower left", title="Data Types")
+            
+        plt.title(prefix + "Clusters")
+        
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
         # Handling repeated uses of matplotlib
         plt.clf()
@@ -176,76 +289,19 @@ class Pipeline:
             for column in columns: 
                 test = df.loc[0, column]
                 if type(test) == str:
-                    if validators.url(test):
-                        column_data[column] = "image"
                     if len(list(set(list(df[column])))) >= len(df) and len(test.split(" ")) > 3:
-                        column_data[column] = "text"
-                    
-            if column_data: # If there are image or text columns
-                # Preparing data for CLIP
-                images = []
-                texts = []
-                image_present = False
-                text_present = False
-                if "image" not in column_data.values(): # Only text data present
-                    text_present = True
-                    images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(df))]
-                    texts = list(df[column])
-                elif "text" not in column_data.values(): # Only image data present
-                    image_present = True
-                    images = list(df[column])
-                    texts = ["Placeholder value" for _ in range(len(df))]
-                
-                # Generating image and/or question embeddings
-                inputs = self.clip_processor(text=texts, images=images, return_tensors="np", padding=True)
-                clip_outputs = self.clip_session.run(
-                    output_names=["logits_per_image", "logits_per_text", "text_embeds", "image_embeds"], input_feed=dict(inputs)
-                )
-                if text_present:
-                    embeds = clip_outputs[2]
-                elif image_present:
-                    embeds = clip_outputs[3]
-                
-                # Creating clustering graph
-                # Calculating optimal number of clusters
-                range_n_clusters = list(range(2, len(df)))
-                silhouette_scores = []
-                for num_clusters in range_n_clusters:
-                    # initialise kmeans
-                    kmeans = KMeans(n_clusters=num_clusters)
-                    kmeans.fit(embeds)
-                    cluster_labels = kmeans.labels_
-                    # silhouette score
-                    silhouette_scores.append(silhouette_score(embeds, cluster_labels))
-                n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
+                        column_data[column] = self.types[0]
+                    if validators.url(test):
+                        column_data[column] = self.types[1]
 
-                # Generating labels and visualizing clusters
-                kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
-                kmeans.fit(embeds)
-                labels = kmeans.labels_
-
-                tsne = TSNE(
-                    n_components=2, perplexity=15, init="random", learning_rate=200
-                )
-                vis_dims2 = tsne.fit_transform(embeds)
-                x = [x for x, y in vis_dims2]
-                y = [y for x, y in vis_dims2]
-
-                for category in range(n_clusters):
-                    xs = np.array(x)[labels == category]
-                    ys = np.array(y)[labels == category]
-                    plt.scatter(xs, ys, alpha=0.3)
-
-                    avg_x = xs.mean()
-                    avg_y = ys.mean()
-
-                    plt.scatter(avg_x, avg_y, marker="x", s=100)
-                
-                plt.title("Clusters identified and visualized in language 2d using t-SNE")
+            if column_data: # If there are image and/or text columns
+                # Generating image and/or question embeddings and creating clustering graph(s)
+                list_embeds, prefix = self.clip_encode(df, column_data)
+                self.get_embeds_graph(df, list_embeds, prefix)
                 result = plt
             
             else: # If there are no image or text columns
-                plot_func = openai.Completion.create(
+                graph_func = openai.Completion.create(
                     model=self.engine,
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
@@ -253,15 +309,15 @@ class Pipeline:
                             ', '.join(list(columns)) + "\n" +
                             "The Python types of each column mentioned are listed in order: " +
                             ', '.join([str(type(df.loc[0, column])) for column in columns]) + "\n" +
-                            "Answer the question by writing Python Matplolib code to best intuitively plot the data in df. " +
-                            "Do not include any imports and give the plot axis labels, a title, and a legend as necessary: ",
+                            "Answer the question by writing Python Matplolib code to best intuitively graph the data in df. " +
+                            "Do not include any imports and give the graph axis labels, a title, and a legend as necessary: ",
                     temperature=0.3,
                     max_tokens=150,
                     top_p=1.0,
                     frequency_penalty=0.0,
                     presence_penalty=0.0
                 )["choices"][0]["text"].strip()
-                exec(plot_func)
+                exec(graph_func)
                 result = plt
 
         elif which_answer == "report": # Use pandas-profiling to generate a report
@@ -295,7 +351,7 @@ def main():
 
     # Answering question
     pipeline = Pipeline()
-    result = pipeline.predict(args.table, args.request) # Outputs the modified table, string, or seaborn plot
+    result = pipeline.predict(args.table, args.request) # Outputs the modified table, string, matplotlib graph, or HTML page
 
     print(result)
 
