@@ -2,6 +2,7 @@
 ![demo](./demo.png)
 
 # Contents
+- [Contributors](#contributors)
 - [Description](#description)
     - [Inference Pipeline](#inference-pipeline)
     - [Usage](#usage)
@@ -13,6 +14,16 @@
     - [Repository Structure](#repository-structure)
     - [Testing](#testing)
 - [Credit](#credit)
+
+# Contributors
+1. Andrew Hinh (ajhinh@gmail.com)
+2. Akhil Devarasetty (akhild2004@gmail.com)
+3. Laith Darras (laith.s.darras@gmail.com)
+4. Calvin Hoang (calvinhoang21403@gmail.com)
+5. Edison Zhang (edisonzhangsw@gmail.com)
+6. Albert Ho (almtho2003@gmail.com)
+7. Jair Martinez (martinez.jair1224@gmail.com, 1999jairmartinez@gmail.com)
+8. Brian Huynh (brianhuynh1028@gmail.com)
 
 # Description
 A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, plots, and HTML pages. 
@@ -68,27 +79,31 @@ python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 ### Note
 If you are on Windows or the instructions just aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
 ### Steps
-1. Follow the steps listed [here](https://github.com/full-stack-deep-learning/fsdl-text-recognizer-2022-labs/tree/main/setup#local), replacing the corresponding commands with:
+1. Run the following commands, referring to the instructions of the commented links as needed:
 ```bash
 git clone https://github.com/andrewhinh/captafied.git
 cd captafied
+# Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/linux.html
+make conda-update
 conda activate captafied
+make pip-tools
+export PYTHONPATH=.
+echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
+# If you're using a newer NVIDIA RTX GPU: 
+    # pip3 uninstall torch torchvision torchaudio -y
+    # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
 ```
-2. If you're using a newer NVIDIA RTX GPU, uninstall PyTorch and visit [here](https://pytorch.org/get-started/locally/) to download the PyTorch version that is compatible with your machine:
-```bash
-pip3 uninstall torch torchvision torchaudio -y
-```
-3. Sign up for an OpenAI's API account [here](https://openai.com/api/).
-4. Sign up for a HuggingFace account [here](https://huggingface.co/).
-5. Populate a `.env` file with your OpenAI and HuggingFace API keys in the format of `.env.template`, and reactivate (just activate again) the environment.
-6. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and setup your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+2. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
+3. Sign up for a HuggingFace account and get an access token [here](https://huggingface.co/settings/tokens).
+4. Populate a `.env` file with your OpenAI API key and HuggingFace access token in the format of `.env.template`, and reactivate (just activate again) the environment.
+5. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and setup your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 ```bash
 aws configure
 ```
-7. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the models and context examples locally:
+6. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
 ```bash
 wandb login
-python ./backend/inference/artifacts/stage_model.py --fetch --from_project captafied
+python ./backend/inference/artifacts/stage_model.py --fetch
 ```
 ## Repository Structure
 The repo is separated into main folders that each describe a part of the ML-project lifecycle, some of which contain interactive notebooks, and supporting files and folders that store configurations and workflow scripts:
