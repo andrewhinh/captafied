@@ -8,6 +8,8 @@
 - [Production](#production)
 - [Development](#development)
     - [Setup](#setup)
+        - [Note](#note)
+        - [Steps](#steps)
     - [Repository Structure](#repository-structure)
     - [Testing](#testing)
 - [Credit](#credit)
