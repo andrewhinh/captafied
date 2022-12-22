@@ -31,9 +31,7 @@ STAGED_MODEL_FILENAME = "model.pt"  # standard nomenclature; pytorch_model.bin i
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-api = wandb.Api()
-
-DEFAULT_ENTITY = api.default_entity
+DEFAULT_ENTITY = "captafied"
 DEFAULT_FROM_PROJECT = "captafied"
 DEFAULT_TO_PROJECT = "captafied"
 DEFAULT_STAGED_MODEL_NAME = "inference"
