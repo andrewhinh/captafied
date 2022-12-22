@@ -75,7 +75,7 @@ python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 ### Note
 If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
 ### Steps
-1. Run the following commands, referring to the instructions of the commented links as needed:
+1. Set up the conda environment locally, referring to the instructions of the commented links as needed:
 ```bash
 git clone https://github.com/andrewhinh/captafied.git
 cd captafied
@@ -92,7 +92,7 @@ echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
 2. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
 3. Sign up for a HuggingFace account and get an access token [here](https://huggingface.co/settings/tokens).
 4. Populate a `.env` file with your OpenAI API key and HuggingFace access token in the format of `.env.template`, and reactivate the environment.
-5. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and setup your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+5. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 ```bash
 aws configure
 ```
