@@ -16,7 +16,7 @@ torchvision>=0.13.0
 # versioned to avoid breaking change in minor version update
 # markupsafe<2.1
 # for models
-Flask
+dash
 matplotlib
 odfpy
 onnxruntime==1.12.1

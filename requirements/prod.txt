@@ -62,6 +62,14 @@ cryptography==37.0.2
     # via paramiko
 cycler==0.11.0
     # via matplotlib
+dash==2.7.1
+    # via -r requirements/prod.in
+dash-core-components==2.0.0
+    # via dash
+dash-html-components==2.0.0
+    # via dash
+dash-table==5.0.0
+    # via dash
 decorator==5.1.1
     # via validators
 defusedxml==0.7.1
@@ -81,7 +89,7 @@ filelock==3.8.0
     #   huggingface-hub
     #   transformers
 flask==2.2.2
-    # via -r requirements/prod.in
+    # via dash
 flatbuffers==22.9.24
     # via onnxruntime
 fonttools==4.33.3
@@ -258,6 +266,8 @@ pillow==7.1.2
     #   matplotlib
     #   torchvision
     #   visions
+plotly==5.11.0
+    # via dash
 promise==2.3
     # via wandb
 protobuf==3.20.3
@@ -372,6 +382,8 @@ tangled-up-in-unicode==0.2.0
     # via visions
 tbb==2021.7.0
     # via mkl
+tenacity==8.1.0
+    # via plotly
 threadpoolctl==3.1.0
     # via scikit-learn
 timm==0.6.11
