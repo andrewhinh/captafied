@@ -245,6 +245,8 @@ class Pipeline:
                 model=self.engine,
                 prompt="You are given a Python pandas DataFrame named df that has the following columns: " + 
                         ', '.join(list(df.columns)) + "\n" +
+                        "The Python types of each column mentioned are listed in order: " +
+                            ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
                         "Write a Python pandas .query() statement to " + request_str + ". " + 
                         "Don't modify df in your statement: ",
                 temperature=0.3,
@@ -273,18 +275,20 @@ class Pipeline:
 
         elif which_answer == "graph": # Check for image and text columns
             columns = openai.Completion.create(
-                    model=self.engine,
-                    prompt="You are given the following question: " + 
-                            request_str + "\n" +
-                            "You are also given a Python pandas DataFrame named df that has the following columns: " + 
-                            ', '.join(list(df.columns)) + "\n" +
-                            "List the columns that should be used to answer the question as a comma separated list: ",
-                    temperature=0.3,
-                    max_tokens=60,
-                    top_p=1.0,
-                    frequency_penalty=0.0,
-                    presence_penalty=0.0
-                )["choices"][0]["text"].strip()
+                model=self.engine,
+                prompt="You are given the following question: " + 
+                        request_str + "\n" +
+                        "You are also given a Python pandas DataFrame named df that has the following columns: " + 
+                        ', '.join(list(df.columns)) + "\n" +
+                        "The Python types of each column mentioned are listed in order: " +
+                        ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
+                        "List the columns that should be used to answer the question as a comma separated list: ",
+                temperature=0.3,
+                max_tokens=60,
+                top_p=1.0,
+                frequency_penalty=0.0,
+                presence_penalty=0.0
+            )["choices"][0]["text"].strip()
             columns = columns.split(", ")
             column_data = {}
             for column in columns: 
@@ -297,7 +301,7 @@ class Pipeline:
                     elif path.exists(str(Path(__file__).resolve().parent / test)):
                         df[column] = df[column].apply(lambda x: str(Path(__file__).resolve().parent / x))
                         column_data[column] = self.types[1]
-
+            
             if column_data: # If there are image and/or text columns
                 # Generating image and/or question embeddings and creating clustering graph(s)
                 list_embeds, prefix = self.clip_encode(df, column_data)
