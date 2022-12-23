@@ -2,6 +2,7 @@
 import argparse
 import itertools
 import os
+from os import path
 from pathlib import Path
 import requests
 from typing import Union
@@ -292,6 +293,9 @@ class Pipeline:
                     if len(list(set(list(df[column])))) >= len(df) and len(test.split(" ")) > 3:
                         column_data[column] = self.types[0]
                     if validators.url(test):
+                        column_data[column] = self.types[1]
+                    elif path.exists(str(Path(__file__).resolve().parent / test)):
+                        df[column] = df[column].apply(lambda x: str(Path(__file__).resolve().parent / x))
                         column_data[column] = self.types[1]
 
             if column_data: # If there are image and/or text columns
