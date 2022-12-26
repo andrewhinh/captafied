@@ -26,15 +26,15 @@
 8. Brian Huynh (brianhuynh1028@gmail.com)
 
 # Description
-A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, plots, and HTML pages. 
+A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, plots, and/or HTML pages. 
 
 ## Inference Pipeline
 The pipeline involves the following steps:
-1. If the user wants to modify the table, they can specify how in natural language. We then use [OpenAI's API](#credit) to convert the command into a pandas query to modify the table accordingly.
+1. If the user wants to slice or modify the table, they can specify how in natural language. We then use [OpenAI's API](#credit) to convert the command into a pandas query to modify the table accordingly.
 2. If the user has a question about the table, they can ask it in natural language. As decided by [OpenAI's API](#credit):
     - If the question requires a numerical or text answer, we use [Google's Tapas](#credit) through the HF Inference API to answer the question.
-    - If the question requires a graph, we use [OpenAI's API](#credit) to code up a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
-    - If the question requires a HTML page, we use [pandas-profiling](#credit) to generate a descriptive table profile.
+    - If the question requires a graph as an answer, we use [OpenAI's API](#credit) to code up a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
+    - If the question requires metrics as derived from the table, we use [pandas-profiling](#credit) to generate a descriptive HTML profile of the table.
 ## Usage
 Some examples of requests and questions that the pipeline can handle:
 - Modification Request: 
@@ -50,24 +50,21 @@ Some examples of requests and questions that the pipeline can handle:
 - Multivariate Graph Question: 
     - What is the relationship between stars and forks?
     - How do stars, forks, and release year relate?
+    - How do the distributions of the repos' summaries and descriptions compare?
+    - How do the distributions of the repos' summaries, descriptions, and icons compare?
 - Report Question:
     - What is the missing values situation for this table?
     - What is the duplicate rows situation for this table?
 
 # Production
-To setup the production server for the website in an AWS EC2 instance, we:
-1. Setup the instance: install packages such as `pip`, pull the repo, and install the environment requirements:
-2. Setup the Gradio app with an AWS Lambda backend:
+To setup the production server for the website, we simply:
+1. Setup the Gradio app with an AWS Lambda backend on our localhost:
 ```bash
 python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 ```
-3. Serve the Gradio app over a permanent localtunnel link:
+2. Serve the localhost app over a permanent localtunnel link:
 ```bash
 . ./frontend/localtunnel.sh
-```
-4. Implement continual development by updating the AWS Lambda backend when signaled by a pushed commit to the repo and checking if the pipeline's performance has improved:
-```bash
-. ./backend/deploy/cont_deploy.sh
 ```
 
 # Development
@@ -114,6 +111,7 @@ The repo is separated into main folders that each describe a part of the ML-proj
     ├── monitoring  # the model monitoring code using Gradio's flagging feature.
 ├── frontend        
     ├── gradio      # Gradio frontend.
+    ├── gradio      # Dash frontend.
 ├── tasks           # the pipeline testing code.
 ```
 ## Testing
