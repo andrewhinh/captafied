@@ -70,7 +70,8 @@ python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 # Development
 ## Setup
 ### Note
-If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
+- If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
+- To join the Notion team, head [here](https://www.notion.so/invite/d9b383de660f03fadd1fe5b295db97cb1082bd12).
 ### Steps
 1. Set up the conda environment locally, referring to the instructions of the commented links as needed:
 ```bash
