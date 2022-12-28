@@ -4,6 +4,8 @@
 #
 #    pip-compile requirements/prod.in
 #
+--extra-index-url https://us-python.pkg.dev/colab-wheels/public/simple/
+
 aiohttp==3.8.1
     # via gradio
 aiosignal==1.2.0
