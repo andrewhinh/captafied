@@ -66,6 +66,18 @@ class Pipeline:
         # Matplotlib setup
         self.types = ["text", "image"]
         
+    def openai_query(self, prompt, temperature, max_tokens, top_p, frequency_penalty=0.0, presence_penalty=0.0):
+        response = openai.Completion.create(
+            engine=self.engine,
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+        )
+        return response["choices"][0]["text"].strip()
+
     def tapas_query(self, payload):
         response = requests.post(self.TAPAS_API_URL, headers=self.headers, json=payload)
         return response.json()
@@ -75,11 +87,11 @@ class Pipeline:
         images = []
 
         if self.types[1] not in column_data.values(): # Only text data present
-            images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(df))] # Placeholder value
             texts = self.get_column_vals(df, column_data, self.types[0])
+            images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(texts))] # Placeholder value
         elif self.types[0] not in column_data.values(): # Only image data present
             images = self.get_column_vals(df, column_data, self.types[1], True)
-            texts = ["Placeholder value" for _ in range(len(df))]
+            texts = ["Placeholder value" for _ in range(len(images))]
         else: # Both image and text data present
             images = self.get_column_vals(df, column_data, self.types[1], True)
             texts = self.get_column_vals(df, column_data, self.types[0])
@@ -128,6 +140,7 @@ class Pipeline:
                                    "*", "h", "H", "+", "x", "X", "D", "d", 4, 5, 6, 7, 8, 9, 10, 11)) 
         colors = cm.rainbow(np.linspace(0, 1, len(list_embeds)))
 
+        offset = 0
         for embeds, color in zip(list_embeds, colors):
             range_n_clusters = list(range(2, len(df)))
             silhouette_scores = []
@@ -139,28 +152,35 @@ class Pipeline:
                 # silhouette score
                 silhouette_scores.append(silhouette_score(embeds, cluster_labels))
             n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
-
-            # Generating labels and visualizing clusters
             kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
             kmeans.fit(embeds)
             clusters = kmeans.labels_
-
+            """
+            import umap
+            reducer = umap.UMAP(n_neighbors=2)
+            embedding = reducer.fit_transform(embeds)
+            x = embedding[:, 0]
+            y = embedding[:, 1]
+            """
+            #"""
             tsne = TSNE(
                 n_components=2, perplexity=15, init="random", learning_rate=200
             )
             vis_dims2 = tsne.fit_transform(embeds)
             x = [x for x, y in vis_dims2]
             y = [y for x, y in vis_dims2]
-
+            #"""
             for cluster in range(n_clusters):
                 xs = np.array(x)[clusters == cluster]
                 ys = np.array(y)[clusters == cluster]
                 marker = next(markers)
-
                 ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
+                
                 artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker=marker)
                 handles.append(artist)
-                labels.append(str(cluster))
+                labels.append(str(cluster + offset))
+            if len(list_embeds) > 1:
+                offset += n_clusters
                 
         # Legend for clusters
         legend = ax.legend(handles, labels, loc="upper right", title="Clusters")
@@ -207,57 +227,49 @@ class Pipeline:
         result = {}
 
         # Figure out what type of request is being made
-        which_answer = openai.Completion.create(
-            model=self.engine,
-            prompt="You are given the following user request: " + request_str + "\n" +
+        which_answer = self.openai_query(
+            prompt="You are given the following text from a user: " + request_str + "\n" +
                     "You are also given a Python pandas DataFrame named df that has the following columns: " + 
                     ', '.join(list(df.columns)) + "\n" +
                     "The Python types of each column mentioned are listed in order: " +
                     ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
-                    "To answer the user, I could use OpenAI API's text completion endpoint to generate a " +
-                    "Python pandas.query() query to return a modified copy of df to answer their question, " +
-                    "Google Research's TAPAS model to generate a text, numerical, or list answer to their question, " +
-                    "OpenAI API's text completion endpoint to generate a " +
-                    "Python matplotlib graph to answer their question, or " +
-                    "Python's pandas-profiling package to generate an " +
-                    "HTML profile report of df to answer their question. " +
-                    "If you were to make a guess about each of their outputs, " +
-                    "would the query, text/number/list, graph, or report " +
-                    "be more valuable to answer their question? " +
-                    "Keep in mind that if the user is making a request rather than asking a question, " +
-                    "a query would be more valuable; on the other hand, " +
-                    "if the user is asking a question rather than making a request, " + 
-                    "the other three outputs should be considered instead of the query. " +
-                    "Write query if the query should be used, text if the text/number/list should be used, " +
-                    "graph if the graph should be used and/or there is any mention of statistical relationships, " +
-                    "distributions of data, or categorical data in the question, and " +
-                    "report if the report should be used: ",
+                    "To reply to the user, you can use OpenAI API's text completion endpoint to " +
+                    "generate a Python pandas.query() query to return a modified copy/slice of df, " +
+                    "Google Research's TAPAS model to return text/numbers/lists, " +
+                    "OpenAI API's text completion endpoint to generate code to return a Python matplotlib graph, or " +
+                    "Python's pandas-profiling package to return an HTML profile report of df. " +
+                    "Here are some examples of user text and the corresponding output format you should use: " +
+                    "'Find all the repos that have more than 900 stars.': query, " +
+                    "'Which repo has the most stars?': text, " +
+                    "'What does the distribution of the repos' stars look like?': graph, " +
+                    "'What is the missing values situation for this table?': report. " +
+                    "Assume that you know what each output is and must choose one as a reply to the user. " +
+                    "Also assume that if the text from the user mentions a statistical relationship or " +
+                    "distribution of data, a graph should be chosen as a reply. " +
+                    "Write 'query', 'text', 'graph', or 'report' based on which format you choose: ",
             temperature=1,
-            max_tokens=5,
-            top_p=0.001,
-            frequency_penalty=0.0,
-            presence_penalty=0.0
-        )["choices"][0]["text"].strip()
-        which_answer = which_answer[0].lower() + which_answer[1:]
+            max_tokens=3,
+            top_p=0.01,
+        )
 
         if which_answer == "query": # Use OpenAI's API to create a pd.query() statement 
-            mod_func = openai.Completion.create(
-                model=self.engine,
+            mod_func = self.openai_query(
                 prompt="You are given a Python pandas DataFrame named df that has the following columns: " + 
                         ', '.join(list(df.columns)) + "\n" +
                         "The Python types of each column mentioned are listed in order: " +
-                            ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
+                        ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
                         "Write a Python pandas .query() statement to " + request_str + ". " + 
                         "Don't modify df in your statement: ",
                 temperature=0.3,
                 max_tokens=60,
                 top_p=1.0,
-                frequency_penalty=0.0,
-                presence_penalty=0.0,
-            )["choices"][0]["text"].strip()
+            )
             result = eval(mod_func)
-            if type(result) != pd.DataFrame: # In case pd.Series is returned
-                result = result.to_frame()
+            if type(result) != pd.DataFrame:
+                if type(result) == pd.Series:
+                    result = result.to_frame()
+                else:
+                    result = str(result)
 
         elif which_answer == "text": # Use TAPAS to generate a text answer
             df_to_json = df.to_dict(orient="list")
@@ -274,8 +286,7 @@ class Pipeline:
             result = ", ".join(result)
 
         elif which_answer == "graph": # Check for image and text columns
-            columns = openai.Completion.create(
-                model=self.engine,
+            columns = self.openai_query(
                 prompt="You are given the following question: " + 
                         request_str + "\n" +
                         "You are also given a Python pandas DataFrame named df that has the following columns: " + 
@@ -286,9 +297,7 @@ class Pipeline:
                 temperature=0.3,
                 max_tokens=60,
                 top_p=1.0,
-                frequency_penalty=0.0,
-                presence_penalty=0.0
-            )["choices"][0]["text"].strip()
+            )
             columns = columns.split(", ")
             column_data = {}
             for column in columns: 
@@ -309,8 +318,7 @@ class Pipeline:
                 result = plt
             
             else: # If there are no image or text columns
-                graph_func = openai.Completion.create(
-                    model=self.engine,
+                graph_func = self.openai_query(
                     prompt="You are given the following question: " + 
                             request_str + "\n" +
                             "You are also given a Python pandas DataFrame named df that has the following columns: " + 
@@ -322,9 +330,7 @@ class Pipeline:
                     temperature=0.3,
                     max_tokens=150,
                     top_p=1.0,
-                    frequency_penalty=0.0,
-                    presence_penalty=0.0
-                )["choices"][0]["text"].strip()
+                )
                 exec(graph_func)
                 result = plt
 
