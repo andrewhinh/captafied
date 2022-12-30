@@ -18,21 +18,22 @@ import pandas as pd
 from pandas_profiling import ProfileReport
 from PIL import Image
 from sklearn.cluster import KMeans
-from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 import tabula as tb
 from transformers import CLIPProcessor
+import umap
 import validators
 
 
 # Setup
-# Disabling matplotlib GUI for Gradio
-matplotlib.use('agg')
+# matplotlib setup
+matplotlib.use('agg') # Disable GUI for Gradio
+plt.style.use('dark_background') # Dark background for plots
 
 # Loading env variables
 load_dotenv()
 
-# OpenAI API Setup
+# OpenAI API setup
 openai.organization = "org-SenjN6vfnkIealcfn6t9JOJj"
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -83,6 +84,7 @@ class Pipeline:
         return response.json()
 
     def clip_encode(self, df, column_data):
+        # Set up inputs for CLIP
         texts = []
         images = []
 
@@ -96,11 +98,13 @@ class Pipeline:
             images = self.get_column_vals(df, column_data, self.types[1], True)
             texts = self.get_column_vals(df, column_data, self.types[0])
         
+        # CLIP encoding
         inputs = self.clip_processor(text=texts, images=images, return_tensors="np", padding=True)
         clip_outputs = self.clip_session.run(
             output_names=["logits_per_image", "logits_per_text", "text_embeds", "image_embeds"], input_feed=dict(inputs)
         )
         
+        # Get embeds and prefix for graph title
         if self.types[1] not in column_data.values():
             list_embeds = [clip_outputs[2]]
             prefix = self.types[0][0].upper() + self.types[0][1:] + ' '
@@ -123,9 +127,9 @@ class Pipeline:
         objects = []
         column_list = []
         for item in column_data.items():
-            if item[1] == value:
+            if item[1] == value: # Get column names for the specified data type
                 column_list.append(item[0])
-        for column in column_list:
+        for column in column_list: # Get values for the specified data type
             if images_present:
                 objects.extend([self.open_image(image) for image in df[column]])
             else:
@@ -133,6 +137,7 @@ class Pipeline:
         return objects
 
     def get_embeds_graph(self, df, list_embeds, prefix):
+        # Setting up matplotlib figure and legend
         _, ax = plt.subplots()
         handles = []
         labels = []
@@ -140,8 +145,10 @@ class Pipeline:
                                    "*", "h", "H", "+", "x", "X", "D", "d", 4, 5, 6, 7, 8, 9, 10, 11)) 
         colors = cm.rainbow(np.linspace(0, 1, len(list_embeds)))
 
-        offset = 0
+        # UMAP and K-Means clustering
+        offset = 0 # To label the clusters in a continuous manner
         for embeds, color in zip(list_embeds, colors):
+            # Getting # of clusters and K-Means clustering
             range_n_clusters = list(range(2, len(df)))
             silhouette_scores = []
             for num_clusters in range_n_clusters:
@@ -155,30 +162,28 @@ class Pipeline:
             kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
             kmeans.fit(embeds)
             clusters = kmeans.labels_
-            """
-            import umap
-            reducer = umap.UMAP(n_neighbors=2)
+            
+            # Reducing dimensionality of embeddings with UMAP
+            reducer = umap.UMAP()
             embedding = reducer.fit_transform(embeds)
+
             x = embedding[:, 0]
             y = embedding[:, 1]
-            """
-            #"""
-            tsne = TSNE(
-                n_components=2, perplexity=15, init="random", learning_rate=200
-            )
-            vis_dims2 = tsne.fit_transform(embeds)
-            x = [x for x, y in vis_dims2]
-            y = [y for x, y in vis_dims2]
-            #"""
+
+            # Plotting clusters
             for cluster in range(n_clusters):
+                # Plotting points
                 xs = np.array(x)[clusters == cluster]
                 ys = np.array(y)[clusters == cluster]
                 marker = next(markers)
                 ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
                 
+                # Adding cluster to legend
                 artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker=marker)
                 handles.append(artist)
                 labels.append(str(cluster + offset))
+
+            # To label the clusters in a continuous manner
             if len(list_embeds) > 1:
                 offset += n_clusters
                 
@@ -186,7 +191,8 @@ class Pipeline:
         legend = ax.legend(handles, labels, loc="upper right", title="Clusters")
         ax.add_artist(legend)
             
-        if len(list_embeds) > 1: # Adding legend for image and text groups
+        # Adding legend for image and text groups
+        if len(list_embeds) > 1: 
             handles = []
             labels = []           
             for color, type in zip(colors, self.types):
@@ -195,6 +201,7 @@ class Pipeline:
                 labels.append(type[0].upper() + type[1:])
             ax.legend(handles, labels, loc="lower left", title="Data Types")
             
+        # Title
         plt.title(prefix + "Clusters")
         
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
@@ -293,10 +300,11 @@ class Pipeline:
                         ', '.join(list(df.columns)) + "\n" +
                         "The Python types of each column mentioned are listed in order: " +
                         ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
-                        "List the columns that should be used to answer the question as a comma separated list: ",
-                temperature=0.3,
-                max_tokens=60,
-                top_p=1.0,
+                        "List only the necessary columns that should be used " +
+                        "to answer the question as a comma separated list: ",
+                temperature=1,
+                max_tokens=30,
+                top_p=0.001,
             )
             columns = columns.split(", ")
             column_data = {}
@@ -307,7 +315,7 @@ class Pipeline:
                         column_data[column] = self.types[0]
                     if validators.url(test):
                         column_data[column] = self.types[1]
-                    elif path.exists(str(Path(__file__).resolve().parent / test)):
+                    elif path.exists(str(Path(__file__).resolve().parent / test)): # For local images
                         df[column] = df[column].apply(lambda x: str(Path(__file__).resolve().parent / x))
                         column_data[column] = self.types[1]
             
