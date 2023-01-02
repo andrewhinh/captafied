@@ -4,6 +4,8 @@
 #
 #    pip-compile requirements/dev.in
 #
+--extra-index-url https://us-python.pkg.dev/colab-wheels/public/simple/
+
 absl-py==1.0.0
     # via tensorboard
 aiohttp==3.8.1

@@ -40,6 +40,7 @@ PROD_STAGING_ROOT = PROJECT_ROOT / Path("artifacts")
 PROD_PATHS = ["clip-vit-base-patch16", "onnx"]
 
 load_dotenv()
+api = wandb.Api()
 
 
 def main(args):
