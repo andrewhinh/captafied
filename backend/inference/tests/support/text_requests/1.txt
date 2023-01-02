@@ -1,1 +1,1 @@
-How many forks does the CLIP repo have?
+How many words long is the Flax repo's description?

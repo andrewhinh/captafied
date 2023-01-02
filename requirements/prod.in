@@ -1,3 +1,4 @@
+# standard setup
 h5py
 importlib-metadata>=4.4
 mkl-service==2.4.0
@@ -15,7 +16,8 @@ torch>=1.12,<1.13
 torchvision>=0.13.0
 # versioned to avoid breaking change in minor version update
 # markupsafe<2.1
-# for models
+
+# added for this project
 dash
 matplotlib
 odfpy
@@ -27,5 +29,6 @@ scikit-learn
 tabula-py
 transformers
 timm
+umap-learn
 validators
 wandb==0.12.17

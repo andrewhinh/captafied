@@ -29,30 +29,32 @@
 A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, plots, and/or HTML pages. 
 
 ## Inference Pipeline
-Once the user submits a table and a request/question about it, we first determine the format of the answer we need to generate. Then,
-- If a table modification is requested or the question requires a numerical or text answer, we use [OpenAI's API](#credit) to create a pandas query and parse the result accordingly.
-- If the question requires a graph, we use [OpenAI's API](#credit) to generate matplotlib code to execute, displaying a grpah. If applicable, we also use [OpenAI's CLIP](#credit) to compute image and/or text embeddings.
-- If the question requires a HTML page, we use [pandas-profiling](#credit) to generate a descriptive table profile.
+Once the user submits a table and a text regarding it, we first determine the format of the answer we need to generate. Then,
+- If the text requires a table, number, or text, we use [OpenAI's API](#credit) to create a pandas .query() statement and parse the result accordingly. 
+    - We do this instead of using [OpenAI's API](#credit) to directly generate Python code to answer the question because we want to provide the user with as much information as possible unless directed to do otherwise. For example, if the user asks for the repo with the most stars, we want to provide them with the repo name and the number of stars, not just the repo name. However, if the user asks for the number of stars for the repo with the most stars, we want to provide them with just the number of stars.
+- If the text requires a graph, we use [OpenAI's API](#credit) to generate matplotlib code to execute, displaying a grpah. If applicable, we also use [OpenAI's CLIP](#credit) to compute image and/or text embeddings.
+- If the text requires an HTML page, we use [pandas-profiling](#credit) to generate a descriptive table profile.
 ## Usage
 Some examples of requests and questions that the pipeline can handle:
-- Modification Request: 
+- Table Requests/Questions: 
     - Find all the repos that have more than 900 stars.
     - Add 10 stars to all the repos that have more than 900 stars.
-- Simple Questions: 
+    - Which repo has the most forks?
+- Numerical/Text Questions: 
     - How many forks does the CLIP repo have?
     - How many words long is the Flax repo's description?
-    - Which repo has the most forks?
-    - Does the Transformers repo have the most stars?
-- Univariate Graph Question: 
+    - Does the Transformers repo have the most stars compared to the other repos?
+    - What are the number of stars for repos with more than 900 stars?
+- Univariate Graph Questions: 
     - What does the distribution of the repos' stars look like?
     - What does the distribution of the repos' summaries look like?
     - What does the distribution of the repos' icons look like?
-- Multivariate Graph Question: 
+- Multivariate Graph Questions: 
     - What is the relationship between stars and forks?
     - How do stars, forks, and release year relate?
     - How do the distributions of the repos' summaries and descriptions compare?
     - How do the distributions of the repos' summaries, descriptions, and icons compare?
-- Report Question:
+- Report Questions:
     - What is the missing values situation for this table?
     - What is the duplicate rows situation for this table?
 

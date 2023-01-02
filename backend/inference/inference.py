@@ -4,7 +4,6 @@ import itertools
 import os
 from os import path
 from pathlib import Path
-import requests
 from typing import Union
 
 from dotenv import load_dotenv
@@ -60,10 +59,6 @@ class Pipeline:
         # OpenAI Engine
         self.engine = "text-davinci-003"
 
-        # HF API Setup
-        self.TAPAS_API_URL = "https://api-inference.huggingface.co/models/google/tapas-large-finetuned-wtq"
-        self.headers = {"Authorization": "Bearer " + os.getenv("HF_API_KEY")}
-
         # Matplotlib setup
         self.types = ["text", "image"]
         
@@ -79,10 +74,6 @@ class Pipeline:
         )
         return response["choices"][0]["text"].strip()
 
-    def tapas_query(self, payload):
-        response = requests.post(self.TAPAS_API_URL, headers=self.headers, json=payload)
-        return response.json()
-
     def clip_encode(self, df, column_data):
         # Set up inputs for CLIP
         texts = []
@@ -92,10 +83,10 @@ class Pipeline:
             texts = self.get_column_vals(df, column_data, self.types[0])
             images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(len(texts))] # Placeholder value
         elif self.types[0] not in column_data.values(): # Only image data present
-            images = self.get_column_vals(df, column_data, self.types[1], True)
+            images = self.get_column_vals(df, column_data, self.types[1])
             texts = ["Placeholder value" for _ in range(len(images))]
         else: # Both image and text data present
-            images = self.get_column_vals(df, column_data, self.types[1], True)
+            images = self.get_column_vals(df, column_data, self.types[1])
             texts = self.get_column_vals(df, column_data, self.types[0])
         
         # CLIP encoding
@@ -123,14 +114,14 @@ class Pipeline:
             image_pil = image_pil.convert(mode="RGB")
         return image_pil
 
-    def get_column_vals(self, df, column_data, value, images_present=False):
+    def get_column_vals(self, df, column_data, type):
         objects = []
         column_list = []
         for item in column_data.items():
-            if item[1] == value: # Get column names for the specified data type
+            if item[1] == type: # Get column names for the specified data type
                 column_list.append(item[0])
         for column in column_list: # Get values for the specified data type
-            if images_present:
+            if type==self.types[1]:
                 objects.extend([self.open_image(image) for image in df[column]])
             else:
                 objects.extend(list(df[column]))
@@ -139,11 +130,12 @@ class Pipeline:
     def get_embeds_graph(self, df, list_embeds, prefix):
         # Setting up matplotlib figure and legend
         _, ax = plt.subplots()
-        handles = []
-        labels = []
-        markers = itertools.cycle((".", "o", "v", "^", "<", ">", "1", "2", "3", "4", "8", "s", "p", "P", 
+        plt.title(prefix + "Clusters")
+        markers = itertools.cycle(("o", "v", "^", "<", ">", "1", "2", "3", "4", "8", "s", "p", "P", 
                                    "*", "h", "H", "+", "x", "X", "D", "d", 4, 5, 6, 7, 8, 9, 10, 11)) 
         colors = cm.rainbow(np.linspace(0, 1, len(list_embeds)))
+        handles = []
+        labels = []
 
         # UMAP and K-Means clustering
         offset = 0 # To label the clusters in a continuous manner
@@ -162,11 +154,10 @@ class Pipeline:
             kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
             kmeans.fit(embeds)
             clusters = kmeans.labels_
-            
+
             # Reducing dimensionality of embeddings with UMAP
             reducer = umap.UMAP()
             embedding = reducer.fit_transform(embeds)
-
             x = embedding[:, 0]
             y = embedding[:, 1]
 
@@ -185,7 +176,7 @@ class Pipeline:
 
             # To label the clusters in a continuous manner
             if len(list_embeds) > 1:
-                offset += n_clusters
+                offset += n_clusters       
                 
         # Legend for clusters
         legend = ax.legend(handles, labels, loc="upper right", title="Clusters")
@@ -200,10 +191,137 @@ class Pipeline:
                 handles.append(artist)
                 labels.append(type[0].upper() + type[1:])
             ax.legend(handles, labels, loc="lower left", title="Data Types")
-            
-        # Title
-        plt.title(prefix + "Clusters")
         
+        """
+        # HDBSCAN clustering
+        import hdbscan
+        
+        offset = 0 # To label the clusters in a continuous manner
+        for embeds, color in zip(list_embeds, colors):
+            # Reducing dimensionality of embeddings with UMAP
+            reducer = umap.UMAP()
+            embedding = reducer.fit_transform(embeds)
+            x = embedding[:, 0]
+            y = embedding[:, 1]
+
+            clusters = hdbscan.HDBSCAN().fit_predict(embedding)
+            clustered = (clusters >= 0)
+            n_clusters = max(clusters) + 1
+
+            clustered_x = embedding[clustered, 0]
+            clustered_y = embedding[clustered, 1]
+            unclustered_x = embedding[~clustered, 0]
+            unclustered_y = embedding[~clustered, 1]
+            groups = [[clustered_x, clustered_y], [unclustered_x, unclustered_y]]
+
+            # Plotting clusters and unclustered points
+            for group_idx in range(len(groups)):
+                group = groups[group_idx]
+                for cluster in range(n_clusters):
+                    # Plotting points
+                    xs = np.array(group[0])[clusters == cluster]
+                    ys = np.array(group[1])[clusters == cluster]
+                    if group_idx < len(groups) - 1:
+                        # Using same marker for all unclustered points
+                        marker = "."
+                        # Adding cluster to legend if applicable
+                        artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker=marker)
+                        handles.append(artist)
+                        labels.append(str(cluster + offset))
+                    else:
+                        marker = next(markers)
+                    ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
+        
+            # To label the clusters in a continuous manner
+            if len(list_embeds) > 1:
+                offset += n_clusters 
+        
+        # Legend for clusters
+        legend = ax.legend(handles, labels, loc="upper right", title="Clusters")
+        ax.add_artist(legend)
+            
+        # Adding legend for image and text groups
+        if len(list_embeds) > 1: 
+            handles = []
+            labels = []           
+            for color, type in zip(colors, self.types):
+                artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker="o")
+                handles.append(artist)
+                labels.append(type[0].upper() + type[1:])
+            ax.legend(handles, labels, loc="lower left", title="Data Types")
+        """
+        
+        """
+        # Bokeh
+        from bokeh.colors import groups
+        from bokeh.embed import json_item
+        from bokeh.io import show
+        from bokeh.plotting import figure
+        p = figure(title = prefix + "Clusters")
+        markers = itertools.cycle(('asterisk', 'circle', 'circle_cross', 'circle_dot', 'circle_x', 'circle_y', 'cross', 
+                                   'dash', 'diamond', 'diamond_cross', 'diamond_dot', 'dot', 'hex', 'hex_dot', 
+                                   'inverted_triangle', 'plus', 'square', 'square_cross', 'square_dot', 'square_pin', 
+                                   'square_x', 'star', 'star_dot', 'triangle', 'triangle_dot', 'triangle_pin', 'x', 'y'))
+        colors = []
+        for name in groups.__all__:
+            group = getattr(groups, name)
+            colors.extend([x.to_hex() for x in group])
+        handles = []
+        labels = []
+
+        # UMAP and K-Means clustering
+        offset = 0 # To label the clusters in a continuous manner
+        for embeds, color in zip(list_embeds, colors):
+            # Getting # of clusters and K-Means clustering
+            range_n_clusters = list(range(2, len(df)))
+            silhouette_scores = []
+            for num_clusters in range_n_clusters:
+                # initialise kmeans
+                kmeans = KMeans(n_clusters=num_clusters)
+                kmeans.fit(embeds)
+                cluster_labels = kmeans.labels_
+                # silhouette score
+                silhouette_scores.append(silhouette_score(embeds, cluster_labels))
+            n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
+            kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
+            kmeans.fit(embeds)
+            clusters = kmeans.labels_
+
+            # Reducing dimensionality of embeddings with UMAP
+            reducer = umap.UMAP()
+            embedding = reducer.fit_transform(embeds)
+            x = embedding[:, 0]
+            y = embedding[:, 1]
+
+            # Plotting clusters
+            for cluster in range(n_clusters):
+                # Plotting points
+                xs = np.array(x)[clusters == cluster]
+                ys = np.array(y)[clusters == cluster]
+                marker = next(markers)
+                p.scatter(xs, ys, legend_label=str(cluster + offset), color=color, marker=marker, alpha=1)
+
+            # To label the clusters in a continuous manner
+            if len(list_embeds) > 1:
+                offset += n_clusters       
+
+        # Legend for clusters
+        legend = ax.legend(handles, labels, loc="upper right", title="Clusters")
+        ax.add_artist(legend)
+            
+        # Adding legend for image and text groups
+        if len(list_embeds) > 1: 
+            handles = []
+            labels = []           
+            for color, type in zip(colors, self.types):
+                artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker="o")
+                handles.append(artist)
+                labels.append(type[0].upper() + type[1:])
+            ax.legend(handles, labels, loc="lower left", title="Data Types") 
+
+        return json_item(p)
+        """
+
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
         # Handling repeated uses of matplotlib
         plt.clf()
@@ -240,91 +358,96 @@ class Pipeline:
                     ', '.join(list(df.columns)) + "\n" +
                     "The Python types of each column mentioned are listed in order: " +
                     ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
-                    "To reply to the user, you can use OpenAI API's text completion endpoint to " +
-                    "generate a Python pandas.query() query to return a modified copy/slice of df, " +
-                    "Google Research's TAPAS model to return text/numbers/lists, " +
-                    "OpenAI API's text completion endpoint to generate code to return a Python matplotlib graph, or " +
-                    "Python's pandas-profiling package to return an HTML profile report of df. " +
-                    "Here are some examples of user text and the corresponding output format you should use: " +
-                    "'Find all the repos that have more than 900 stars.': query, " +
-                    "'Which repo has the most stars?': text, " +
-                    "'What does the distribution of the repos' stars look like?': graph, " +
-                    "'What is the missing values situation for this table?': report. " +
+                    "To reply to the user, you have three choices:\n" +
+                    "1) Use OpenAI API's text completion endpoint to generate a Python pandas.query() query " +
+                    "to return a modified copy/slice of df, text, or number/list.\n" +
+                    "2) Use OpenAI API's text completion endpoint to generate code " +
+                    "to return a Python matplotlib graph.\n" +
+                    "3) Use Python's pandas-profiling package to return an HTML profile report of df.\n" +
                     "Assume that you know what each output is and must choose one as a reply to the user. " +
-                    "Also assume that if the text from the user mentions a statistical relationship or " +
+                    "Also assume that if the text from the user asks for a table modification/slice, " +
+                    "text, or number/list, a query should be chosen as a reply. " +
+                    "Lastly, assume that if the text from the user mentions a statistical relationship or " +
                     "distribution of data, a graph should be chosen as a reply. " +
-                    "Write 'query', 'text', 'graph', or 'report' based on which format you choose: ",
+                    "Write 1, 2, or 3 based on the corresponding format you choose: ",
             temperature=1,
             max_tokens=3,
             top_p=0.01,
         )
+        which_answer = int(which_answer)
 
-        if which_answer == "query": # Use OpenAI's API to create a pd.query() statement 
+        # Check for image and text columns
+        columns = self.openai_query(
+            prompt="You are given the following question: " + 
+                    request_str + "\n" +
+                    "You are also given a Python pandas DataFrame named df that has the following columns: " + 
+                    ', '.join(list(df.columns)) + "\n" +
+                    "The Python types of each column mentioned are listed in order: " +
+                    ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
+                    "List only the necessary columns that should be used " +
+                    "to answer the question as a comma separated list: ",
+            temperature=1,
+            max_tokens=1000,
+            top_p=0.001,
+        )
+        columns = columns.split(", ")
+        column_data = {}
+        for column in columns: 
+            test = df.loc[0, column]
+            if type(test) == str:
+                if len(list(set(list(df[column])))) >= len(df) and len(test.split(" ")) > 3: # For text
+                    column_data[column] = self.types[0]
+                if validators.url(test): # For images
+                    column_data[column] = self.types[1]
+                elif path.exists(str(Path(__file__).resolve().parent / test)): # For local images
+                    df[column] = df[column].apply(lambda x: str(Path(__file__).resolve().parent / x))
+                    column_data[column] = self.types[1]
+
+        # Generate a reply based on the type of request
+        if which_answer == 1: # Use OpenAI's API to create a pd.query() statement 
+            if column_data:
+                image_columns = []
+                for column in column_data:
+                    if column_data[column] == self.types[1]:
+                        image_columns.append(column)
+                image_columns = ', '.join(image_columns)
+                note = str("Note that the following columns have file paths/URLs to images: " + image_columns + "\n" +
+                           "As such, call self.open_image(), which takes as input a file path/URL to an image and " +
+                           "returns a PIL Image object, to open any images. To avoid type issues, " +
+                           "convert the result of your pandas query, which may be a pd.DataFrame or pd.Series, " +
+                           "into a list before calling self.open_image(). Then, perform any other necessary operations. ")
+            else:
+                note = ""
+            
             mod_func = self.openai_query(
                 prompt="You are given a Python pandas DataFrame named df that has the following columns: " + 
                         ', '.join(list(df.columns)) + "\n" +
                         "The Python types of each column mentioned are listed in order: " +
                         ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
-                        "Write a Python pandas .query() statement to " + request_str + ". " + 
-                        "Don't modify df in your statement: ",
+                        "Write a Python pandas .query() statement to fufill the following " +
+                        "request/answer the following question: " + request_str + "\n" + note +
+                        "Don't modify df in your statement, and only return the expression: ",
                 temperature=0.3,
                 max_tokens=60,
                 top_p=1.0,
             )
             result = eval(mod_func)
-            if type(result) != pd.DataFrame:
-                if type(result) == pd.Series:
-                    result = result.to_frame()
-                else:
+            if type(result) != pd.DataFrame: # If the result is not a DataFrame
+                if type(result) == pd.Series: # If the result is a Series
+                    if len(result) == 1: # If the Series is a single element
+                        result = str(result.iloc[0])
+                    else: # If the Series is a list
+                        result = ", ".join(str(element) for element in list(result))
+                else: # If the result is a single element
                     result = str(result)
 
-        elif which_answer == "text": # Use TAPAS to generate a text answer
-            df_to_json = df.to_dict(orient="list")
-            for col in df_to_json:
-                df_to_json[col] = [str(x) for x in df_to_json[col]]
-            while 'cells' not in list(result.keys()):
-                result = self.tapas_query({
-                    "inputs": {
-                        "query": request_str,
-                        "table": df_to_json,
-                    },
-                })
-            result = result['cells']
-            result = ", ".join(result)
-
-        elif which_answer == "graph": # Check for image and text columns
-            columns = self.openai_query(
-                prompt="You are given the following question: " + 
-                        request_str + "\n" +
-                        "You are also given a Python pandas DataFrame named df that has the following columns: " + 
-                        ', '.join(list(df.columns)) + "\n" +
-                        "The Python types of each column mentioned are listed in order: " +
-                        ', '.join([str(type(df.loc[0, column])) for column in df.columns]) + "\n" +
-                        "List only the necessary columns that should be used " +
-                        "to answer the question as a comma separated list: ",
-                temperature=1,
-                max_tokens=30,
-                top_p=0.001,
-            )
-            columns = columns.split(", ")
-            column_data = {}
-            for column in columns: 
-                test = df.loc[0, column]
-                if type(test) == str:
-                    if len(list(set(list(df[column])))) >= len(df) and len(test.split(" ")) > 3:
-                        column_data[column] = self.types[0]
-                    if validators.url(test):
-                        column_data[column] = self.types[1]
-                    elif path.exists(str(Path(__file__).resolve().parent / test)): # For local images
-                        df[column] = df[column].apply(lambda x: str(Path(__file__).resolve().parent / x))
-                        column_data[column] = self.types[1]
-            
+        elif which_answer == 2: 
             if column_data: # If there are image and/or text columns
                 # Generating image and/or question embeddings and creating clustering graph(s)
                 list_embeds, prefix = self.clip_encode(df, column_data)
                 self.get_embeds_graph(df, list_embeds, prefix)
                 result = plt
-            
+                # result = self.get_embeds_graph(df, list_embeds, prefix)                     
             else: # If there are no image or text columns
                 graph_func = self.openai_query(
                     prompt="You are given the following question: " + 
@@ -342,9 +465,12 @@ class Pipeline:
                 exec(graph_func)
                 result = plt
 
-        elif which_answer == "report": # Use pandas-profiling to generate a report
-            report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
-
+        elif which_answer == 3: # Use pandas-profiling to generate a report
+            if len(df) > 1000:
+                report = ProfileReport(df, title="Pandas Profiling Report", minimal=True)
+            else:
+                report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
+            
             # For Gradio
             report.config.html.inline = True
             report.config.html.minify_html = True
