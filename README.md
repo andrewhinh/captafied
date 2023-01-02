@@ -71,7 +71,7 @@ python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 ## Setup
 ### Note
 - If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
-- To join the Notion team, head [here](https://www.notion.so/invite/d9b383de660f03fadd1fe5b295db97cb1082bd12).
+- To contribute, reach out to Andrew @ ajhinh@gmail.com.
 ### Steps
 1. Set up the conda environment locally, referring to the instructions of the commented links as needed:
 ```bash
@@ -112,7 +112,7 @@ The repo is separated into main folders that each describe a part of the ML-proj
     ├── monitoring  # the model monitoring code using Gradio's flagging feature.
 ├── frontend        
     ├── gradio      # Gradio frontend.
-    ├── gradio      # Dash frontend.
+    ├── dash        # Dash frontend.
 ├── tasks           # the pipeline testing code.
 ```
 ## Testing
