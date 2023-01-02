@@ -29,20 +29,20 @@
 A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, plots, and/or HTML pages. 
 
 ## Inference Pipeline
-The pipeline involves the following steps:
-1. If the user wants to slice or modify the table, they can specify how in natural language. We then use [OpenAI's API](#credit) to convert the command into a pandas query to modify the table accordingly.
-2. If the user has a question about the table, they can ask it in natural language. As decided by [OpenAI's API](#credit):
-    - If the question requires a numerical or text answer, we use [Google's Tapas](#credit) through the HF Inference API to answer the question.
-    - If the question requires a graph as an answer, we use [OpenAI's API](#credit) to code up a reasonable graph to display, and [OpenAI's CLIP](#credit) to compute image and/or text embeddings as necessary and applicable.
-    - If the question requires metrics as derived from the table, we use [pandas-profiling](#credit) to generate a descriptive HTML profile of the table.
+Once the user submits a table and a request/question about it, we first determine the format of the answer we need to generate. Then,
+- If a table modification is requested or the question requires a numerical or text answer, we use [OpenAI's API](#credit) to create a pandas query and parse the result accordingly.
+- If the question requires a graph, we use [OpenAI's API](#credit) to generate matplotlib code to execute, displaying a grpah. If applicable, we also use [OpenAI's CLIP](#credit) to compute image and/or text embeddings.
+- If the question requires a HTML page, we use [pandas-profiling](#credit) to generate a descriptive table profile.
 ## Usage
 Some examples of requests and questions that the pipeline can handle:
 - Modification Request: 
     - Find all the repos that have more than 900 stars.
     - Add 10 stars to all the repos that have more than 900 stars.
 - Simple Questions: 
-    - How many stars does the transformers repo have?
-    - Which repo has the most stars?
+    - How many forks does the CLIP repo have?
+    - How many words long is the Flax repo's description?
+    - Which repo has the most forks?
+    - Does the Transformers repo have the most stars?
 - Univariate Graph Question: 
     - What does the distribution of the repos' stars look like?
     - What does the distribution of the repos' summaries look like?
@@ -88,13 +88,12 @@ echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
     # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
 ```
 2. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
-3. Sign up for a HuggingFace account and get an access token [here](https://huggingface.co/settings/tokens).
-4. Populate a `.env` file with your OpenAI API key and HuggingFace access token in the format of `.env.template`, and reactivate the environment.
-5. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+3. Populate a `.env` file with your OpenAI API key in the format of `.env.template`, and reactivate the environment.
+4. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 ```bash
 aws configure
 ```
-6. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
+5. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
 ```bash
 wandb login
 python ./backend/inference/artifacts/stage_model.py --fetch
@@ -131,6 +130,5 @@ python -c "from frontend.gradio.tests.test_app import test_local_run; test_local
 ```
 
 # Credit
-- Google for their [Table QA code](https://huggingface.co/google/tapas-base-finetuned-wtq).
 - OpenAI for their [CLIP text and image encoder code](https://huggingface.co/openai/clip-vit-base-patch16) and [GPT-3 API](https://openai.com/api/).
 - YData for their [pandas-profiling](https://github.com/ydataai/pandas-profiling) package.
