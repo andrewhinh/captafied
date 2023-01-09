@@ -1,1 +1,1 @@
-Add 10 stars to all the repos that have more than 900 stars.
+Add a column named 'Stars_Forks' that averages the number of stars and forks for each row.
