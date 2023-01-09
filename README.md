@@ -26,35 +26,29 @@
 8. Brian Huynh (brianhuynh1028@gmail.com)
 
 # Description
-A full-stack ML-powered website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python. Regardless of whether your data includes numbers, text, or image links, answers are answered through automatically-generated sliced tables, text, plots, and/or HTML pages. 
+A full-stack ML-powered website that helps users understand their spreadsheet data regardless of the format and without the learning curve of data processing and visualization tools such as Excel or Python. 
 
 ## Inference Pipeline
 Once the user submits a table and a text regarding it, we first determine the format of the answer we need to generate. Then,
-- If the text requires a table, number, or text, we use [OpenAI's API](#credit) to create a pandas .query() statement and parse the result accordingly. 
-    - We do this instead of using [OpenAI's API](#credit) to directly generate Python code to answer the question because we want to provide the user with as much information as possible unless directed to do otherwise. For example, if the user asks for the repo with the most stars, we want to provide them with the repo name and the number of stars, not just the repo name. However, if the user asks for the number of stars for the repo with the most stars, we want to provide them with just the number of stars.
-- If the text requires a graph, we use [OpenAI's API](#credit) to generate matplotlib code to execute, displaying a grpah. If applicable, we also use [OpenAI's CLIP](#credit) to compute image and/or text embeddings.
-- If the text requires an HTML page, we use [pandas-profiling](#credit) to generate a descriptive table profile.
+- If the text requires a table, number, or text as an answer, we use [OpenAI's API](#credit) to create a pandas .query() statement and parse the result accordingly. 
+    - We do this instead of using [OpenAI's API](#credit) to directly generate Python code because we want to provide the user with as much information as possible unless directed to do otherwise. For example, if the user asks for the repo with the most stars, we want to provide them with the repo name and the number of stars, not just the repo name. However, if the user asks for the number of stars for the repo with the most stars, we want to provide them with just the number of stars.
+- If the text requires a graph as an answer, we use [OpenAI's API](#credit) to generate matplotlib code to execute, displaying a grpah. If applicable, we also use [OpenAI's CLIP](#credit) to compute image and/or text embeddings.
+- If none of the above formats suit the question, we use [pandas-profiling](#credit) to generate a descriptive table profile.
 ## Usage
-Some examples of requests and questions that the pipeline can handle:
-- Table Requests/Questions: 
-    - Find all the repos that have more than 900 stars.
-    - Add 10 stars to all the repos that have more than 900 stars.
-    - Which repo has the most forks?
-- Numerical/Text Questions: 
+Some examples of requests and questions that the pipeline can handle, assuming the question references the input table:
+- Table Requests/Questions: `Questions that require context aside from the answer.`
+    - Find all the repos that have more than 900 stars. `Context: what are the repos that have more than 900 stars?`
+    - Add 10 stars to all the repos that have more than 900 stars. `Context: what are the repos that have more than 900 stars, and what are their new star counts?`
+    - Which repo has the most forks? `Context: how many forks does the repo have?`
+- Numerical/Text Questions: `Questions that require a direct answer.`
     - How many forks does the CLIP repo have?
-    - How many words long is the Flax repo's description?
     - Does the Transformers repo have the most stars compared to the other repos?
-    - What are the number of stars for repos with more than 900 stars?
-- Univariate Graph Questions: 
-    - What does the distribution of the repos' stars look like?
-    - What does the distribution of the repos' summaries look like?
-    - What does the distribution of the repos' icons look like?
-- Multivariate Graph Questions: 
-    - What is the relationship between stars and forks?
-    - How do stars, forks, and release year relate?
-    - How do the distributions of the repos' summaries and descriptions compare?
-    - How do the distributions of the repos' summaries, descriptions, and icons compare?
-- Report Questions:
+    - What are the dimensions of the Transformers repo's icon?
+- Graph Questions: `Note: up to three variables ranging from numerical, categorical, text, image data can be graphed, allowing for 84 different kinds of graphs to be generated.`
+    - What does the distribution of the repos' stars look like? `Single numerical variable`
+    - How do the distributions of the repos' summaries and icons compare? `Text vs. image data`
+    - How do the distributions of the repos' summaries and icons change with number of stars? `Text vs. image data vs. numerical data`
+- Report Questions: `Questions that require more information than text or a graph could offer.`
     - What is the missing values situation for this table?
     - What is the duplicate rows situation for this table?
 
@@ -133,4 +127,5 @@ python -c "from frontend.gradio.tests.test_app import test_local_run; test_local
 
 # Credit
 - OpenAI for their [CLIP text and image encoder code](https://huggingface.co/openai/clip-vit-base-patch16) and [GPT-3 API](https://openai.com/api/).
+- [UMAP](https://umap-learn.readthedocs.io/en/latest/index.html) for their dimensionality reduction algorithm.
 - YData for their [pandas-profiling](https://github.com/ydataai/pandas-profiling) package.

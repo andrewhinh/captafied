@@ -1,1 +1,1 @@
-How many words long is the Flax repo's description?
+What is the shape of the Transformers repo's icon?
