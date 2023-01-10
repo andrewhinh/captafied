@@ -29,28 +29,38 @@
 A full-stack ML-powered website that helps users understand their spreadsheet data regardless of the format and without the learning curve of data processing and visualization tools such as Excel or Python. 
 
 ## Inference Pipeline
-Once the user submits a table and a text regarding it, we first determine the format of the answer we need to generate. Then,
-- If the text requires a table, number, or text as an answer, we use [OpenAI's API](#credit) to create a pandas .query() statement and parse the result accordingly. 
-    - We do this instead of using [OpenAI's API](#credit) to directly generate Python code because we want to provide the user with as much information as possible unless directed to do otherwise. For example, if the user asks for the repo with the most stars, we want to provide them with the repo name and the number of stars, not just the repo name. However, if the user asks for the number of stars for the repo with the most stars, we want to provide them with just the number of stars.
-- If the text requires a graph as an answer, we use [OpenAI's API](#credit) to generate matplotlib code to execute, displaying a grpah. If applicable, we also use [OpenAI's CLIP](#credit) to compute image and/or text embeddings.
-- If none of the above formats suit the question, we use [pandas-profiling](#credit) to generate a descriptive table profile.
+Once the user submits a table and a request regarding it, we first determine the kind of request. Then,
+- If a table modification is requested, we use [OpenAI's API](#credit) to generate Python code to return the whole modified table.
+- If a table row-wise lookup is requested or reasoning question is asked, we use [OpenAI's API](#credit) to generate Python code to return the sliced table.
+- If a table cell-wise lookup is requested or reasoning question is asked, we use [OpenAI's API](#credit) to generate Python code to return a conversational string that utilizes information in the table to answer the user.
+- If a distribution or relationship is mentioned in the user's question, we use [OpenAI's API](#credit) to generate Python matplotlib code to execute, displaying a graph. 
+- If text or image embeddings or clusters are asked to be displayed, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and Python matplotlib to display the graph accordingly.
+- If the question doesn't belong to any of the above formats, we use [pandas-profiling](#credit) to generate a descriptive table profile.
 ## Usage
 Some examples of requests and questions that the pipeline can handle, assuming the question references the input table:
-- Table Requests/Questions: `Questions that require context aside from the answer.`
-    - Find all the repos that have more than 900 stars. `Context: what are the repos that have more than 900 stars?`
-    - Add 10 stars to all the repos that have more than 900 stars. `Context: what are the repos that have more than 900 stars, and what are their new star counts?`
-    - Which repo has the most forks? `Context: how many forks does the repo have?`
-- Numerical/Text Questions: `Questions that require a direct answer.`
-    - How many forks does the CLIP repo have?
-    - Does the Transformers repo have the most stars compared to the other repos?
-    - What are the dimensions of the Transformers repo's icon?
-- Graph Questions: `Note: up to three variables ranging from numerical, categorical, text, image data can be graphed, allowing for 84 different kinds of graphs to be generated.`
-    - What does the distribution of the repos' stars look like? `Single numerical variable`
-    - How do the distributions of the repos' summaries and icons compare? `Text vs. image data`
-    - How do the distributions of the repos' summaries and icons change with number of stars? `Text vs. image data vs. numerical data`
-- Report Questions: `Questions that require more information than text or a graph could offer.`
-    - What is the missing values situation for this table?
-    - What is the duplicate rows situation for this table?
+- Table Modifications:
+    - Add 10 stars to all the repos that have summaries longer than 10 words and icons with a height larger than 500 pixels.
+    - Add a column named 'Stars_Forks' that averages the number of stars and forks for each row.
+- Table row-wise lookups/questions:
+    - Which rows have summaries longer than 10 words?
+- Table cell-wise lookups/questions:
+    - Does the Transformers repo have the most stars?
+    - What is the shape of the Transformers repo's icon?
+    - How many words long is the Transformers repo's description?
+- Distribution/Relationship Questions: 
+    - What does the distribution of the stars look like?
+- Text/Image Embedding/Cluster Questions: 
+    - How do the description embeddings change with release year?
+    - How do the summary and icon embeddings change with number of stars?
+- Report Questions: 
+    - How much memory does the dataset use?
+    - How uniform are the columns?
+    - What problems/challenges in the data need work to fix?
+    
+Some notes about submitting inputs to the pipeline:
+- Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
+- Try to be clear what it is exactly that you're asking for; for example, to get the backend to properly understand you want text embeddings to be plotted, it may be necessary to specify as such in the request as seen in the examples above.
+- Up to three variables ranging from numerical, categorical, text, image data can be graphed, allowing for 84 different kinds of distributions and relationships to be modelled.
 
 # Production
 To setup the production server for the website, we simply:
