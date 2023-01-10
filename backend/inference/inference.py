@@ -244,18 +244,20 @@ class Pipeline:
                     for item in dict_cont.items():
                         dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
                 
-                try:
+                try: # If < 2 numerical/categorical variables are present
                     placeholder = y.size # check if y is None
                     if other_vars_present: # If 1 numerical/categorical variable is present
                         ys = np.array(y)[clusters == cluster]
                         if dict_cat: # 1 categorical variable
                             zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
+                            ax.set_zlabel(list(dict_cat.keys())[0])
                             for zs_cat in np.unique(zs):
                                 xs_cat = xs[zs == zs_cat]
                                 ys_cat = ys[zs == zs_cat]
                                 ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)
                         elif dict_cont: # 1 numerical variable
                             zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
+                            ax.set_zlabel(list(dict_cont.keys())[0])
                             ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
                         else:
                             pass
@@ -266,6 +268,8 @@ class Pipeline:
                     if len(dict_cat) == 1: # 1 categorical and 1 numerical variable
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
+                        ax.set_ylabel(list(dict_cont.keys())[0])
+                        ax.set_zlabel(list(dict_cat.keys())[0])
                         for ys_cat in np.unique(ys):
                             for zs_cat in np.unique(zs):
                                 filter = np.logical_and([ys == ys_cat], [zs == zs_cat])
@@ -274,6 +278,8 @@ class Pipeline:
                     elif len(dict_cat) == 2: # 2 categorical variables
                         ys = np.array(list(dict_cat.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[1])[clusters == cluster]
+                        ax.set_ylabel(list(dict_cat.keys())[0])
+                        ax.set_zlabel(list(dict_cat.keys())[1])
                         for ys_cat in np.unique(ys):
                             for zs_cat in np.unique(zs):
                                 filter = np.logical_and([ys == ys_cat], [zs == zs_cat])
@@ -282,6 +288,8 @@ class Pipeline:
                     elif len(dict_cont) == 2: # 2 numerical variables
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cont.values())[1])[clusters == cluster]
+                        ax.set_ylabel(list(dict_cont.keys())[0])
+                        ax.set_zlabel(list(dict_cont.keys())[1])
                         ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
                     else:
                         pass 
@@ -384,14 +392,17 @@ class Pipeline:
             elif "html" in table.name:
                 df = pd.read_html(table.name)
             else:
-                pass            
+                return "File type not supported, please submit a csv, tsv, xlsx, ods, pdf, or html file."            
         else:
             df = table
         if isinstance(request, Path) | os.path.exists(request):
             with open(request, "r") as f:
                 request_str = f.readline()
         else:
-            request_str = request
+            if isinstance(request, str):
+                request_str = request
+            else:
+                return "Request must be a string or a path to a text file."
 
         # Getting data types of columns mentioned in the question
         column_data = {}
@@ -444,94 +455,105 @@ class Pipeline:
             temperature=0,
             max_tokens=3,
         )
-        which_answer = int(which_answer)
-
-        # Define notes for OpenAI prompt
-        note = str("Some notes about writing the code:\n" +
-                   "1. Don't call 'print()' or 'return'.\n" +
-                   "2. Whenever you call 'len()' or slice a pandas DataFrame, you understand what it is returning.\n" +
-                   "3. Avoid creating functions or classes unless necessary, in which case they must be called " +
-                   "within the code.\n" +
-                   "4. Import any necessary libraries, but don't import anything else.\n" +
-                   "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument " +
-                   "and returns the image as a Python numpy array, either directly on an string path or as a mapped " +
-                   "function over a list or pandas Series. ")
         
-        # Table modifications
-        if which_answer == 1: 
-            code_to_exec = self.openai_query(
-                prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, " +
-                       "their data types, and an example value from each one: " + df_info + "\n" +
-                       "A user asks the following from you regarding df: " + request_str + "\n" +
-                       "Write Python code that creates a copy of df to modify while retaining the whole table and " +
-                       "assigns the whole table to result. " + note,
-                temperature=0.2,
-                max_tokens=250,
-            )
-            return self.exec_code(df, code_to_exec)
+        try: # For valid questions
+            # Converting to int
+            which_answer = int(which_answer)
 
-        # Table row-wise lookups/reasoning questions
-        elif which_answer == 2:
-            code_to_exec = self.openai_query(
-                prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, " +
-                       "their data types, and an example value from each one: " + df_info + "\n" +
-                       "A user asks the following from you regarding df: " + request_str + "\n" +
-                       "Write Python code that creates a copy of df to slice by row and assigns the sliced table to " +
-                       "result. " + note,
-                temperature=0.2,
-                max_tokens=250,
-            )
-            return self.exec_code(df, code_to_exec)
+            # Define notes for OpenAI prompt
+            note = str("Some notes about writing the code:\n" +
+                    "1. Don't call 'print()' or 'return'.\n" +
+                    "2. Whenever you call 'len()' or slice a pandas DataFrame, understand what it will return.\n" +
+                    "3. Avoid creating functions or classes unless necessary, in which case they must be called " +
+                    "within the code.\n" +
+                    "4. Import any necessary libraries, but don't import anything else.\n" +
+                    "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument " +
+                    "and returns the image as a Python numpy array, either directly on an string path or as a mapped " +
+                    "function over a list or pandas Series. ")
+            
+            # Table modifications
+            if which_answer == 1: 
+                code_to_exec = self.openai_query(
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
+                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
+                        "A user asks the following from you regarding df: " + request_str + "\n" +
+                        "Write Python code that creates a copy of df to modify while retaining the whole table and " +
+                        "assigns the whole table to result. " + note,
+                    temperature=0.1,
+                    max_tokens=250,
+                )
+                return self.exec_code(df, code_to_exec)
 
-        # Table cell-wise lookups/reasoning questions
-        elif which_answer == 3: 
-            code_to_exec = self.openai_query(
-                prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, " +
-                       "their data types, and an example value from each one: " + df_info + "\n" +
-                       "A user asks the following from you regarding df: " + request_str + "\n" +
-                       "Write Python code that generates a string that uses relevant information from df to answer " +
-                       "the user's request and assigns it to result. For example, if the user asks for the number of " +
-                       "rows in df, don't just write 'result = len(df)', but instead return a string that says " +
-                       "something like 'result = \"There are \" + len(df) + \" rows in df.\". " + note,
-                temperature=0.2,
-                max_tokens=250,
-            )
-            return self.exec_code(df, code_to_exec)
+            # Table row-wise lookups/reasoning questions
+            elif which_answer == 2:
+                code_to_exec = self.openai_query(
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
+                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
+                        "A user asks the following from you regarding df: " + request_str + "\n" +
+                        "Write Python code that creates a copy of df to slice by row and assigns the sliced table to " +
+                        "result. " + note,
+                    temperature=0.1,
+                    max_tokens=250,
+                )
+                return self.exec_code(df, code_to_exec)
 
-        # Distribution/relationship questions without text or image clusters
-        elif which_answer == 4: 
-            code_to_exec = self.openai_query(
-                prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, " +
-                       "their data types, and an example value from each one: " + df_info + "\n" +
-                       "A user asks the following from you regarding df: " + request_str + "\n" +
-                       "Write Python code that draws an appropriate graph with matplotlib, doesn't include any " +
-                       "imports, labels the graph's title, axes, and legend as necessary, and ends with the line " +
-                       "'result = plt'. " + note,
-                temperature=0.3,
-                max_tokens=250,
-            )
-            return self.exec_code(df, code_to_exec)
+            # Table cell-wise lookups/reasoning questions
+            elif which_answer == 3: 
+                code_to_exec = self.openai_query(
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
+                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
+                        "A user asks the following from you regarding df: " + request_str + "\n" +
+                        "Write Python code that first finds relevant information from df, then generates a string " +
+                        "that uses the information to answer the user's request and assigns it to result. Make sure " +
+                        "to use f-strings correctly and accurately and conversationally answer the user's request in " +
+                        "the string. For example, if the user asks 'Does the Transformers repo have the most stars?' " +
+                        "and the Transformers repo has 17000 stars, the most stars of any repo, don't write 17000, " +
+                        "but instead write somethinglike '\"Yes, the Transformers repo has the most stars with 17000 " +
+                        "stars.\"'. " + note,
+                    temperature=0.1,
+                    max_tokens=250,
+                )
+                return self.exec_code(df, code_to_exec).strip('\"') # Remove quotes from string
 
-        # Distribution/relationship questions involving text or image clusters
-        elif which_answer == 5: 
-            columns = self.openai_query(
-                prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, " +
-                       "their data types, and an example value from each one: " + df_info + "\n" +
-                       "A user asks the following from you regarding df: " + request_str + "\n" +
-                       "List the necessary columns that should be used to generate a graph to answer the user as a " +
-                       "comma-separated list. If you think a column is necessary but it is phrased in a way that " +
-                       "suggests it posseses another column, it should be ignored. For example, if the user asks " +
-                       "'What do the repo's description embeddings look like?' with the current table df, the column " +
-                       "'Repos' should be ignored because it posseses the column 'Description', and only the column " +
-                       "'Description' should be used. ",
-                temperature=0.2,
-                max_tokens=250,
-            )
-            columns = columns.split(", ")
-            return self.get_embeds_graph(df, column_data, columns)
+            # Distribution/relationship questions without text or image clusters
+            elif which_answer == 4: 
+                code_to_exec = self.openai_query(
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
+                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
+                        "A user asks the following from you regarding df: " + request_str + "\n" +
+                        "Write Python code that draws an appropriate graph with matplotlib, doesn't include any " +
+                        "imports, labels the graph's title, axes, and legend as necessary, and ends with the line " +
+                        "'result = plt'. " + note,
+                    temperature=0.3,
+                    max_tokens=250,
+                )
+                return self.exec_code(df, code_to_exec)
 
-        # Can't tell, use pandas-profiling to generate a report
-        else: 
+            # Questions involving text and/or image embeddings/clusters
+            elif which_answer == 5: 
+                columns = self.openai_query(
+                   prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
+                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
+                        "A user asks the following from you regarding df: " + request_str + "\n" +
+                        "List (at most three of) the most necessary columns that should be used to generate a graph " +
+                        "to answer the user as a comma-separated list. If you think a column is necessary but it is " +
+                        "phrased in a way that suggests it posseses another column, it should be ignored. For " +
+                        "example, if the user asks 'What do the repo's description embeddings look like?' with the " +
+                        "current table df, the column 'Repos' should be ignored because it posseses the column " +
+                        "'Description', and only the column 'Description' should be used. ",
+                    temperature=0.1,
+                    max_tokens=250,
+                )
+                columns = columns.split(", ")
+                return self.get_embeds_graph(df, column_data, columns)
+
+            else:
+                x = 0 + "a" # Error to send user to exception handling below
+
+        except: # Invalid question or out of the scope of the backend -> use pandas-profiling to generate a report
+            confirmation_statement = str("I don't know how to answer that question. Here's a report on the table " +
+                                         "generated by YData's pandas-profiling library that might help you. ")
+
             if len(df) > 1000:
                 report = ProfileReport(df, title="Pandas Profiling Report", minimal=True)
             else:
@@ -543,12 +565,12 @@ class Pipeline:
             report.config.html.use_local_assets = True
             report.config.html.navbar_show = False
             report.config.html.full_width = False
-            return report.to_html()
+            return confirmation_statement + report.to_html()
 
             """
             # For Dash
             report.to_file("/assets/report.html")
-            return "HTML" # Frontend will handle the logic here
+            return confirmation_statement + "HTML" # Frontend will handle the logic here
             """
 
 

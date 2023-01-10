@@ -25,6 +25,51 @@ README = APP_DIR / "README.md"  # path to an app readme file in HTML/markdown
 
 DEFAULT_PORT = 11700
 
+test_path = Path("backend") / "inference" / "tests" / "support"
+
+
+def get_examples(folder, ext, table_paths=None):
+    ex_dir = test_path / folder
+    ex_fnames = [elem for elem in os.listdir(ex_dir) if elem.endswith(ext)]
+    ex_paths = [ex_dir / fname for fname in ex_fnames]
+    ex_paths = sorted(ex_paths)
+
+    if table_paths:
+        requests = []
+        for path in ex_paths:
+            with open(path, "r") as f:
+                requests.append(f.readline())
+        if len(table_paths) > 1:
+            temp = []
+            for table_path in table_paths:
+                temp.extend([table_path] * len(requests))
+            requests *= len(temp)
+        else:
+            temp = table_paths.copy()
+            temp *= len(requests)
+        return [[str(table_path), request] for table_path, request in zip(temp, requests)]
+    else:
+        return ex_paths
+
+
+def get_interface(fn, outputs, readme, examples, allow_flagging, flagging_callback, flagging_dir):
+    return gr.Interface(
+        fn=fn,  # which Python function are we interacting with?
+        outputs=outputs, # what output widgets does it need?
+        # what input widgets does it need?
+        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
+        title="Captafied",  # what should we display at the top of the page?
+        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
+        description=__doc__,  # what should we display just above the interface?
+        article=readme,  # what long-form content should we display below the interface?
+        examples=examples,  # which potential inputs should we provide?
+        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
+        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
+        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+        flagging_callback=flagging_callback,
+        flagging_dir=flagging_dir,
+    )
+
 
 def main(args):
     predictor = PredictorBackend(url=args.model_url)
@@ -39,57 +84,11 @@ def main(args):
 
 def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False):
     """Creates a gradio.Interface frontend for an table + text to table, text, graph, or HTML page function."""
-    test_path = Path("backend") / "inference" / "tests" / "support"
-    table_examples_dir = test_path / "tables"
-    table_example_fnames = [elem for elem in os.listdir(table_examples_dir) if elem.endswith(".csv")]
-    table_example_paths = [table_examples_dir / fname for fname in table_example_fnames]
-    table_example_paths = sorted(table_example_paths)
-
-    table_request_examples_dir = test_path / "table_requests"
-    table_request_example_fnames = [elem for elem in os.listdir(table_request_examples_dir) if elem.endswith(".txt")]
-    table_request_example_paths = [table_request_examples_dir / fname for fname in table_request_example_fnames]
-    table_request_example_paths = sorted(table_request_example_paths)
-
-    text_request_examples_dir = test_path / "text_requests"
-    text_request_example_fnames = [elem for elem in os.listdir(text_request_examples_dir) if elem.endswith(".txt")]
-    text_request_example_paths = [text_request_examples_dir / fname for fname in text_request_example_fnames]
-    text_request_example_paths = sorted(text_request_example_paths)
-
-    graph_request_examples_dir = test_path / "graph_requests"
-    graph_request_example_fnames = [elem for elem in os.listdir(graph_request_examples_dir) if elem.endswith(".txt")]
-    graph_request_example_paths = [graph_request_examples_dir / fname for fname in graph_request_example_fnames]
-    graph_request_example_paths = sorted(graph_request_example_paths)
-
-    report_request_examples_dir = test_path / "report_requests"
-    report_request_example_fnames = [elem for elem in os.listdir(report_request_examples_dir) if elem.endswith(".txt")]
-    report_request_example_paths = [report_request_examples_dir / fname for fname in report_request_example_fnames]
-    report_request_example_paths = sorted(report_request_example_paths)
-
-    table_requests = []
-    text_requests = []
-    graph_requests = []
-    report_requests = []
-
-    for path in table_request_example_paths:
-        with open(path, "r") as f:
-            table_requests.append(f.readline())
-
-    for path in text_request_example_paths:
-        with open(path, "r") as f:
-            text_requests.append(f.readline())
-
-    for path in graph_request_example_paths:
-        with open(path, "r") as f:
-            graph_requests.append(f.readline())
-
-    for path in report_request_example_paths:
-        with open(path, "r") as f:
-            report_requests.append(f.readline())
-
-    table_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(table_requests), table_requests)]
-    text_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(text_requests), text_requests)]
-    graph_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(graph_requests), graph_requests)]
-    report_examples = [[str(table_path), request] for table_path, request in zip(table_example_paths*len(report_requests), report_requests)]
+    table_example_paths = get_examples("tables", ".csv")
+    table_examples = get_examples("table_requests", ".txt", table_example_paths)
+    text_examples = get_examples("text_requests", ".txt", table_example_paths)
+    graph_examples = get_examples("graph_requests", ".txt", table_example_paths)
+    report_examples = get_examples("report_requests", ".txt", table_example_paths)
 
     allow_flagging = "never"
     if flagging:  # logging user feedback to a local CSV file
@@ -102,70 +101,42 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
     readme = _load_readme(with_logging=allow_flagging == "manual")
 
     # build a basic browser interface to a Python function
-    table = gr.Interface(
-        fn=fn,  # which Python function are we interacting with?
-        outputs=[gr.components.DataFrame()], # what output widgets does it need?
-        # what input widgets does it need?
-        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
-        title="Captafied",  # what should we display at the top of the page?
-        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
-        description=__doc__,  # what should we display just above the interface?
-        article=readme,  # what long-form content should we display below the interface?
-        examples=table_examples,  # which potential inputs should we provide?
-        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
-        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
-        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+    table = get_interface(
+        fn=fn,
+        outputs=[gr.components.DataFrame()],
+        readme=readme,
+        examples=table_examples,
+        allow_flagging=allow_flagging,
         flagging_callback=flagging_callback,
         flagging_dir=flagging_dir,
     )
 
-    text = gr.Interface(
-        fn=fn,  # which Python function are we interacting with?
-        outputs=[gr.components.Textbox()], # what output widgets does it need?
-        # what input widgets does it need?
-        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
-        title="Captafied",  # what should we display at the top of the page?
-        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
-        description=__doc__,  # what should we display just above the interface?
-        article=readme,  # what long-form content should we display below the interface?
-        examples=text_examples,  # which potential inputs should we provide?
-        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
-        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
-        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+    text = get_interface(
+        fn=fn,
+        outputs=[gr.components.Textbox()],
+        readme=readme,
+        examples=text_examples,
+        allow_flagging=allow_flagging,
         flagging_callback=flagging_callback,
         flagging_dir=flagging_dir,
     )
 
-    graph = gr.Interface(
-        fn=fn,  # which Python function are we interacting with?
-        outputs=[gr.components.Plot()], # what output widgets does it need?
-        # what input widgets does it need?
-        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
-        title="Captafied",  # what should we display at the top of the page?
-        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
-        description=__doc__,  # what should we display just above the interface?
-        article=readme,  # what long-form content should we display below the interface?
-        examples=graph_examples,  # which potential inputs should we provide?
-        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
-        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
-        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+    graph = get_interface(
+        fn=fn,
+        outputs=[gr.components.Plot()],
+        readme=readme,
+        examples=graph_examples,
+        allow_flagging=allow_flagging,
         flagging_callback=flagging_callback,
         flagging_dir=flagging_dir,
     )
 
-    report = gr.Interface(
-        fn=fn,  # which Python function are we interacting with?
-        outputs=[gr.components.HTML()], # what output widgets does it need?
-        # what input widgets does it need?
-        inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
-        title="Captafied",  # what should we display at the top of the page?
-        thumbnail=FAVICON,  # what should we display when the link is shared, e.g. on social media?
-        description=__doc__,  # what should we display just above the interface?
-        article=readme,  # what long-form content should we display below the interface?
-        examples=report_examples,  # which potential inputs should we provide?
-        cache_examples=False,  # should we cache those inputs for faster inference? slows down start
-        allow_flagging=allow_flagging,  # should we show users the option to "flag" outputs?
-        flagging_options=["incorrect", "offensive", "other"],  # what options do users have for feedback?
+    report = get_interface(
+        fn=fn,
+        outputs=[gr.components.HTML()],
+        readme=readme,
+        examples=report_examples,
+        allow_flagging=allow_flagging,
         flagging_callback=flagging_callback,
         flagging_dir=flagging_dir,
     )
