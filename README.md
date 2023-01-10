@@ -17,13 +17,12 @@
 
 # Contributors
 1. Andrew Hinh (ajhinh@gmail.com)
-2. Akhil Devarasetty (akhild2004@gmail.com)
-3. Laith Darras (laith.s.darras@gmail.com)
-4. Calvin Hoang (calvinhoang21403@gmail.com)
-5. Edison Zhang (edisonzhangsw@gmail.com)
-6. Albert Ho (almtho2003@gmail.com)
-7. Jair Martinez (martinez.jair1224@gmail.com, 1999jairmartinez@gmail.com)
-8. Brian Huynh (brianhuynh1028@gmail.com)
+2. Laith Darras (laith.s.darras@gmail.com)
+3. Calvin Hoang (calvinhoang21403@gmail.com)
+4. Edison Zhang (edisonzhangsw@gmail.com)
+5. Albert Ho (almtho2003@gmail.com)
+6. Jair Martinez (martinez.jair1224@gmail.com, 1999jairmartinez@gmail.com)
+7. Brian Huynh (brianhuynh1028@gmail.com)
 
 # Description
 A full-stack ML-powered website that helps users understand their spreadsheet data regardless of the format and without the learning curve of data processing and visualization tools such as Excel or Python. 
