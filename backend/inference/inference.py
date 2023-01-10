@@ -219,7 +219,7 @@ class Pipeline:
             n_components = 2
             if embeds.shape[0] < 15: # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
                 n_neighbors = embeds.shape[0] - 1
-            if dict_cat and dict_cont: # Reduce UMAP n_components to accomodate for 2 cat/numerical variables
+            if dict_cat and dict_cont: # Reduce UMAP n_components to accomodate for 2 cat/cont variables
                 n_components = 1
             reducer = umap.UMAP(n_neighbors=n_neighbors, n_components=n_components)
             embedding = reducer.fit_transform(embeds)
@@ -244,9 +244,9 @@ class Pipeline:
                     for item in dict_cont.items():
                         dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
                 
-                try: # If < 2 numerical/categorical variables are present
+                try: # If < 2 continuous/categorical variables are present
                     placeholder = y.size # check if y is None
-                    if other_vars_present: # If 1 numerical/categorical variable is present
+                    if other_vars_present: # If 1 continuous/categorical variable is present
                         ys = np.array(y)[clusters == cluster]
                         if dict_cat: # 1 categorical variable
                             zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
@@ -255,17 +255,17 @@ class Pipeline:
                                 xs_cat = xs[zs == zs_cat]
                                 ys_cat = ys[zs == zs_cat]
                                 ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)
-                        elif dict_cont: # 1 numerical variable
+                        elif dict_cont: # 1 continuous variable
                             zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
                             ax.set_zlabel(list(dict_cont.keys())[0])
                             ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
                         else:
                             pass
-                    else: # If no numerical/categorical variables are present
+                    else: # If no continuous/categorical variables are present
                         ys = np.array(y)[clusters == cluster]
                         ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
-                except: # If 2 numerical/categorical variables are present
-                    if len(dict_cat) == 1: # 1 categorical and 1 numerical variable
+                except: # If 2 continuous/categorical variables are present
+                    if len(dict_cat) == 1: # 1 categorical and 1 continuous variable
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
                         ax.set_ylabel(list(dict_cont.keys())[0])
@@ -285,7 +285,7 @@ class Pipeline:
                                 filter = np.logical_and([ys == ys_cat], [zs == zs_cat])
                                 xs_cat = xs[filter[0]]
                                 ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)   
-                    elif len(dict_cont) == 2: # 2 numerical variables
+                    elif len(dict_cont) == 2: # 2 continuous variables
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cont.values())[1])[clusters == cluster]
                         ax.set_ylabel(list(dict_cont.keys())[0])
@@ -373,6 +373,26 @@ class Pipeline:
 
         return plt
 
+    def get_report(self, df, error):
+        if len(df) > 1000:
+            report = ProfileReport(df, title="Pandas Profiling Report", minimal=True)
+        else:
+            report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
+        
+        # For Gradio
+        report.config.html.inline = True
+        report.config.html.minify_html = True
+        report.config.html.use_local_assets = True
+        report.config.html.navbar_show = False
+        report.config.html.full_width = False
+        return error + report.to_html()
+
+        """
+        # For Dash
+        report.to_file("/assets/report.html")
+        return error + "HTML" # Frontend will handle the logic here
+        """
+
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
         # Handling repeated uses of matplotlib
         plt.clf()
@@ -425,7 +445,7 @@ class Pipeline:
                         else: # For text
                             column_data[column] = self.types[0]
                             break # Break out of the loop at the first text value
-                else: # For numbers
+                else: # For continuous data
                     column_data[column] = self.types[3]
             else: # For categorical data
                 column_data[column] = self.types[2]
@@ -469,7 +489,9 @@ class Pipeline:
                     "4. Import any necessary libraries, but don't import anything else.\n" +
                     "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument " +
                     "and returns the image as a Python numpy array, either directly on an string path or as a mapped " +
-                    "function over a list or pandas Series. ")
+                    "function over a list or pandas Series.\n" +
+                    "6. If the user is making an impossible request, return 'raise ValueError(\"Invalid request " +
+                    "being made.\")'. ")
             
             # Table modifications
             if which_answer == 1: 
@@ -535,45 +557,38 @@ class Pipeline:
                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
                         "columns, their data types, and an example value from each one: " + df_info + "\n" +
                         "A user asks the following from you regarding df: " + request_str + "\n" +
-                        "List (at most three of) the most necessary columns that should be used to generate a graph " +
-                        "to answer the user as a comma-separated list. If you think a column is necessary but it is " +
-                        "phrased in a way that suggests it posseses another column, it should be ignored. For " +
-                        "example, if the user asks 'What do the repo's description embeddings look like?' with the " +
-                        "current table df, the column 'Repos' should be ignored because it posseses the column " +
-                        "'Description', and only the column 'Description' should be used. ",
+                        "List the most necessary columns that should be used to generate a graph to answer the user " +
+                        "as a comma-separated list. Some notes:\n" +
+                        "1. If you think a column is necessary but it is phrased in a way that suggests it posseses " +
+                        "another column, it should be ignored. For example, if the user asks 'What do the repo's " +
+                        "description embeddings look like?' with the current table df, the column 'Repos' should be " +
+                        "ignored because it posseses the column 'Description', and only the column 'Description' " +
+                        "should be used.\n" +
+                        "2. If the user is asking to graph more than two categorical and/or continuous columns, " +
+                        "return 'None'. ",
                     temperature=0.1,
                     max_tokens=250,
                 )
                 columns = columns.split(", ")
+                for column in columns:
+                    if column not in df.columns:
+                        raise ValueError("Invalid request being made.")
                 return self.get_embeds_graph(df, column_data, columns)
 
             else:
-                x = 0 + "a" # Error to send user to exception handling below
+                raise ValueError("Invalid request being made.")
 
-        except: # Invalid question or out of the scope of the backend -> use pandas-profiling to generate a report
-            confirmation_statement = str("I don't know how to answer that question. Here's a report on the table " +
-                                         "generated by YData's pandas-profiling library that might help you. ")
+        except ValueError: # Invalid question -> use pandas-profiling to generate a report
+            error = str("I don't know how to answer that question. Here's a report on the table generated by YData's " +
+                        "pandas-profiling library that might help you. ")
+            return self.get_report(df, error)
+        
+        except: # Something went wrong -> use pandas-profiling to generate a report
+            error = str("Something went wrong. Here's a report on the table generated by YData's pandas-profiling " +
+                        "library that might help you. ")
+            return self.get_report(df, error)
 
-            if len(df) > 1000:
-                report = ProfileReport(df, title="Pandas Profiling Report", minimal=True)
-            else:
-                report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
             
-            # For Gradio
-            report.config.html.inline = True
-            report.config.html.minify_html = True
-            report.config.html.use_local_assets = True
-            report.config.html.navbar_show = False
-            report.config.html.full_width = False
-            return confirmation_statement + report.to_html()
-
-            """
-            # For Dash
-            report.to_file("/assets/report.html")
-            return confirmation_statement + "HTML" # Frontend will handle the logic here
-            """
-
-
 # Running model
 def main():
     parser = argparse.ArgumentParser()
