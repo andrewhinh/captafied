@@ -124,6 +124,12 @@ class Pipeline:
         else:
             clip_texts = list(itertools.chain.from_iterable(texts))
             clip_images = list(itertools.chain.from_iterable(images))
+            if len(clip_texts) > len(clip_images):
+                clip_images *= len(clip_texts) // len(clip_images)
+            elif len(clip_images) > len(clip_texts):
+                clip_texts *= len(clip_images) // len(clip_texts)
+            else:
+                pass
         
         # CLIP encoding
         inputs = self.clip_processor(text=clip_texts, images=clip_images, return_tensors="np", padding=True)
@@ -175,6 +181,7 @@ class Pipeline:
             for column in cont_columns:
                 dict_cont[column] = self.get_column_vals(df, column)
         other_vars_present = dict_cat or dict_cont
+        two_other_vars_present = len(dict_cat) == 2 or len(dict_cont) == 2 or (dict_cat and dict_cont)
 
         # Setting up matplotlib figure
         if other_vars_present:
@@ -219,7 +226,7 @@ class Pipeline:
             n_components = 2
             if embeds.shape[0] < 15: # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
                 n_neighbors = embeds.shape[0] - 1
-            if dict_cat and dict_cont: # Reduce UMAP n_components to accomodate for 2 cat/cont variables
+            if two_other_vars_present: # Reduce UMAP n_components to accomodate for 2 cat/cont variables
                 n_components = 1
             reducer = umap.UMAP(n_neighbors=n_neighbors, n_components=n_components)
             embedding = reducer.fit_transform(embeds)
@@ -244,37 +251,16 @@ class Pipeline:
                     for item in dict_cont.items():
                         dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
                 
-                try: # If < 2 continuous/categorical variables are present
-                    placeholder = y.size # check if y is None
-                    if other_vars_present: # If 1 continuous/categorical variable is present
-                        ys = np.array(y)[clusters == cluster]
-                        if dict_cat: # 1 categorical variable
-                            zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
-                            ax.set_zlabel(list(dict_cat.keys())[0])
-                            for zs_cat in np.unique(zs):
-                                xs_cat = xs[zs == zs_cat]
-                                ys_cat = ys[zs == zs_cat]
-                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)
-                        elif dict_cont: # 1 continuous variable
-                            zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
-                            ax.set_zlabel(list(dict_cont.keys())[0])
-                            ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
-                        else:
-                            pass
-                    else: # If no continuous/categorical variables are present
-                        ys = np.array(y)[clusters == cluster]
-                        ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
-                except: # If 2 continuous/categorical variables are present
+                if two_other_vars_present: # 2 categorical/continuous variables
                     if len(dict_cat) == 1: # 1 categorical and 1 continuous variable
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
                         ax.set_ylabel(list(dict_cont.keys())[0])
                         ax.set_zlabel(list(dict_cat.keys())[0])
-                        for ys_cat in np.unique(ys):
-                            for zs_cat in np.unique(zs):
-                                filter = np.logical_and([ys == ys_cat], [zs == zs_cat])
-                                xs_cat = xs[filter[0]]
-                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)                            
+                        for zs_cat in np.unique(zs):
+                            xs_cat = xs[zs == zs_cat]
+                            ys_cat = ys[zs == zs_cat]
+                            ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)                            
                     elif len(dict_cat) == 2: # 2 categorical variables
                         ys = np.array(list(dict_cat.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[1])[clusters == cluster]
@@ -293,7 +279,26 @@ class Pipeline:
                         ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
                     else:
                         pass 
-                                          
+                else: # If < 2 continuous/categorical variables are present
+                    if other_vars_present: # If 1 continuous/categorical variable is present
+                        ys = np.array(y)[clusters == cluster]
+                        if dict_cat: # 1 categorical variable
+                            zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
+                            ax.set_zlabel(list(dict_cat.keys())[0])
+                            for zs_cat in np.unique(zs):
+                                xs_cat = xs[zs == zs_cat]
+                                ys_cat = ys[zs == zs_cat]
+                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)
+                        elif dict_cont: # 1 continuous variable
+                            zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
+                            ax.set_zlabel(list(dict_cont.keys())[0])
+                            ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
+                        else:
+                            pass
+                    else: # If no continuous/categorical variables are present
+                        ys = np.array(y)[clusters == cluster]
+                        ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
+                                    
                 # Adding cluster to legend
                 artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker=marker)
                 cluster_handles.append(artist)
@@ -557,8 +562,8 @@ class Pipeline:
                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
                         "columns, their data types, and an example value from each one: " + df_info + "\n" +
                         "A user asks the following from you regarding df: " + request_str + "\n" +
-                        "List the most necessary columns that should be used to generate a graph to answer the user " +
-                        "as a comma-separated list. Some notes:\n" +
+                        "List the columns mentioned in the user request that are necessary to generate a graph to " +
+                        "answer the user as a comma-separated list. Some notes:\n" +
                         "1. If you think a column is necessary but it is phrased in a way that suggests it posseses " +
                         "another column, it should be ignored. For example, if the user asks 'What do the repo's " +
                         "description embeddings look like?' with the current table df, the column 'Repos' should be " +
