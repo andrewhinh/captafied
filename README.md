@@ -82,10 +82,9 @@ python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
 ```bash
 git clone https://github.com/andrewhinh/captafied.git
 cd captafied
-# Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/linux.html
-    # Windows: https://conda.io/projects/conda/en/latest/user-guide/install/windows.html
-        # Windows OS must install 'make' through chocolately: https://chocolatey.org/install 
-        # After install run 'choco install make' inside Anaconda3 prompt
+# Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
+    # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
+    # choco install make
 make conda-update 
 conda activate captafied
 make pip-tools
