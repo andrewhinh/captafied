@@ -576,7 +576,6 @@ class Pipeline:
                     temperature=0.1,
                     max_tokens=250,
                 )
-                print(columns)
                 columns = columns.split(", ")
                 for column in columns:
                     if column not in df.columns:
