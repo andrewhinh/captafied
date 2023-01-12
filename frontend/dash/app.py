@@ -209,6 +209,10 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 
 
 # Helper functions
+# Check if number of clicks for button/input has changed
+def total_clicks():
+    return [p['prop_id'] for p in dash.callback_context.triggered][0]
+
 # Convert an uploaded file/typed-in URL to a pd.DataFrame 
 def convert_to_pd(contents=None, filename=None, url=None):
     empty_df, empty_error = None, None
@@ -428,24 +432,24 @@ def flag_pred(request, pred, contents=None, filename=None, url=None, inc_clicked
         pred = [x['props']['children'] if x['props']['children'] else x['props']['src'] for x in pred['props']['children']]
         pred = " ".join(pred)
 
-    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
-    button_clicked = ['incorrect-button-state' in changed_id, 
+    changed_id = total_clicks()
+    buttons_clicked = ['incorrect-button-state' in changed_id, 
                       'offensive-button-state' in changed_id,
                       'other-button-state' in changed_id,
     ]
     
     df, error = None, None   
-    if True in button_clicked and contents and filename and request and pred:
+    if True in buttons_clicked and contents and filename and request and pred:
         df, error = convert_to_pd(contents[0], filename[0], None)
-    if True in button_clicked and url and request and pred:
+    if True in buttons_clicked and url and request and pred:
         df, error = convert_to_pd(None, None, url)
 
     checks = df is not None and request is not None and pred is not None and not error
-    if checks and button_clicked[0]:
+    if checks and buttons_clicked[0]:
         flag_output(request, pred, True, None, None)
-    if checks and button_clicked[1]:
+    if checks and buttons_clicked[1]:
         flag_output(request, pred, None, True, None)
-    if checks and button_clicked[2]:
+    if checks and buttons_clicked[2]:
         flag_output(request, pred, None, None, True)
 
 # When report is generated and needs to be displayed
