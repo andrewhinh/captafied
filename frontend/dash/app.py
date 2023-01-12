@@ -392,5 +392,3 @@ html.Pre(contents[0:200] + '...', style={
 # Code execution
 if __name__ == '__main__':
     app.run_server(debug=True, port=11701)
-if __name__ == '__main__':
-    app.run_server(debug=True)
