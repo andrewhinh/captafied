@@ -19,8 +19,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""  # do not use GPU
 logging.basicConfig(level=logging.INFO)
 
 APP_DIR = Path(__file__).resolve().parent  # what is the directory for this application?
-FRONTEND_DIR = Path("./frontend")  # what is the directory for the frontend?
-FAVICON = FRONTEND_DIR / "logo.png"  # path to a small image for display in browser tab and social media
+FAVICON = APP_DIR / "logo.png"  # path to a small image for display in browser tab and social media
 README = APP_DIR / "README.md"  # path to an app readme file in HTML/markdown
 
 DEFAULT_PORT = 11700

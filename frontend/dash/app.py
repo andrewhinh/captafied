@@ -1,19 +1,30 @@
 # Libraries
+import argparse
 import base64
+import datetime
 import io
 import os
 
+from backend.inference.inference import Pipeline
 import dash
 from dash.dependencies import Input, Output, State
 from dash import dcc, html
+import flask
+from flask import Flask
+import os
 import pandas as pd
 from pathlib import Path
 import tabula as tb
 
-from backend.inference.inference import Pipeline
-
 
 # Variables
+# Port for Dash app
+DEFAULT_PORT = 11700
+
+# Flask server for loading assets
+server = Flask(__name__)
+ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets')
+
 # CSS stylesheet
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -39,7 +50,7 @@ flag_csv_path = Path(__file__).parent / '..' / '..' / 'flagged' / 'log.csv'
 
 # Main frontend code
 # Initializing dash app
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets, server=server)
 
 # Initializing app layout
 app.layout = html.Div(style={'backgroundColor': colors['background']}, children=[
@@ -49,109 +60,151 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
                 'textAlign': 'center',
                 'fontFamily': 'Helvetica',
                 'fontSize': '70px',
-                'margin-top': '10px',
                 'fontWeight': 'bold',
                 'color': colors['text'],
-            }),
+            }
+    ),
 
     # Subtitle
-    html.Div('Edit, query, graph, and understand your table!',
-             style={
+    html.H2('Edit, query, graph, and understand your table!',
+            style={
                 'textAlign': 'center',
                 'fontFamily': 'Helvetica',
-                'fontSize': '20px',
-                #'margin-left' : '90px',
-                #'padding-left' : '90px',
-                'color': colors['text'],                 
-            }),
+                'fontSize': '30px',
+                'color': colors['text'],
+            }
+    ),
 
     # Line break
     html.Br(), 
-
+    
     # Input: table file
-    dcc.Upload(id='before-table-file-uploaded',
-        children=html.Div([
-            'Drag and Drop or ',
-            html.A('Select Files')
-        ]),
-        style={
-            #'width': '40%',
-            'height': '150px',
-            'lineHeight': '150px',
-            'borderWidth': '1px',
-            'borderRadius': '5px',
-            'padding': '60px',
-            'textAlign': 'center',
-            'fontSize': '20px',
-            'borderStyle': 'dashed',
-            'color': colors['text'],
-        },
-        multiple=True, # Allow multiple files to be uploaded
+    html.H3('Upload your table as a file:',
+            style={
+                'textAlign': 'center',
+                'fontFamily': 'Helvetica',
+                'fontSize': '20px',
+                'color': colors['text'],
+            }
     ),
+    html.Center([
+        dcc.Upload(id='before-table-file-uploaded',
+                   children=html.Div([
+                                'Drag and Drop or ',
+                                html.A('Select Files')
+                   ]),
+                   style={
+                        'textAlign': 'center',
+                        'fontFamily': 'Helvetica',
+                        'fontSize': '20px',
+                        'width': '40%',
+                        'height': '100px',
+                        'lineHeight': '100px',
+                        'borderStyle': 'dashed',
+                        'color': colors['text'],
+                   },
+                   multiple=True, # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeaeted uses
+        ),
+    ]),
+    html.Br(),
     html.Div(id='after-table-file-uploaded'),
 
     html.Br(),
 
     # Input: table as a URL
-    html.Label('Or paste a public Google Sheets URL:',
-               style={
+    html.Div([
+        html.H3('Or paste a public Google Sheets URL:',
+            style={
                 'textAlign': 'center',
+                'fontFamily': 'Helvetica',
                 'fontSize': '20px',
                 'color': colors['text'],
-               }),
-    dcc.Input(id='before-table-url-uploaded',
-              type='text',
-              placeholder=example_url,
-              style={
-                'textAlign': 'center',
-                'fontSize': '20px',
-                #'width': '40%',
-                'margin-top': '10px',
-                'margin-right': '10px',
-                'margin-bottom': '20px',
-                'color': colors['text'],
-                'backgroundColor': colors['background'],
-              }),
-    html.Button(id='process-url-button-state', n_clicks=0, children='Process URL'),
+            }
+        ),
+        dcc.Input(id='before-table-url-uploaded',
+                  type='url',
+                  placeholder=example_url,
+                  debounce=True,
+                  style={
+                    'textAlign': 'center',
+                    'fontSize': '20px',
+                    'color': colors['text'],
+                    'backgroundColor': colors['background']
+                  }),
+        ],
+        style={
+            'textAlign': 'center',
+            'fontSize': '20px',
+            'color': colors['text'],
+        }
+    ),
+    html.Br(),
     html.Div(id='after-table-url-uploaded'),
-    
+
+    html.Br(),
+
     # Input: text request
-    html.Label('Type your request here:',
-               style={
+    html.Div([
+        html.H3('Type in a request:',
+            style={
                 'textAlign': 'center',
+                'fontFamily': 'Helvetica',
                 'fontSize': '20px',
-                
                 'color': colors['text'],
-               }),
-    dcc.Input(id='before-request-uploaded', 
-              type='text',
-              placeholder=example_request,
-              style={
-                'textAlign': 'center',
-                'fontSize': '20px',
-                #'width': '40%',
-                'margin-top': '10px',
-                'margin-right': '10px',
-                'margin-bottom': '20px',
-                'color': colors['text'],
-                'backgroundColor': colors['background'],
-              }),
-    html.Button(id='ask-button-state', 
-                n_clicks=0, 
-                style={'margin-top': '10px',
-                       'color': 'green',
-                       'border-color': 'green',
-                },
-                children='Ask'),
+            }
+        ),
+        dcc.Input(id='request-uploaded',
+                  type='text',
+                  placeholder=example_request,
+                  debounce=True,
+                  style={
+                    'textAlign': 'center',
+                    'fontSize': '20px',
+                    'color': colors['text'],
+                    'backgroundColor': colors['background']
+                  }),
+        ],
+        style={
+            'textAlign': 'center',
+            'fontSize': '20px',
+            'color': colors['text'],
+        }
+    ),
+
+    html.Br(),
 
     # Output: table, text, graph, report, and/or error
     html.Div(id='pred_output'),
 
+    html.Br(),
+
     # Flagging buttons
-    html.Button(id='incorrect-button-state', n_clicks=0, children='Incorrect'), # Incorrect flag button
-    html.Button(id='offensive-button-state', n_clicks=0, children='Offensive'), # Offensive flag button
-    html.Button(id='other-button-state', n_clicks=0, children='Other'), # Other flag button
+    html.Div([
+        html.Button(id='incorrect-button-state', 
+                    n_clicks=0,
+                    children='Incorrect',
+                    style={'color': colors['text']}), # Incorrect flag button
+        html.Button(id='offensive-button-state', 
+                    n_clicks=0, 
+                    children='Offensive',
+                    style={'color': colors['text']}), # Offensive flag button
+        html.Button(id='other-button-state', 
+                    n_clicks=0, 
+                    children='Other',
+                    style={'color': colors['text']}), # Other flag button
+        ],
+        style={
+            'textAlign': 'center',
+            'fontSize': '20px',
+            'color': colors['text'],
+        }
+    ),
     html.Div(id='flag_output'),
+
+    # Extra length at the bottom of the page
+    html.Div([
+        html.Br(),
+    ]*10),
 ])
 
 
@@ -208,13 +261,13 @@ def show_uploaded_table(contents=None, filename=None, url=None):
     try:
         if type(df) == pd.DataFrame:
             return html.Div(style={'backgroundColor': colors['background']}, children=[
-                html.H5(heading,
+                html.H4(heading,
                         style={
                             'textAlign': 'center',
+                            'fontFamily': 'Helvetica',
                             'font-size': '20px',
                             'color': colors['text'],
                         }),
-
                 html.Table(children=[
                     html.Thead(
                         html.Tr([html.Th(col) for col in df.columns])
@@ -228,8 +281,6 @@ def show_uploaded_table(contents=None, filename=None, url=None):
                     style={
                         'color': colors['text'],
                         'backgroundColor': colors['background'],
-                        'height': 'auto',
-                        'width': 'auto',
                     }
                 )
             ])
@@ -264,6 +315,7 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
             html.H5(text,
                     style={
                         'textAlign': 'center',
+                        'fontFamily': 'Helvetica',
                         'font-size': '20px',
                         'color': colors['text'],
                     }),
@@ -275,18 +327,20 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
         ])
     
     if report is not None:
-        message = report[0]
-        report = report[1]
+        message, report_path = report[0], report[1]
         outputs.extend([html.H5(message,
-                        style={
-                            'textAlign': 'center',
-                            'font-size': '20px',
-                            'color': colors['text'],
-                        }),
+                                style={
+                                    'textAlign': 'center',
+                                    'fontFamily': 'Helvetica',
+                                    'font-size': '20px',
+                                    'color': colors['text'],
+                                }
+                        ),
                         html.Iframe(
-                            src=report,  # must be under assets/ to be properly served
-                            style={"height": "1080px", "width": "100%"},
-                        )])
+                                src=report_path,
+                                style={"height": "1080px", "width": "100%"},
+                        )]
+        )
     
     if error is not None:
         outputs.extend([
@@ -302,21 +356,28 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
 
 # Flag output
 def flag_output(request, pred, incorrect=None, offensive=None, other=None):
-    log = pd.DataFrame({'request': [request], 'prediction': [pred]})
-    
+    clicked = ["temp"]
+    log = pd.DataFrame({'Request': [request], 
+                        'Output': [pred], 
+                        'Flag': clicked, 
+                        'Timestamp': [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+                    })
+    clicked = clicked[1:]
+
     if incorrect:
-        add = pd.DataFrame({'incorrect': True})
-        log['incorrect'] = add
+        clicked.append('incorrect')
+        log['Flag'] = clicked
     
     if offensive:
-        add = pd.DataFrame({'offensive': True})
-        log['offensive'] = add
+        clicked.append('offensive')
+        log['Flag'] = clicked
 
     if other:
-        add = pd.DataFrame({'other': True})
-        log['other'] = add
+        clicked.append('other')
+        log['Flag'] = clicked
 
-    log.to_csv(flag_csv_path, mode='a', index=False, header=not os.path.exists(flag_csv_path))
+    if clicked:
+        log.to_csv(flag_csv_path, mode='a', index=False, header=not os.path.exists(flag_csv_path))
 
 
 # Event functions
@@ -330,32 +391,31 @@ def show_uploaded_table_file(contents, filename):
 
 # When only table URL is uploaded
 @app.callback(Output('after-table-url-uploaded', 'children'),
-              Input('process-url-button-state', 'n_clicks'),
-              State('before-table-url-uploaded', 'value'))
-def show_uploaded_table_url(clicked, url):
-    if clicked and url:
+              Input('before-table-url-uploaded', 'value'))
+def show_uploaded_table_url(url):
+    if url:
         return show_uploaded_table(None, None, url)
 
 # When both table file/url + request are uploaded
 @app.callback(Output('pred_output', 'children'),
-              Input('ask-button-state', 'n_clicks'),
-              State('before-request-uploaded', 'value'),
+              Input('request-uploaded', 'value'),
               Input('before-table-file-uploaded', 'contents'),
               State('before-table-file-uploaded', 'filename'),
-              State('before-table-url-uploaded', 'value'))
-def get_prediction(clicked, request, contents=None, filename=None, url=None):
+              Input('before-table-url-uploaded', 'value'))
+def get_prediction(request, contents=None, filename=None, url=None):
     df, error = None, None
-    if clicked and contents and filename and request:
+    if contents and filename and request:
         df, error = convert_to_pd(contents[0], filename[0], None)
-    if clicked and url and request:
-        df, error = convert_to_pd(None, None, url)
+    if df is None:
+        if url and request:
+            df, error = convert_to_pd(None, None, url)
     if df is not None and not error:
         table, text, graph, report, pred_error = pipeline.predict(df, request)
         return show_output(table, text, graph, report, pred_error)
 
 # When flagging button(s) is/are clicked
 @app.callback(Output('flag_output', 'children'),
-              State('before-request-uploaded', 'value'),
+              State('request-uploaded', 'value'),
               State('pred_output', 'children'),
               State('before-table-file-uploaded', 'contents'),
               State('before-table-file-uploaded', 'filename'),
@@ -364,20 +424,34 @@ def get_prediction(clicked, request, contents=None, filename=None, url=None):
               Input('offensive-button-state', 'n_clicks'),
               Input('other-button-state', 'n_clicks'))
 def flag_pred(request, pred, contents=None, filename=None, url=None, inc_clicked=None, off_clicked=None, oth_clicked=None):
-    df, error = None, None
-    button_clicked = (inc_clicked or off_clicked or oth_clicked)
-    if button_clicked and contents and filename and request:
+    if pred:
+        pred = [x['props']['children'] if x['props']['children'] else x['props']['src'] for x in pred['props']['children']]
+        pred = " ".join(pred)
+
+    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+    button_clicked = ['incorrect-button-state' in changed_id, 
+                      'offensive-button-state' in changed_id,
+                      'other-button-state' in changed_id,
+    ]
+    
+    df, error = None, None   
+    if True in button_clicked and contents and filename and request and pred:
         df, error = convert_to_pd(contents[0], filename[0], None)
-    if button_clicked and url and request:
+    if True in button_clicked and url and request and pred:
         df, error = convert_to_pd(None, None, url)
 
-    checks = df is not None and not error
-    if checks and inc_clicked:
+    checks = df is not None and request is not None and pred is not None and not error
+    if checks and button_clicked[0]:
         flag_output(request, pred, True, None, None)
-    if checks and off_clicked:
+    if checks and button_clicked[1]:
         flag_output(request, pred, None, True, None)
-    if checks and oth_clicked:
+    if checks and button_clicked[2]:
         flag_output(request, pred, None, None, True)
+
+# When report is generated and needs to be displayed
+@app.server.route('/assets/<resource>')
+def serve_assets(resource):
+    return flask.send_from_directory(ASSETS_PATH, resource)
 
 """
 # For debugging, display the raw contents provided by the web browser
@@ -390,5 +464,18 @@ html.Pre(contents[0:200] + '...', style={
 
 
 # Code execution
+def _make_parser():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--port",
+        default=DEFAULT_PORT,
+        type=int,
+        help=f"Port on which to expose this server. Default is {DEFAULT_PORT}.",
+    )
+
+    return parser
+
 if __name__ == '__main__':
-    app.run_server(debug=True, port=11701)
+    parser = _make_parser()
+    args = parser.parse_args()
+    app.run_server(debug=True, dev_tools_hot_reload=False, port=args.port)

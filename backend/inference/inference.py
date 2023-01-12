@@ -30,7 +30,6 @@ import validators
 # Setup
 # matplotlib setup
 # matplotlib.use('agg') # Disable GUI for Gradio                                        # Uncomment for Gradio
-matplotlib.use('TkAgg')                                                                 # Comment for Gradio
 plt.style.use('dark_background') # Dark background for plots
 
 # Loading env variables
@@ -404,9 +403,9 @@ class Pipeline:
 
         # For Dash
         report_path = Path("assets") / "report.html"
-        full_report_path = parent_path / ".." / ".." / report_path
+        full_report_path = parent_path / ".." / ".." / "frontend" / "dash" / report_path
         report.to_file(full_report_path)
-        return [message, str(report_path)]
+        return [message, '/' + str(report_path)]
         
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
         # Handling repeated uses of matplotlib
@@ -581,7 +580,7 @@ class Pipeline:
                 # self.exec_code(df, code_to_exec)                                  # Replace return value with this for Gradio
                 #"""                                                                # Remove # for Gradio
                 buf = io.BytesIO()
-                _ = self.exec_code(df, code_to_exec)
+                self.exec_code(df, code_to_exec)
                 plt.savefig(buf, format = "png")
                 plt.close()
                 data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
@@ -617,7 +616,7 @@ class Pipeline:
                 # self.get_embeds_graph(df, column_data, columns)                   # Replace return value with this for Gradio
                 #"""                                                                # Remove # for Gradio
                 buf = io.BytesIO()
-                _ = self.get_embeds_graph(df, column_data, columns)
+                self.get_embeds_graph(df, column_data, columns)
                 plt.savefig(buf, format = "png")
                 plt.close()
                 data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
