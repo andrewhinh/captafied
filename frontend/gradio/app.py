@@ -19,8 +19,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""  # do not use GPU
 logging.basicConfig(level=logging.INFO)
 
 APP_DIR = Path(__file__).resolve().parent  # what is the directory for this application?
-FRONTEND_DIR = Path("./frontend")  # what is the directory for the frontend?
-FAVICON = FRONTEND_DIR / "logo.png"  # path to a small image for display in browser tab and social media
+FAVICON = APP_DIR / "logo.png"  # path to a small image for display in browser tab and social media
 README = APP_DIR / "README.md"  # path to an app readme file in HTML/markdown
 
 DEFAULT_PORT = 11700
@@ -165,24 +164,26 @@ class PredictorBackend:
             self._predict = model.predict
 
     def run(self, table, request):
-        pred = self._predict_with_metrics(table, request) #, metrics
-        self._log_inference(pred) #, metrics
-        return pred
+        pred_table, pred_text, pred_graph, pred_report, error = self._predict(table, request)
+        if pred_table is not None or pred_text is not None or pred_graph is not None or pred_report is not None :
+            pred = None
+            if pred_table is not None:
+                pred = pred_table
+            elif pred_text is not None:
+                pred = pred_text
+            elif pred_graph is not None:
+                pred = pred_graph
+            elif pred_report is not None:
+                pred = pred_report
+            else:
+                pass
+            self._log_inference(pred, None)
+            return pred
+        else:
+            self._log_inference(None, error)
+            return error
 
-    def _predict_with_metrics(self, table, request):
-        pred = self._predict(table, request)
-        """
-        stats = ImageStat.Stat(image)
-        metrics = {
-            "image_mean_intensity": stats.mean,
-            "image_median": stats.median,
-            "image_extrema": stats.extrema,
-            "image_area": image.size[0] * image.size[1],
-            "pred_length": len(pred),
-        }
-        """
-        return pred#, metrics
-
+    # Don't call
     def _predict_from_endpoint(self, table, request):
         """Send an table and request to an endpoint that accepts JSON and return the predictions.
 
@@ -214,10 +215,13 @@ class PredictorBackend:
 
         return pred
 
-    def _log_inference(self, pred): #, metrics
-        #for key, value in metrics.items():
-            #logging.info(f"METRIC {key} {value}")
-        logging.info(f"PRED >begin\n{pred}\nPRED >end")
+    def _log_inference(self, pred=None, error=None):
+        if pred is not None:
+            logging.info(f"PRED >begin\n{pred}\nPRED >end")
+        elif error:
+            logging.info(f"ERROR >begin\n{error}\ERROR >end")
+        else:
+            pass
 
 
 def _load_readme(with_logging=False):

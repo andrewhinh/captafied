@@ -4,8 +4,6 @@
 #
 #    pip-compile requirements/dev.in
 #
---extra-index-url https://us-python.pkg.dev/colab-wheels/public/simple/
-
 absl-py==1.0.0
     # via tensorboard
 aiohttp==3.8.1
@@ -620,6 +618,8 @@ wheel==0.37.1
     # via tensorboard
 widgetsnbextension==3.6.1
     # via ipywidgets
+wincertstore==0.2
+    # via -r requirements/dev.in
 yarl==1.7.2
     # via
     #   -c requirements/prod.txt

@@ -4,9 +4,6 @@ data/processed
 data/interim
 
 #ADDED###################################
-# Training/context data
-/data/downloaded/
-
 # Production files
 /backend/inference/artifacts/inference/
 
