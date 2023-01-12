@@ -1,5 +1,7 @@
 # Imports
 import argparse
+import base64
+import io
 import itertools
 import os
 from os import path
@@ -27,7 +29,8 @@ import validators
 
 # Setup
 # matplotlib setup
-matplotlib.use('agg') # Disable GUI for Gradio
+# matplotlib.use('agg') # Disable GUI for Gradio                                        # Uncomment for Gradio
+matplotlib.use('TkAgg')                                                                 # Comment for Gradio
 plt.style.use('dark_background') # Dark background for plots
 
 # Loading env variables
@@ -95,8 +98,13 @@ class Pipeline:
     def exec_code(self, df, code):
         global_vars, local_vars = {'self': self, 'df': df}, {}
         exec(code, global_vars, local_vars)
-        result = local_vars["result"]
-        return result
+        try:
+            result = local_vars["result"]
+            return result
+        except:
+            pass
+
+        # In case of graph
 
     def get_column_vals(self, df, column, images_present=False):
         if images_present:
@@ -376,14 +384,15 @@ class Pipeline:
         ax.add_artist(legend)
         ax.legend(column_handles, column_labels, loc="lower left", title="Columns")
 
-        return plt
+        # return plt                                                                    # Uncomment for Gradio    
 
-    def get_report(self, df, error):
+    def get_report(self, df, message):
         if len(df) > 1000:
             report = ProfileReport(df, title="Pandas Profiling Report", minimal=True)
         else:
             report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
         
+        """
         # For Gradio
         report.config.html.inline = True
         report.config.html.minify_html = True
@@ -391,33 +400,44 @@ class Pipeline:
         report.config.html.navbar_show = False
         report.config.html.full_width = False
         return error + report.to_html()
-
         """
+
         # For Dash
-        report.to_file("/assets/report.html")
-        return error + "HTML" # Frontend will handle the logic here
-        """
-
+        report_path = Path("assets") / "report.html"
+        full_report_path = parent_path / ".." / ".." / report_path
+        report.to_file(full_report_path)
+        return [message, str(report_path)]
+        
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
         # Handling repeated uses of matplotlib
         plt.clf()
 
+        # Empty return values for both successes and failures
+        empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, empty_err = None, None, None, None, None
+
         # Type handling
         if not isinstance(table, pd.DataFrame):
-            if "csv" in table.name:
-                df = pd.read_csv(table.name) 
-            elif "tsv" in table.name:
-                df = pd.read_csv(table.name, sep='\t')
-            elif "xlsx" in table.name:
-                df = pd.read_excel(table.name) 
-            elif "ods" in table.name:
-                df = pd.read_excel(table.name, engine="odf")
-            elif "pdf" in table.name:
-                df = tb.read_pdf(table.name, pages='all')
-            elif "html" in table.name:
-                df = pd.read_html(table.name)
-            else:
-                return "File type not supported, please submit a csv, tsv, xlsx, ods, pdf, or html file."            
+            try:
+                table.name = table.name.replace('/edit#gid=', '/export?format=csv&gid=') # In case this is a url
+                if "csv" in table.name:
+                    df = pd.read_csv(table.name) 
+                elif "tsv" in table.name:
+                    df = pd.read_csv(table.name, sep='\t')
+                elif "xlsx" in table.name or "xls" in table.name:
+                    df = pd.read_excel(table.name) 
+                elif "ods" in table.name:
+                    df = pd.read_excel(table.name, engine="odf")
+                elif "pdf" in table.name:
+                    df = tb.read_pdf(table.name, pages='all')
+                elif "html" in table.name:
+                    df = pd.read_html(table.name)
+                else: 
+                    raise ValueError("File type not supported, please submit a public Google Sheets URL or a csv/tsv/xls(x)/" +
+                           "ods/pdf/html file.")
+            except ValueError as error:
+                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str(error)            
+            except:
+                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str("Sorry, we don't know what went wrong.")            
         else:
             df = table
         if isinstance(request, Path) | os.path.exists(request):
@@ -427,7 +447,7 @@ class Pipeline:
             if isinstance(request, str):
                 request_str = request
             else:
-                return "Request must be a string or a path to a text file."
+                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str("Sorry, we don't know what went wrong.")    
 
         # Getting data types of columns mentioned in the question
         column_data = {}
@@ -495,8 +515,8 @@ class Pipeline:
                     "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument " +
                     "and returns the image as a Python numpy array, either directly on an string path or as a mapped " +
                     "function over a list or pandas Series.\n" +
-                    "6. If the user is making an impossible request, return 'raise ValueError(\"Invalid request " +
-                    "being made.\")'. ")
+                    "6. If the user is asking a question that cannot be answered with the information found in df, " +
+                    "return 'raise ValueError()'. ")
             
             # Table modifications
             if which_answer == 1: 
@@ -509,7 +529,7 @@ class Pipeline:
                     temperature=0.1,
                     max_tokens=250,
                 )
-                return self.exec_code(df, code_to_exec)
+                return self.exec_code(df, code_to_exec), empty_pred_text, empty_pred_graph, empty_pred_report, empty_err
 
             # Table row-wise lookups/reasoning questions
             elif which_answer == 2:
@@ -522,7 +542,7 @@ class Pipeline:
                     temperature=0.1,
                     max_tokens=250,
                 )
-                return self.exec_code(df, code_to_exec)
+                return self.exec_code(df, code_to_exec), empty_pred_text, empty_pred_graph, empty_pred_report, empty_err
 
             # Table cell-wise lookups/reasoning questions
             elif which_answer == 3: 
@@ -540,7 +560,7 @@ class Pipeline:
                     temperature=0.1,
                     max_tokens=250,
                 )
-                return self.exec_code(df, code_to_exec).strip('\"') # Remove quotes from string
+                return empty_pred_table, self.exec_code(df, code_to_exec).strip('\"'), empty_pred_graph, empty_pred_report, empty_err
 
             # Distribution/relationship questions without text or image clusters
             elif which_answer == 4: 
@@ -549,12 +569,26 @@ class Pipeline:
                         "columns, their data types, and an example value from each one: " + df_info + "\n" +
                         "A user asks the following from you regarding df: " + request_str + "\n" +
                         "Write Python code that draws an appropriate graph with matplotlib, doesn't include any " +
-                        "imports, labels the graph's title, axes, and legend as necessary, and ends with the line " +
-                        "'result = plt'. " + note,
+                        "imports, labels the graph's title, axes, and legend as necessary. " + note,
                     temperature=0.3,
                     max_tokens=250,
                 )
-                return self.exec_code(df, code_to_exec)
+                """                                                                 # Add this back into prompt for Gradio
+                , and ends with the line " +
+                        "'result = plt'. 
+                
+                """
+                # self.exec_code(df, code_to_exec)                                  # Replace return value with this for Gradio
+                #"""                                                                # Remove # for Gradio
+                buf = io.BytesIO()
+                _ = self.exec_code(df, code_to_exec)
+                plt.savefig(buf, format = "png")
+                plt.close()
+                data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
+                buf.close()
+                value = "data:image/png;base64,{}".format(data)
+                #"""                                                                # Remove # for Gradio
+                return empty_pred_table, empty_pred_text, value, empty_pred_report, empty_err
 
             # Questions involving text and/or image embeddings/clusters
             elif which_answer == 5: 
@@ -571,7 +605,7 @@ class Pipeline:
                         "description embeddings look like?' with the current table df, the column 'Repos' should be " +
                         "ignored because it posseses the column 'Description', and only the column 'Description' " +
                         "should be used.\n" +
-                        "2. If the user is asking to graph more than two categorical and/or continuous columns, " +
+                        "3. If the user is asking to graph more than two categorical and/or continuous columns, " +
                         "return 'None'. ",
                     temperature=0.1,
                     max_tokens=250,
@@ -580,20 +614,30 @@ class Pipeline:
                 for column in columns:
                     if column not in df.columns:
                         raise ValueError("Invalid request being made.")
-                return self.get_embeds_graph(df, column_data, columns)
+                # self.get_embeds_graph(df, column_data, columns)                   # Replace return value with this for Gradio
+                #"""                                                                # Remove # for Gradio
+                buf = io.BytesIO()
+                _ = self.get_embeds_graph(df, column_data, columns)
+                plt.savefig(buf, format = "png")
+                plt.close()
+                data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
+                buf.close()
+                value = "data:image/png;base64,{}".format(data)
+                #"""                                                                # Remove # for Gradio
+                return empty_pred_table, empty_pred_text,  value, empty_pred_report, empty_err 
 
             else:
-                raise ValueError("Invalid request being made.")
+                raise ValueError()
 
         except ValueError: # Invalid question -> use pandas-profiling to generate a report
-            error = str("I don't know how to answer that question. Here's a report on the table generated by YData's " +
+            message = str("I don't know how to answer that question. Here's a report on the table generated by YData's " +
                         "pandas-profiling library that might help you. ")
-            return self.get_report(df, error)
+            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err 
         
         except: # Something went wrong -> use pandas-profiling to generate a report
-            error = str("Something went wrong. Here's a report on the table generated by YData's pandas-profiling " +
+            message = str("Something went wrong. Here's a report on the table generated by YData's pandas-profiling " +
                         "library that might help you. ")
-            return self.get_report(df, error)
+            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err 
 
             
 # Running model
