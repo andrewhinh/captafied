@@ -23,6 +23,10 @@ colors = {
     'text': '#ffffff',
 }
 
+# Examples
+example_url = "https://docs.google.com/spreadsheets/d/1a6M4bOAinxuPEnFoqS6BBB-F-rgpW907B2RXebWcN78/edit#gid=1908118829"
+example_request = "What does the distribution of the column 'Stars' look like?"
+
 # Most number of rows of table to show when table is uploaded
 max_rows = 5
 
@@ -43,7 +47,9 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     html.H1('Captafied',
             style={
                 'textAlign': 'center',
+                'fontFamily': 'Helvetica',
                 'fontSize': '70px',
+                'margin-top': '10px',
                 'fontWeight': 'bold',
                 'color': colors['text'],
             }),
@@ -52,8 +58,11 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     html.Div('Edit, query, graph, and understand your table!',
              style={
                 'textAlign': 'center',
+                'fontFamily': 'Helvetica',
                 'fontSize': '20px',
-                'color': colors['text'],
+                #'margin-left' : '90px',
+                #'padding-left' : '90px',
+                'color': colors['text'],                 
             }),
 
     # Line break
@@ -66,10 +75,14 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
             html.A('Select Files')
         ]),
         style={
+            #'width': '40%',
+            'height': '150px',
+            'lineHeight': '150px',
+            'borderWidth': '1px',
+            'borderRadius': '5px',
+            'padding': '60px',
             'textAlign': 'center',
             'fontSize': '20px',
-            'height': 'auto',
-            'width': 'auto',
             'borderStyle': 'dashed',
             'color': colors['text'],
         },
@@ -88,10 +101,14 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
                }),
     dcc.Input(id='before-table-url-uploaded',
               type='text',
+              placeholder=example_url,
               style={
                 'textAlign': 'center',
                 'fontSize': '20px',
-                'borderStyle': 'dashed',
+                #'width': '40%',
+                'margin-top': '10px',
+                'margin-right': '10px',
+                'margin-bottom': '20px',
                 'color': colors['text'],
                 'backgroundColor': colors['background'],
               }),
@@ -103,18 +120,29 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
                style={
                 'textAlign': 'center',
                 'fontSize': '20px',
+                
                 'color': colors['text'],
                }),
     dcc.Input(id='before-request-uploaded', 
               type='text',
+              placeholder=example_request,
               style={
                 'textAlign': 'center',
                 'fontSize': '20px',
-                'borderStyle': 'dashed',
+                #'width': '40%',
+                'margin-top': '10px',
+                'margin-right': '10px',
+                'margin-bottom': '20px',
                 'color': colors['text'],
                 'backgroundColor': colors['background'],
               }),
-    html.Button(id='ask-button-state', n_clicks=0, children='Ask'),
+    html.Button(id='ask-button-state', 
+                n_clicks=0, 
+                style={'margin-top': '10px',
+                       'color': 'green',
+                       'border-color': 'green',
+                },
+                children='Ask'),
 
     # Output: table, text, graph, report, and/or error
     html.Div(id='pred_output'),
@@ -283,7 +311,7 @@ def flag_output(request, pred, incorrect=None, offensive=None, other=None):
     if offensive:
         add = pd.DataFrame({'offensive': True})
         log['offensive'] = add
-    
+
     if other:
         add = pd.DataFrame({'other': True})
         log['other'] = add
@@ -364,3 +392,5 @@ html.Pre(contents[0:200] + '...', style={
 # Code execution
 if __name__ == '__main__':
     app.run_server(debug=True, port=11701)
+if __name__ == '__main__':
+    app.run_server(debug=True)
