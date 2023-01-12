@@ -599,7 +599,7 @@ class Pipeline:
                         "List the columns mentioned in the user request that are necessary to generate a graph to " +
                         "answer the user as a comma-separated list. Some notes:\n" +
                         "1. If a mentioned column has the words 'embeddings' after it, it is most likely a text " +
-                        "or image column and needs to be included.\n"
+                        "or image column and needs to be included.\n" +
                         "2. If you think a column is necessary but it is phrased in a way that suggests it posseses " +
                         "another column, it should be ignored. For example, if the user asks 'What do the repo's " +
                         "description embeddings look like?' with the current table df, the column 'Repos' should be " +
