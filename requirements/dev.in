@@ -1,4 +1,5 @@
 -c prod.txt
+black
 boltons
 coverage[toml]
 defusedxml
@@ -6,7 +7,6 @@ great-expectations
 itermplot
 ipywidgets
 language_tool_python
-matplotlib
 notebook
 nltk
 pre-commit
