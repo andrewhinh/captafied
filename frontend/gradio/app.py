@@ -54,7 +54,7 @@ def get_examples(folder, ext, table_paths=None):
 def get_interface(fn, outputs, readme, examples, allow_flagging, flagging_callback, flagging_dir):
     return gr.Interface(
         fn=fn,  # which Python function are we interacting with?
-        outputs=outputs, # what output widgets does it need?
+        outputs=outputs,  # what output widgets does it need?
         # what input widgets does it need?
         inputs=[gr.components.File(label="Table"), gr.components.Textbox(label="Request")],
         title="Captafied",  # what should we display at the top of the page?
@@ -140,8 +140,9 @@ def make_frontend(fn: Callable[[pd.DataFrame, str], str], flagging: bool = False
         flagging_dir=flagging_dir,
     )
 
-    frontend = gr.TabbedInterface(interface_list=[table, text, graph, report],
-                                  tab_names=["Table", "Text", "Graph", "Report"],
+    frontend = gr.TabbedInterface(
+        interface_list=[table, text, graph, report],
+        tab_names=["Table", "Text", "Graph", "Report"],
     )
 
     return frontend
@@ -165,7 +166,7 @@ class PredictorBackend:
 
     def run(self, table, request):
         pred_table, pred_text, pred_graph, pred_report, error = self._predict(table, request)
-        if pred_table is not None or pred_text is not None or pred_graph is not None or pred_report is not None :
+        if pred_table is not None or pred_text is not None or pred_graph is not None or pred_report is not None:
             pred = None
             if pred_table is not None:
                 pred = pred_table

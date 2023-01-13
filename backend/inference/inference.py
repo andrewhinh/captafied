@@ -30,7 +30,7 @@ import validators
 # Setup
 # matplotlib setup
 # matplotlib.use('agg') # Disable GUI for Gradio                                        # Uncomment for Gradio
-plt.style.use('dark_background') # Dark background for plots
+plt.style.use("dark_background")  # Dark background for plots
 
 # Loading env variables
 load_dotenv()
@@ -65,18 +65,20 @@ class Pipeline:
 
         # Matplotlib setup
         self.types = ["text string", "image path/URL", "categorical", "continuous"]
-        
-    def is_string_series(self, s:pd.Series):
+
+    def is_string_series(self, s: pd.Series):
         if isinstance(s.dtype, pd.StringDtype):
             # The series was explicitly created as a string series (Pandas>=1.0.0)
             return True
-        elif s.dtype == 'object':
+        elif s.dtype == "object":
             # Object series, check each value
             return all((v is None) or isinstance(v, str) for v in s)
         else:
             return False
 
-    def openai_query(self, prompt, temperature=1.0, max_tokens=16, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0):
+    def openai_query(
+        self, prompt, temperature=1.0, max_tokens=16, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0
+    ):
         response = openai.Completion.create(
             engine=self.engine,
             prompt=prompt,
@@ -88,14 +90,14 @@ class Pipeline:
         )
         return response["choices"][0]["text"].strip()
 
-    def open_image(self, image): 
+    def open_image(self, image):
         image_pil = Image.open(image)
         if image_pil.mode != "RGB":
             image_pil = image_pil.convert("RGB")
         return np.array(image_pil)
 
     def exec_code(self, df, code):
-        global_vars, local_vars = {'self': self, 'df': df}, {}
+        global_vars, local_vars = {"self": self, "df": df}, {}
         exec(code, global_vars, local_vars)
         try:
             result = local_vars["result"]
@@ -117,7 +119,7 @@ class Pipeline:
         images = []
         if text_columns:
             for column in text_columns:
-                texts.append(self.get_column_vals(df, column)) 
+                texts.append(self.get_column_vals(df, column))
         if image_columns:
             for column in image_columns:
                 images.append(self.get_column_vals(df, column, images_present=True))
@@ -137,7 +139,7 @@ class Pipeline:
                 clip_texts *= len(clip_images) // len(clip_texts)
             else:
                 pass
-        
+
         # CLIP encoding
         inputs = self.clip_processor(text=clip_texts, images=clip_images, return_tensors="np", padding=True)
         clip_outputs = self.clip_session.run(
@@ -150,12 +152,12 @@ class Pipeline:
         dict_embeds = {}
         if text_columns:
             for column in text_columns:
-                dict_embeds[column] = text_embeds[:len(df[column])]
-                text_embeds = text_embeds[len(df[column]):]
+                dict_embeds[column] = text_embeds[: len(df[column])]
+                text_embeds = text_embeds[len(df[column]) :]
         if image_columns:
             for column in image_columns:
-                dict_embeds[column] = image_embeds[:len(df[column])]
-                image_embeds = image_embeds[len(df[column]):]
+                dict_embeds[column] = image_embeds[: len(df[column])]
+                image_embeds = image_embeds[len(df[column]) :]
 
         return dict_embeds
 
@@ -176,7 +178,7 @@ class Pipeline:
                 cont_columns.append(column)
             else:
                 pass
-        
+
         # CLIP embeddings of text and/or images and getting values of any categorical/continuous columns
         dict_embeds = self.clip_encode(df, text_columns, image_columns)
         dict_cat = {}
@@ -193,25 +195,56 @@ class Pipeline:
         # Setting up matplotlib figure
         if other_vars_present:
             fig = plt.figure()
-            ax = fig.add_subplot(projection='3d')
+            ax = fig.add_subplot(projection="3d")
         else:
             fig, ax = plt.subplots()
         variables = list(dict_embeds.keys()) + list(dict_cat.keys()) + list(dict_cont.keys())
         variables = [variable + " Clusters" if variable in dict_embeds.keys() else variable for variable in variables]
         variables = " vs. ".join(variables)
         plt.title(variables)
-        
+
         # Setting up legend
         colors = cm.rainbow(np.linspace(0, 1, len(dict_embeds)))
-        markers = itertools.cycle(("o", "v", "^", "<", ">", "1", "2", "3", "4", "8", "s", "p", "P", 
-                                "*", "h", "H", "+", "x", "X", "D", "d", 4, 5, 6, 7, 8, 9, 10, 11)) 
+        markers = itertools.cycle(
+            (
+                "o",
+                "v",
+                "^",
+                "<",
+                ">",
+                "1",
+                "2",
+                "3",
+                "4",
+                "8",
+                "s",
+                "p",
+                "P",
+                "*",
+                "h",
+                "H",
+                "+",
+                "x",
+                "X",
+                "D",
+                "d",
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+            )
+        )
         cluster_handles = []
         cluster_labels = []
         column_handles = []
         column_labels = []
 
         # UMAP and K-Means clustering
-        offset = 0 # To label the clusters in a continuous manner
+        offset = 0  # To label the clusters in a continuous manner
         for column, embeds, color in zip(list(dict_embeds.keys()), list(dict_embeds.values()), colors):
             # Getting # of clusters and K-Means clustering
             range_n_clusters = list(range(2, len(df)))
@@ -231,9 +264,9 @@ class Pipeline:
             # Reducing dimensionality of embeddings with UMAP
             n_neighbors = 15
             n_components = 2
-            if embeds.shape[0] < 15: # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
+            if embeds.shape[0] < 15:  # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
                 n_neighbors = embeds.shape[0] - 1
-            if two_other_vars_present: # Reduce UMAP n_components to accomodate for 2 cat/cont variables
+            if two_other_vars_present:  # Reduce UMAP n_components to accomodate for 2 cat/cont variables
                 n_components = 1
             reducer = umap.UMAP(n_neighbors=n_neighbors, n_components=n_components)
             embedding = reducer.fit_transform(embeds)
@@ -248,8 +281,8 @@ class Pipeline:
             for cluster in range(n_clusters):
                 # Plotting points
                 marker = next(markers)
-                xs = np.array(x)[clusters == cluster] # Text/image data
-                
+                xs = np.array(x)[clusters == cluster]  # Text/image data
+
                 # Extending added variables to match the number of data points
                 if dict_cat:
                     for item in dict_cat.items():
@@ -257,9 +290,9 @@ class Pipeline:
                 if dict_cont:
                     for item in dict_cont.items():
                         dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
-                
-                if two_other_vars_present: # 2 categorical/continuous variables
-                    if len(dict_cat) == 1: # 1 categorical and 1 continuous variable
+
+                if two_other_vars_present:  # 2 categorical/continuous variables
+                    if len(dict_cat) == 1:  # 1 categorical and 1 continuous variable
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
                         ax.set_ylabel(list(dict_cont.keys())[0])
@@ -267,8 +300,8 @@ class Pipeline:
                         for zs_cat in np.unique(zs):
                             xs_cat = xs[zs == zs_cat]
                             ys_cat = ys[zs == zs_cat]
-                            ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)                            
-                    elif len(dict_cat) == 2: # 2 categorical variables
+                            ax.scatter(xs_cat, ys_cat, zs_cat, zdir="z", color=color, marker=marker, alpha=1)
+                    elif len(dict_cat) == 2:  # 2 categorical variables
                         ys = np.array(list(dict_cat.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[1])[clusters == cluster]
                         ax.set_ylabel(list(dict_cat.keys())[0])
@@ -277,48 +310,48 @@ class Pipeline:
                             for zs_cat in np.unique(zs):
                                 filter = np.logical_and([ys == ys_cat], [zs == zs_cat])
                                 xs_cat = xs[filter[0]]
-                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)   
-                    elif len(dict_cont) == 2: # 2 continuous variables
+                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir="z", color=color, marker=marker, alpha=1)
+                    elif len(dict_cont) == 2:  # 2 continuous variables
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cont.values())[1])[clusters == cluster]
                         ax.set_ylabel(list(dict_cont.keys())[0])
                         ax.set_zlabel(list(dict_cont.keys())[1])
                         ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
                     else:
-                        pass 
-                else: # If < 2 continuous/categorical variables are present
-                    if other_vars_present: # If 1 continuous/categorical variable is present
+                        pass
+                else:  # If < 2 continuous/categorical variables are present
+                    if other_vars_present:  # If 1 continuous/categorical variable is present
                         ys = np.array(y)[clusters == cluster]
-                        if dict_cat: # 1 categorical variable
+                        if dict_cat:  # 1 categorical variable
                             zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
                             ax.set_zlabel(list(dict_cat.keys())[0])
                             for zs_cat in np.unique(zs):
                                 xs_cat = xs[zs == zs_cat]
                                 ys_cat = ys[zs == zs_cat]
-                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir='z', color=color, marker=marker, alpha=1)
-                        elif dict_cont: # 1 continuous variable
+                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir="z", color=color, marker=marker, alpha=1)
+                        elif dict_cont:  # 1 continuous variable
                             zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
                             ax.set_zlabel(list(dict_cont.keys())[0])
                             ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
                         else:
                             pass
-                    else: # If no continuous/categorical variables are present
+                    else:  # If no continuous/categorical variables are present
                         ys = np.array(y)[clusters == cluster]
                         ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
-                                    
+
                 # Adding cluster to legend
                 artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker=marker)
                 cluster_handles.append(artist)
                 cluster_labels.append(str(cluster + offset))
 
             # To label the clusters in a continuous manner
-            offset += n_clusters   
+            offset += n_clusters
 
             # Adding column to legend
             artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker="o")
             column_handles.append(artist)
-            column_labels.append(column)    
-        
+            column_labels.append(column)
+
         """
         # HDBSCAN clustering
         import hdbscan
@@ -383,14 +416,14 @@ class Pipeline:
         ax.add_artist(legend)
         ax.legend(column_handles, column_labels, loc="lower left", title="Columns")
 
-        # return plt                                                                    # Uncomment for Gradio    
+        # return plt                                                                    # Uncomment for Gradio
 
     def get_report(self, df, message):
         if len(df) > 1000:
             report = ProfileReport(df, title="Pandas Profiling Report", minimal=True)
         else:
             report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
-        
+
         """
         # For Gradio
         report.config.html.inline = True
@@ -405,8 +438,8 @@ class Pipeline:
         report_path = Path("assets") / "report.html"
         full_report_path = parent_path / ".." / ".." / "frontend" / "dash" / report_path
         report.to_file(full_report_path)
-        return [message, '/' + str(report_path)]
-        
+        return [message, "/" + str(report_path)]
+
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
         # Handling repeated uses of matplotlib
         plt.clf()
@@ -417,26 +450,34 @@ class Pipeline:
         # Type handling
         if not isinstance(table, pd.DataFrame):
             try:
-                table.name = table.name.replace('/edit#gid=', '/export?format=csv&gid=') # In case this is a url
+                table.name = table.name.replace("/edit#gid=", "/export?format=csv&gid=")  # In case this is a url
                 if "csv" in table.name:
-                    df = pd.read_csv(table.name) 
+                    df = pd.read_csv(table.name)
                 elif "tsv" in table.name:
-                    df = pd.read_csv(table.name, sep='\t')
+                    df = pd.read_csv(table.name, sep="\t")
                 elif "xlsx" in table.name or "xls" in table.name:
-                    df = pd.read_excel(table.name) 
+                    df = pd.read_excel(table.name)
                 elif "ods" in table.name:
                     df = pd.read_excel(table.name, engine="odf")
                 elif "pdf" in table.name:
-                    df = tb.read_pdf(table.name, pages='all')
+                    df = tb.read_pdf(table.name, pages="all")
                 elif "html" in table.name:
                     df = pd.read_html(table.name)
-                else: 
-                    raise ValueError("File type not supported, please submit a public Google Sheets URL or a csv/tsv/xls(x)/" +
-                           "ods/pdf/html file.")
+                else:
+                    raise ValueError(
+                        "File type not supported, please submit a public Google Sheets URL or a csv/tsv/xls(x)/"
+                        + "ods/pdf/html file."
+                    )
             except ValueError as error:
-                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str(error)            
+                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str(error)
             except:
-                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str("Sorry, we don't know what went wrong.")            
+                return (
+                    empty_pred_table,
+                    empty_pred_text,
+                    empty_pred_graph,
+                    empty_pred_report,
+                    str("Sorry, we don't know what went wrong."),
+                )
         else:
             df = table
         if isinstance(request, Path) | os.path.exists(request):
@@ -446,85 +487,102 @@ class Pipeline:
             if isinstance(request, str):
                 request_str = request
             else:
-                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str("Sorry, we don't know what went wrong.")    
+                return (
+                    empty_pred_table,
+                    empty_pred_text,
+                    empty_pred_graph,
+                    empty_pred_report,
+                    str("Sorry, we don't know what went wrong."),
+                )
 
         # Getting data types of columns mentioned in the question
         column_data = {}
-        for col_idx in range(len(df.columns)): # For each column
-            column = df.columns[col_idx] # Get the column name
-            test = df[column] # Get the column values
-            if len(set(test)) >= len(df): # For continuous data
-                if self.is_string_series(test): # For strings
-                    for row_idx in range(len(test)): # For each row
-                        value = test[row_idx] # Get the value
-                        potential_path = str(parent_path / value) # Get the potential path
-                        if validators.url(value): # For images
+        for col_idx in range(len(df.columns)):  # For each column
+            column = df.columns[col_idx]  # Get the column name
+            test = df[column]  # Get the column values
+            if len(set(test)) >= len(df):  # For continuous data
+                if self.is_string_series(test):  # For strings
+                    for row_idx in range(len(test)):  # For each row
+                        value = test[row_idx]  # Get the value
+                        potential_path = str(parent_path / value)  # Get the potential path
+                        if validators.url(value):  # For images
                             df.at[row_idx, column] = requests.get(value, stream=True).raw
                             if not column in column_data:
                                 column_data[column] = self.types[1]
-                        elif path.exists(potential_path): # For local images
+                        elif path.exists(potential_path):  # For local images
                             df.at[row_idx, column] = potential_path
                             if not column in column_data:
                                 column_data[column] = self.types[1]
-                        else: # For text
+                        else:  # For text
                             column_data[column] = self.types[0]
-                            break # Break out of the loop at the first text value
-                else: # For continuous data
+                            break  # Break out of the loop at the first text value
+                else:  # For continuous data
                     column_data[column] = self.types[3]
-            else: # For categorical data
+            else:  # For categorical data
                 column_data[column] = self.types[2]
-        
+
         # Get the column names, types, and example values
-        df_info = [[item[0], item[1], df.loc[0, item[0]]] for item in column_data.items()] 
+        df_info = [[item[0], item[1], df.loc[0, item[0]]] for item in column_data.items()]
         df_info = [", ".join([str(item) for item in column]) for column in df_info]
         df_info = "; ".join(df_info)
-    
+
         # Get the user's request type
         which_answer = self.openai_query(
-            prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, " +
-                   "their data types, and an example value from each one: " + df_info + "\n" +
-                   "A user asks the following from you regarding df: " + request_str + "\n" +
-                   "The five kinds of requests users can make are the following:\n" +
-                   "- Table modifications, which encompass every form of modification of the table,\n" +
-                   "- Table row-wise lookups/reasoning questions, which involve no modification of the table and " +
-                   "ask for entire rows that satisfy some condition,\n" +
-                   "- Table cell-wise lookups/reasoning questions, which involve no modification of the table and " +
-                   "ask for cells that satisfy some condition,\n" + 
-                   "- Distribution/relationship questions without text or image clusters/embeddings, which ask for " +
-                   "patterns within the table.\n" +
-                   "- Questions involving text and/or image embeddings/clusters, which ask for patterns within the " +
-                   "table.\n" +
-                   "Return '1', '2', '3', '4', or '5' based on which kind of request you think the user is making. " +
-                   "Return '0' if you can't tell or the request doesn't belong to any of the above kinds: ",
+            prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, "
+            + "their data types, and an example value from each one: "
+            + df_info
+            + "\n"
+            + "A user asks the following from you regarding df: "
+            + request_str
+            + "\n"
+            + "The five kinds of requests users can make are the following:\n"
+            + "- Table modifications, which encompass every form of modification of the table,\n"
+            + "- Table row-wise lookups/reasoning questions, which involve no modification of the table and "
+            + "ask for entire rows that satisfy some condition,\n"
+            + "- Table cell-wise lookups/reasoning questions, which involve no modification of the table and "
+            + "ask for cells that satisfy some condition,\n"
+            + "- Distribution/relationship questions without text or image clusters/embeddings, which ask for "
+            + "patterns within the table.\n"
+            + "- Questions involving text and/or image embeddings/clusters, which ask for patterns within the "
+            + "table.\n"
+            + "Return '1', '2', '3', '4', or '5' based on which kind of request you think the user is making. "
+            + "Return '0' if you can't tell or the request doesn't belong to any of the above kinds: ",
             temperature=0,
             max_tokens=3,
         )
-        
-        try: # For valid questions
+
+        try:  # For valid questions
             # Converting to int
             which_answer = int(which_answer)
 
             # Define notes for OpenAI prompt
-            note = str("Some notes about writing the code:\n" +
-                    "1. Don't call 'print()' or 'return'.\n" +
-                    "2. Whenever you call 'len()' or slice a pandas DataFrame, understand what it will return.\n" +
-                    "3. Avoid creating functions or classes unless necessary, in which case they must be called " +
-                    "within the code.\n" +
-                    "4. Import any necessary libraries, but don't import anything else.\n" +
-                    "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument " +
-                    "and returns the image as a Python numpy array, either directly on an string path or as a mapped " +
-                    "function over a list or pandas Series.\n" +
-                    "6. If the user is asking a question that cannot be answered with the information found in df, " +
-                    "return 'raise ValueError()'. ")
-            
+            note = str(
+                "Some notes about writing the code:\n"
+                + "1. Don't call 'print()' or 'return'.\n"
+                + "2. Whenever you call 'len()' or slice a pandas DataFrame, understand what it will return.\n"
+                + "3. Avoid creating functions or classes unless necessary, in which case they must be called "
+                + "within the code.\n"
+                + "4. Import any necessary libraries, but don't import anything else.\n"
+                + "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument "
+                + "and returns the image as a Python numpy array, either directly on an string path or as a mapped "
+                + "function over a list or pandas Series.\n"
+                + "6. If the user is asking a question that cannot be answered with the information found in df, "
+                + "return 'raise ValueError()'. "
+            )
+
             # Table modifications
-            if which_answer == 1: 
+            if which_answer == 1:
                 code_to_exec = self.openai_query(
-                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
-                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
-                        "A user asks the following from you regarding df: " + request_str + "\n" +
-                        "Write Python code that creates a copy of df to modify while retaining the whole table and " +
-                        "assigns the whole table to result. " + note,
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
+                    + "columns, their data types, and an example value from each one: "
+                    + df_info
+                    + "\n"
+                    + "A user asks the following from you regarding df: "
+                    + request_str
+                    + "\n"
+                    + "Write Python code that creates a copy of df to modify while retaining the whole table and "
+                    + "assigns the whole table to result. "
+                    + note,
                     temperature=0.1,
                     max_tokens=250,
                 )
@@ -533,42 +591,63 @@ class Pipeline:
             # Table row-wise lookups/reasoning questions
             elif which_answer == 2:
                 code_to_exec = self.openai_query(
-                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
-                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
-                        "A user asks the following from you regarding df: " + request_str + "\n" +
-                        "Write Python code that creates a copy of df to slice by row and assigns the sliced table to " +
-                        "result. " + note,
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
+                    + "columns, their data types, and an example value from each one: "
+                    + df_info
+                    + "\n"
+                    + "A user asks the following from you regarding df: "
+                    + request_str
+                    + "\n"
+                    + "Write Python code that creates a copy of df to slice by row and assigns the sliced table to "
+                    + "result. "
+                    + note,
                     temperature=0.1,
                     max_tokens=250,
                 )
                 return self.exec_code(df, code_to_exec), empty_pred_text, empty_pred_graph, empty_pred_report, empty_err
 
             # Table cell-wise lookups/reasoning questions
-            elif which_answer == 3: 
+            elif which_answer == 3:
                 code_to_exec = self.openai_query(
-                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
-                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
-                        "A user asks the following from you regarding df: " + request_str + "\n" +
-                        "Write Python code that first finds relevant information from df, then generates a string " +
-                        "that uses the information to answer the user's request and assigns it to result. Make sure " +
-                        "to use f-strings correctly and accurately and conversationally answer the user's request in " +
-                        "the string. For example, if the user asks 'Does the Transformers repo have the most stars?' " +
-                        "and the Transformers repo has 17000 stars, the most stars of any repo, don't write 17000, " +
-                        "but instead write somethinglike '\"Yes, the Transformers repo has the most stars with 17000 " +
-                        "stars.\"'. " + note,
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
+                    + "columns, their data types, and an example value from each one: "
+                    + df_info
+                    + "\n"
+                    + "A user asks the following from you regarding df: "
+                    + request_str
+                    + "\n"
+                    + "Write Python code that first finds relevant information from df, then generates a string "
+                    + "that uses the information to answer the user's request and assigns it to result. Make sure "
+                    + "to use f-strings correctly and accurately and conversationally answer the user's request in "
+                    + "the string. For example, if the user asks 'Does the Transformers repo have the most stars?' "
+                    + "and the Transformers repo has 17000 stars, the most stars of any repo, don't write 17000, "
+                    + "but instead write somethinglike '\"Yes, the Transformers repo has the most stars with 17000 "
+                    + "stars.\"'. "
+                    + note,
                     temperature=0.1,
                     max_tokens=250,
                 )
-                return empty_pred_table, self.exec_code(df, code_to_exec).strip('\"'), empty_pred_graph, empty_pred_report, empty_err
+                return (
+                    empty_pred_table,
+                    self.exec_code(df, code_to_exec).strip('"'),
+                    empty_pred_graph,
+                    empty_pred_report,
+                    empty_err,
+                )
 
             # Distribution/relationship questions without text or image clusters
-            elif which_answer == 4: 
+            elif which_answer == 4:
                 code_to_exec = self.openai_query(
-                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
-                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
-                        "A user asks the following from you regarding df: " + request_str + "\n" +
-                        "Write Python code that draws an appropriate graph with matplotlib, doesn't include any " +
-                        "imports, labels the graph's title, axes, and legend as necessary. " + note,
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
+                    + "columns, their data types, and an example value from each one: "
+                    + df_info
+                    + "\n"
+                    + "A user asks the following from you regarding df: "
+                    + request_str
+                    + "\n"
+                    + "Write Python code that draws an appropriate graph with matplotlib, doesn't include any "
+                    + "imports, labels the graph's title, axes, and legend as necessary. "
+                    + note,
                     temperature=0.3,
                     max_tokens=250,
                 )
@@ -578,34 +657,38 @@ class Pipeline:
                 
                 """
                 # self.exec_code(df, code_to_exec)                                  # Replace return value with this for Gradio
-                #"""                                                                # Remove # for Gradio
+                # """                                                                # Remove # for Gradio
                 buf = io.BytesIO()
                 self.exec_code(df, code_to_exec)
-                plt.savefig(buf, format = "png")
+                plt.savefig(buf, format="png")
                 plt.close()
-                data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
+                data = base64.b64encode(buf.getbuffer()).decode("utf8")  # encode to html elements
                 buf.close()
                 value = "data:image/png;base64,{}".format(data)
-                #"""                                                                # Remove # for Gradio
+                # """                                                                # Remove # for Gradio
                 return empty_pred_table, empty_pred_text, value, empty_pred_report, empty_err
 
             # Questions involving text and/or image embeddings/clusters
-            elif which_answer == 5: 
+            elif which_answer == 5:
                 columns = self.openai_query(
-                   prompt="You are given a Python pandas DataFrame named df. The following is a list of its " +
-                        "columns, their data types, and an example value from each one: " + df_info + "\n" +
-                        "A user asks the following from you regarding df: " + request_str + "\n" +
-                        "List the columns mentioned in the user request that are necessary to generate a graph to " +
-                        "answer the user as a comma-separated list. Some notes:\n" +
-                        "1. If a mentioned column has the words 'embeddings' after it, it is most likely a text " +
-                        "or image column and needs to be included.\n" +
-                        "2. If you think a column is necessary but it is phrased in a way that suggests it posseses " +
-                        "another column, it should be ignored. For example, if the user asks 'What do the repo's " +
-                        "description embeddings look like?' with the current table df, the column 'Repos' should be " +
-                        "ignored because it posseses the column 'Description', and only the column 'Description' " +
-                        "should be used.\n" +
-                        "3. If the user is asking to graph more than two categorical and/or continuous columns, " +
-                        "return 'None'. ",
+                    prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
+                    + "columns, their data types, and an example value from each one: "
+                    + df_info
+                    + "\n"
+                    + "A user asks the following from you regarding df: "
+                    + request_str
+                    + "\n"
+                    + "List the columns mentioned in the user request that are necessary to generate a graph to "
+                    + "answer the user as a comma-separated list. Some notes:\n"
+                    + "1. If a mentioned column has the words 'embeddings' after it, it is most likely a text "
+                    + "or image column and needs to be included.\n"
+                    + "2. If you think a column is necessary but it is phrased in a way that suggests it posseses "
+                    + "another column, it should be ignored. For example, if the user asks 'What do the repo's "
+                    + "description embeddings look like?' with the current table df, the column 'Repos' should be "
+                    + "ignored because it posseses the column 'Description', and only the column 'Description' "
+                    + "should be used.\n"
+                    + "3. If the user is asking to graph more than two categorical and/or continuous columns, "
+                    + "return 'None'. ",
                     temperature=0.1,
                     max_tokens=250,
                 )
@@ -614,31 +697,35 @@ class Pipeline:
                     if column not in df.columns:
                         raise ValueError("Invalid request being made.")
                 # self.get_embeds_graph(df, column_data, columns)                   # Replace return value with this for Gradio
-                #"""                                                                # Remove # for Gradio
+                # """                                                                # Remove # for Gradio
                 buf = io.BytesIO()
                 self.get_embeds_graph(df, column_data, columns)
-                plt.savefig(buf, format = "png")
+                plt.savefig(buf, format="png")
                 plt.close()
-                data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
+                data = base64.b64encode(buf.getbuffer()).decode("utf8")  # encode to html elements
                 buf.close()
                 value = "data:image/png;base64,{}".format(data)
-                #"""                                                                # Remove # for Gradio
-                return empty_pred_table, empty_pred_text,  value, empty_pred_report, empty_err 
+                # """                                                                # Remove # for Gradio
+                return empty_pred_table, empty_pred_text, value, empty_pred_report, empty_err
 
             else:
                 raise ValueError()
 
-        except ValueError: # Invalid question -> use pandas-profiling to generate a report
-            message = str("I don't know how to answer that question. Here's a report on the table generated by YData's " +
-                        "pandas-profiling library that might help you. ")
-            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err 
-        
-        except: # Something went wrong -> use pandas-profiling to generate a report
-            message = str("Something went wrong. Here's a report on the table generated by YData's pandas-profiling " +
-                        "library that might help you. ")
-            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err 
+        except ValueError:  # Invalid question -> use pandas-profiling to generate a report
+            message = str(
+                "I don't know how to answer that question. Here's a report on the table generated by YData's "
+                + "pandas-profiling library that might help you. "
+            )
+            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err
 
-            
+        except:  # Something went wrong -> use pandas-profiling to generate a report
+            message = str(
+                "Something went wrong. Here's a report on the table generated by YData's pandas-profiling "
+                + "library that might help you. "
+            )
+            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err
+
+
 # Running model
 def main():
     parser = argparse.ArgumentParser()
@@ -650,7 +737,9 @@ def main():
 
     # Answering question
     pipeline = Pipeline()
-    result = pipeline.predict(args.table, args.request) # Outputs the modified table, string, matplotlib graph, or HTML page
+    result = pipeline.predict(
+        args.table, args.request
+    )  # Outputs the modified table, string, matplotlib graph, or HTML page
 
     print(result)
 
