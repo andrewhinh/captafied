@@ -1,7 +1,5 @@
 # Imports
 import argparse
-import base64
-import io
 import itertools
 import os
 from os import path
@@ -9,15 +7,17 @@ from pathlib import Path
 from typing import Union
 
 from dotenv import load_dotenv
-import matplotlib
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+from functools import partial
 import numpy as np
 from onnxruntime import InferenceSession
 import openai
 import pandas as pd
 from pandas_profiling import ProfileReport
 from PIL import Image
+import plotly.express as px
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
 import requests
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -28,9 +28,8 @@ import validators
 
 
 # Setup
-# matplotlib setup
-# matplotlib.use('agg') # Disable GUI for Gradio                                        # Uncomment for Gradio
-plt.style.use("dark_background")  # Dark background for plots
+# Plotly setup
+pio.templates.default = "plotly_dark"
 
 # Loading env variables
 load_dotenv()
@@ -49,7 +48,11 @@ clip_processor = artifact_path / "clip-vit-base-patch16"
 clip_onnx = onnx_path / "clip.onnx"
 
 
-# Main class
+# Classes
+class InvalidRequest(ValueError):
+    """Raise this when an invalid request is made to the API"""
+
+
 class Pipeline:
     """
     Main inference class
@@ -63,7 +66,7 @@ class Pipeline:
         # OpenAI Engine
         self.engine = "text-davinci-003"
 
-        # Matplotlib setup
+        # Graph setup
         self.types = ["text string", "image path/URL", "categorical", "continuous"]
 
     def is_string_series(self, s: pd.Series):
@@ -99,13 +102,8 @@ class Pipeline:
     def exec_code(self, df, code):
         global_vars, local_vars = {"self": self, "df": df}, {}
         exec(code, global_vars, local_vars)
-        try:
-            result = local_vars["result"]
-            return result
-        except:
-            pass
-
-        # In case of graph
+        result = local_vars["result"]
+        return result
 
     def get_column_vals(self, df, column, images_present=False):
         if images_present:
@@ -181,6 +179,7 @@ class Pipeline:
 
         # CLIP embeddings of text and/or images and getting values of any categorical/continuous columns
         dict_embeds = self.clip_encode(df, text_columns, image_columns)
+        text_image_columns = list(dict_embeds.keys())
         dict_cat = {}
         dict_cont = {}
         if cat_columns:
@@ -189,65 +188,40 @@ class Pipeline:
         if cont_columns:
             for column in cont_columns:
                 dict_cont[column] = self.get_column_vals(df, column)
+
+        # Conditionals for plotting
         other_vars_present = dict_cat or dict_cont
         two_other_vars_present = len(dict_cat) == 2 or len(dict_cont) == 2 or (dict_cat and dict_cont)
+        more_than_one_column = len(text_image_columns) > 1
 
         # Setting up matplotlib figure
-        if other_vars_present:
-            fig = plt.figure()
-            ax = fig.add_subplot(projection="3d")
+        fig = make_subplots(rows=1, cols=1)
+        if not other_vars_present:
+            list_markers = (
+                list(range(0, 55))
+                + list(range(100, 155))
+                + list(range(200, 225))
+                + [236]
+                + list(range(300, 325))
+                + [326]
+            )  # https://plotly.com/python/marker-style/#custom-marker-symbols
         else:
-            fig, ax = plt.subplots()
-        variables = list(dict_embeds.keys()) + list(dict_cat.keys()) + list(dict_cont.keys())
-        variables = [variable + " Clusters" if variable in dict_embeds.keys() else variable for variable in variables]
-        variables = " vs. ".join(variables)
-        plt.title(variables)
+            list_markers = ["circle", "circle-open", "cross", "diamond", "diamond-open", "square", "square-open", "x"]
 
-        # Setting up legend
-        colors = cm.rainbow(np.linspace(0, 1, len(dict_embeds)))
-        markers = itertools.cycle(
-            (
-                "o",
-                "v",
-                "^",
-                "<",
-                ">",
-                "1",
-                "2",
-                "3",
-                "4",
-                "8",
-                "s",
-                "p",
-                "P",
-                "*",
-                "h",
-                "H",
-                "+",
-                "x",
-                "X",
-                "D",
-                "d",
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-            )
-        )
-        cluster_handles = []
-        cluster_labels = []
-        column_handles = []
-        column_labels = []
+        # Setting up points settings
+        color_themes = (
+            px.colors.qualitative
+        )  # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
+        list_colors = [getattr(color_themes, att) for att in dir(color_themes)[:-11]]
+        colors = list(itertools.chain.from_iterable(list_colors))
+        markers = itertools.cycle((list_markers))
 
         # UMAP and K-Means clustering
-        offset = 0  # To label the clusters in a continuous manner
-        for column, embeds, color in zip(list(dict_embeds.keys()), list(dict_embeds.values()), colors):
+        for column, embeds, color in zip(text_image_columns, list(dict_embeds.values()), colors):
             # Getting # of clusters and K-Means clustering
-            range_n_clusters = list(range(2, len(df)))
+            range_n_clusters = list(
+                range(2, int(len(df) / 2))
+            )  # For performance reasons, we don't want to cluster more than half the data
             silhouette_scores = []
             for num_clusters in range_n_clusters:
                 # initialise kmeans
@@ -279,9 +253,13 @@ class Pipeline:
 
             # Plotting clusters
             for cluster in range(n_clusters):
-                # Plotting points
+                # Getting vars for scatter plot
                 marker = next(markers)
-                xs = np.array(x)[clusters == cluster]  # Text/image data
+                scatter = partial(go.Scatter, mode="markers", marker=dict(symbol=marker, color=color))
+                scatter_3d = partial(go.Scatter3d, mode="markers", marker=dict(symbol=marker, color=color))
+
+                # Text/image data
+                xs = np.array(x)[clusters == cluster]
 
                 # Extending added variables to match the number of data points
                 if dict_cat:
@@ -291,32 +269,75 @@ class Pipeline:
                     for item in dict_cont.items():
                         dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
 
+                # Plotting based on number of added variables
+                prefix = ""
+                if more_than_one_column:
+                    prefix = column + ", "
+
                 if two_other_vars_present:  # 2 categorical/continuous variables
                     if len(dict_cat) == 1:  # 1 categorical and 1 continuous variable
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
-                        ax.set_ylabel(list(dict_cont.keys())[0])
-                        ax.set_zlabel(list(dict_cat.keys())[0])
+                        fig.update_layout(
+                            scene=dict(
+                                zaxis=dict(title=list(dict_cont.keys())[0]),
+                                yaxis=dict(title=list(dict_cat.keys())[0]),
+                            )
+                        )
                         for zs_cat in np.unique(zs):
-                            xs_cat = xs[zs == zs_cat]
-                            ys_cat = ys[zs == zs_cat]
-                            ax.scatter(xs_cat, ys_cat, zs_cat, zdir="z", color=color, marker=marker, alpha=1)
+                            name = prefix + str(zs_cat) + ", " + str(cluster)
+                            marker = next(markers)
+                            fig.add_trace(
+                                scatter(
+                                    x=xs[zs == zs_cat],
+                                    y=ys[zs == zs_cat],
+                                    name=name,
+                                    marker=dict(symbol=marker, color=color),
+                                )
+                            )
                     elif len(dict_cat) == 2:  # 2 categorical variables
                         ys = np.array(list(dict_cat.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cat.values())[1])[clusters == cluster]
-                        ax.set_ylabel(list(dict_cat.keys())[0])
-                        ax.set_zlabel(list(dict_cat.keys())[1])
+                        fig.update_layout(
+                            scene=dict(
+                                zaxis=dict(title=list(dict_cat.keys())[0]),
+                                yaxis=dict(title=list(dict_cat.keys())[1]),
+                            )
+                        )
                         for ys_cat in np.unique(ys):
                             for zs_cat in np.unique(zs):
-                                filter = np.logical_and([ys == ys_cat], [zs == zs_cat])
-                                xs_cat = xs[filter[0]]
-                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir="z", color=color, marker=marker, alpha=1)
+                                name = (
+                                    prefix 
+                                    + list(dict_cat.keys())[0]
+                                    + ": "
+                                    + str(ys_cat)
+                                    + ", "
+                                    + list(dict_cat.keys())[1]
+                                    + ": "
+                                    + str(zs_cat)
+                                    + ", "
+                                    + str(cluster)
+                                )
+                                marker = next(markers)
+                                fig.add_trace(
+                                    scatter(
+                                        x=xs[(ys == ys_cat) & (zs == zs_cat)],
+                                        y=ys[(ys == ys_cat) & (zs == zs_cat)],
+                                        name=name,
+                                        marker=dict(symbol=marker, color=color),
+                                    )
+                                )
                     elif len(dict_cont) == 2:  # 2 continuous variables
                         ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
                         zs = np.array(list(dict_cont.values())[1])[clusters == cluster]
-                        ax.set_ylabel(list(dict_cont.keys())[0])
-                        ax.set_zlabel(list(dict_cont.keys())[1])
-                        ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
+                        fig.update_layout(
+                            scene=dict(
+                                zaxis=dict(title=list(dict_cont.keys())[0]),
+                                yaxis=dict(title=list(dict_cont.keys())[1]),
+                            )
+                        )
+                        name = prefix + str(cluster)
+                        fig.add_trace(scatter_3d(x=xs, y=ys, z=zs, name=name))
                     else:
                         pass
                 else:  # If < 2 continuous/categorical variables are present
@@ -324,33 +345,28 @@ class Pipeline:
                         ys = np.array(y)[clusters == cluster]
                         if dict_cat:  # 1 categorical variable
                             zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
-                            ax.set_zlabel(list(dict_cat.keys())[0])
                             for zs_cat in np.unique(zs):
-                                xs_cat = xs[zs == zs_cat]
-                                ys_cat = ys[zs == zs_cat]
-                                ax.scatter(xs_cat, ys_cat, zs_cat, zdir="z", color=color, marker=marker, alpha=1)
+                                name = prefix + str(zs_cat) + ", " + str(cluster)
+                                marker = next(markers)
+                                fig.add_trace(
+                                    scatter(
+                                        x=xs[zs == zs_cat],
+                                        y=ys[zs == zs_cat],
+                                        name=name,
+                                        marker=dict(symbol=marker, color=color),
+                                    )
+                                )
                         elif dict_cont:  # 1 continuous variable
                             zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
-                            ax.set_zlabel(list(dict_cont.keys())[0])
-                            ax.scatter(xs, ys, zs, color=color, marker=marker, alpha=1)
+                            fig.update_layout(scene=dict(zaxis=dict(title=list(dict_cont.keys())[0])))
+                            name = prefix + str(cluster)
+                            fig.add_trace(scatter_3d(x=xs, y=ys, z=zs, name=name))
                         else:
                             pass
                     else:  # If no continuous/categorical variables are present
                         ys = np.array(y)[clusters == cluster]
-                        ax.scatter(xs, ys, color=color, marker=marker, alpha=1)
-
-                # Adding cluster to legend
-                artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker=marker)
-                cluster_handles.append(artist)
-                cluster_labels.append(str(cluster + offset))
-
-            # To label the clusters in a continuous manner
-            offset += n_clusters
-
-            # Adding column to legend
-            artist = matplotlib.lines.Line2D([], [], color=color, lw=0, marker="o")
-            column_handles.append(artist)
-            column_labels.append(column)
+                        name = prefix + str(cluster)
+                        fig.add_trace(scatter(x=xs, y=ys))
 
         """
         # HDBSCAN clustering
@@ -411,28 +427,22 @@ class Pipeline:
             ax.legend(handles, labels, loc="lower left", title="Data Types")
         """
 
-        # Legends
-        legend = ax.legend(cluster_handles, cluster_labels, loc="upper right", title="Clusters")
-        ax.add_artist(legend)
-        ax.legend(column_handles, column_labels, loc="lower left", title="Columns")
+        variables = text_image_columns + list(dict_cat.keys()) + list(dict_cont.keys())
+        variables = [variable + " Clusters" if variable in dict_embeds.keys() else variable for variable in variables]
+        variables = " vs. ".join(variables)
+        legend_title = "Columns and Clusters" if more_than_one_column else "Clusters"
+        fig.update_layout(
+            title = {"text": variables, "y": 0.9, "x": 0.5, "xanchor": "center", "yanchor": "top"},
+            legend = {"title": legend_title, "y": 0.9, "x": 0.9, "xanchor": "right", "yanchor": "top"},
+        )
 
-        # return plt                                                                    # Uncomment for Gradio
+        return fig
 
     def get_report(self, df, message):
         if len(df) > 1000:
             report = ProfileReport(df, title="Pandas Profiling Report", minimal=True)
         else:
             report = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
-
-        """
-        # For Gradio
-        report.config.html.inline = True
-        report.config.html.minify_html = True
-        report.config.html.use_local_assets = True
-        report.config.html.navbar_show = False
-        report.config.html.full_width = False
-        return error + report.to_html()
-        """
 
         # For Dash
         report_path = Path("assets") / "report.html"
@@ -441,9 +451,6 @@ class Pipeline:
         return [message, "/" + str(report_path)]
 
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
-        # Handling repeated uses of matplotlib
-        plt.clf()
-
         # Empty return values for both successes and failures
         empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, empty_err = None, None, None, None, None
 
@@ -464,11 +471,11 @@ class Pipeline:
                 elif "html" in table.name:
                     df = pd.read_html(table.name)
                 else:
-                    raise ValueError(
+                    raise InvalidRequest(
                         "File type not supported, please submit a public Google Sheets URL or a csv/tsv/xls(x)/"
                         + "ods/pdf/html file."
                     )
-            except ValueError as error:
+            except InvalidRequest as error:
                 return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str(error)
             except:
                 return (
@@ -567,7 +574,7 @@ class Pipeline:
                 + "and returns the image as a Python numpy array, either directly on an string path or as a mapped "
                 + "function over a list or pandas Series.\n"
                 + "6. If the user is asking a question that cannot be answered with the information found in df, "
-                + "return 'raise ValueError()'. "
+                + "return 'raise InvalidRequest(\"Invalid request\")'. "
             )
 
             # Table modifications
@@ -645,28 +652,15 @@ class Pipeline:
                     + "A user asks the following from you regarding df: "
                     + request_str
                     + "\n"
-                    + "Write Python code that draws an appropriate graph with matplotlib, doesn't include any "
-                    + "imports, labels the graph's title, axes, and legend as necessary. "
+                    + "Write Python code that draws an appropriate graph with Python's plotly package. Make sure that it:\n"
+                    + "1. Creates a variable figure that is a plotly.graph_objects.Figure object and assigns the graph to it.\n"
+                    + "2. Labels the graph's title, axes, and legend as necessary.\n"
+                    + "3. Assigns the variable figure to result. "
                     + note,
                     temperature=0.3,
                     max_tokens=250,
                 )
-                """                                                                 # Add this back into prompt for Gradio
-                , and ends with the line " +
-                        "'result = plt'. 
-                
-                """
-                # self.exec_code(df, code_to_exec)                                  # Replace return value with this for Gradio
-                # """                                                                # Remove # for Gradio
-                buf = io.BytesIO()
-                self.exec_code(df, code_to_exec)
-                plt.savefig(buf, format="png")
-                plt.close()
-                data = base64.b64encode(buf.getbuffer()).decode("utf8")  # encode to html elements
-                buf.close()
-                value = "data:image/png;base64,{}".format(data)
-                # """                                                                # Remove # for Gradio
-                return empty_pred_table, empty_pred_text, value, empty_pred_report, empty_err
+                return empty_pred_table, empty_pred_text, self.exec_code(df, code_to_exec), empty_pred_report, empty_err
 
             # Questions involving text and/or image embeddings/clusters
             elif which_answer == 5:
@@ -695,30 +689,26 @@ class Pipeline:
                 columns = columns.split(", ")
                 for column in columns:
                     if column not in df.columns:
-                        raise ValueError("Invalid request being made.")
-                # self.get_embeds_graph(df, column_data, columns)                   # Replace return value with this for Gradio
-                # """                                                                # Remove # for Gradio
-                buf = io.BytesIO()
-                self.get_embeds_graph(df, column_data, columns)
-                plt.savefig(buf, format="png")
-                plt.close()
-                data = base64.b64encode(buf.getbuffer()).decode("utf8")  # encode to html elements
-                buf.close()
-                value = "data:image/png;base64,{}".format(data)
-                # """                                                                # Remove # for Gradio
-                return empty_pred_table, empty_pred_text, value, empty_pred_report, empty_err
+                        raise InvalidRequest("Invalid request.")
+                return (
+                    empty_pred_table,
+                    empty_pred_text,
+                    self.get_embeds_graph(df, column_data, columns),
+                    empty_pred_report,
+                    empty_err,
+                )
 
             else:
-                raise ValueError()
+                raise InvalidRequest("Invalid request.")
 
-        except ValueError:  # Invalid question -> use pandas-profiling to generate a report
+        except InvalidRequest:  # Invalid question -> use pandas-profiling to generate a report
             message = str(
                 "I don't know how to answer that question. Here's a report on the table generated by YData's "
                 + "pandas-profiling library that might help you. "
             )
             return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err
 
-        except:  # Something went wrong -> use pandas-profiling to generate a report
+        except Exception:  # Something went wrong -> use pandas-profiling to generate a report
             message = str(
                 "Something went wrong. Here's a report on the table generated by YData's pandas-profiling "
                 + "library that might help you. "
@@ -737,9 +727,7 @@ def main():
 
     # Answering question
     pipeline = Pipeline()
-    result = pipeline.predict(
-        args.table, args.request
-    )  # Outputs the modified table, string, matplotlib graph, or HTML page
+    result = pipeline.predict(args.table, args.request)  # Outputs the modified table, string, graph, or HTML page
 
     print(result)
 

@@ -348,7 +348,14 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
         )
 
     if graph is not None:
-        outputs.extend([html.Img(graph)])
+        outputs.extend(
+            [
+                dcc.Graph(
+                    id="basic-interactions",
+                    figure=graph,
+                ),
+            ]
+        )
 
     if report is not None:
         message, report_path = report[0], report[1]

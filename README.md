@@ -71,7 +71,9 @@ Some notes about submitting inputs to the pipeline:
 
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Try to be clear what it is exactly that you're asking for; for example, to get the backend to properly understand you want text embeddings to be plotted, it may be necessary to specify as such in the request as seen in the examples above.
-- Up to three variables ranging from numerical, categorical, text, image data can be graphed, allowing for 84 different kinds of distributions and relationships to be modelled.
+- Up to three numerical and/or categorical variables can be graphed at one time, but since text and image variables are graphed on the same "axis", there is no limit on the number of text and image variables that can be graphed.
+
+
 
 ## Production
 
