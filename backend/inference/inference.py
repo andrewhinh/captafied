@@ -190,13 +190,15 @@ class Pipeline:
                 dict_cont[column] = self.get_column_vals(df, column)
 
         # Conditionals for plotting
-        other_vars_present = dict_cat or dict_cont
-        two_other_vars_present = len(dict_cat) == 2 or len(dict_cont) == 2 or (dict_cat and dict_cont)
-        more_than_one_column = len(text_image_columns) > 1
+        one_cont_var_present = len(dict_cont) == 1
+        two_cont_vars_present = len(dict_cont) == 2
+        two_or_more_text_image = len(text_image_columns) > 1
 
-        # Setting up matplotlib figure
-        fig = make_subplots(rows=1, cols=1)
-        if not other_vars_present:
+        # Setting up figure
+        fig = make_subplots()
+        if dict_cont:  # If there are continuous columns, prepare for 3D plot
+            list_markers = ["circle", "circle-open", "cross", "diamond", "diamond-open", "square", "square-open", "x"]
+        else:
             list_markers = (
                 list(range(0, 55))
                 + list(range(100, 155))
@@ -205,19 +207,20 @@ class Pipeline:
                 + list(range(300, 325))
                 + [326]
             )  # https://plotly.com/python/marker-style/#custom-marker-symbols
-        else:
-            list_markers = ["circle", "circle-open", "cross", "diamond", "diamond-open", "square", "square-open", "x"]
-
-        # Setting up points settings
+        markers = itertools.cycle((list_markers))
         color_themes = (
             px.colors.qualitative
         )  # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
         list_colors = [getattr(color_themes, att) for att in dir(color_themes)[:-11]]
         colors = list(itertools.chain.from_iterable(list_colors))
-        markers = itertools.cycle((list_markers))
 
         # UMAP and K-Means clustering
         for column, embeds, color in zip(text_image_columns, list(dict_embeds.values()), colors):
+            # Legend entries depending on whether there are multiple text/image columns
+            prefix = ""
+            if two_or_more_text_image:
+                prefix = column + ", "
+
             # Getting # of clusters and K-Means clustering
             range_n_clusters = list(
                 range(2, int(len(df) / 2))
@@ -235,17 +238,33 @@ class Pipeline:
             kmeans.fit(embeds)
             clusters = kmeans.labels_
 
+            # Extending added variables to match the number of data points
+            if dict_cat:
+                for item in dict_cat.items():
+                    dict_cat[item[0]] = item[1] * int(len(clusters) / len(item[1]))
+            if dict_cont:
+                for item in dict_cont.items():
+                    dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
+
+            # Collecting min/max values of continuous variables for axis ranges
+            min_x = []
+            max_x = []
+            min_y = []
+            max_y = []
+            min_z = []
+            max_z = []
+
             # Reducing dimensionality of embeddings with UMAP
             n_neighbors = 15
             n_components = 2
             if embeds.shape[0] < 15:  # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
                 n_neighbors = embeds.shape[0] - 1
-            if two_other_vars_present:  # Reduce UMAP n_components to accomodate for 2 cat/cont variables
+            if two_cont_vars_present:  # Reduce UMAP n_components to accomodate for 2 cont variables
                 n_components = 1
             reducer = umap.UMAP(n_neighbors=n_neighbors, n_components=n_components)
             embedding = reducer.fit_transform(embeds)
             if n_components == 1:
-                x = embedding
+                x = embedding[:, 0]
                 y = None
             else:
                 x = embedding[:, 0]
@@ -260,113 +279,130 @@ class Pipeline:
 
                 # Text/image data
                 xs = np.array(x)[clusters == cluster]
+                min_x.append(min(xs))
+                max_x.append(max(xs))
 
-                # Extending added variables to match the number of data points
-                if dict_cat:
-                    for item in dict_cat.items():
-                        dict_cat[item[0]] = item[1] * int(len(clusters) / len(item[1]))
-                if dict_cont:
-                    for item in dict_cont.items():
-                        dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
-
-                # Plotting based on number of added variables
-                prefix = ""
-                if more_than_one_column:
-                    prefix = column + ", "
-
-                if two_other_vars_present:  # 2 categorical/continuous variables
-                    if len(dict_cat) == 1:  # 1 categorical and 1 continuous variable
-                        ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
-                        zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
-                        fig.update_layout(
-                            scene=dict(
-                                zaxis=dict(title=list(dict_cont.keys())[0]),
-                                yaxis=dict(title=list(dict_cat.keys())[0]),
+                if dict_cat and (
+                    not dict_cont or one_cont_var_present
+                ):  # Only categorical variables or (1 continuous variable and 1+ categorical variables)
+                    ys = np.array(y)[clusters == cluster]  # text/image data
+                    min_y.append(min(ys))
+                    max_y.append(max(ys))
+                    if one_cont_var_present:
+                        zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
+                        min_z.append(min(zs))
+                        max_z.append(max(zs))
+                    total_cats = [list(np.array(cats)[clusters == cluster]) for cats in list(dict_cat.values())]
+                    unique_cats = [np.unique(cats) for cats in total_cats]
+                    cat_combinations = list(itertools.product(*unique_cats))
+                    total_cats = np.array(total_cats[0])
+                    for cat_combination in cat_combinations:
+                        name = (
+                            prefix
+                            + ", ".join(
+                                [list(dict_cat.keys())[i] + ": " + str(cat) for i, cat in enumerate(cat_combination)]
                             )
+                            + ", "
+                            + "Cluster: "
+                            + str(cluster)
                         )
-                        for zs_cat in np.unique(zs):
-                            name = prefix + str(zs_cat) + ", " + str(cluster)
-                            marker = next(markers)
+                        temp_x = xs[total_cats == cat_combination]
+                        temp_y = ys[total_cats == cat_combination]
+                        if one_cont_var_present:
+                            temp_z = zs[total_cats == cat_combination]
                             fig.add_trace(
-                                scatter(
-                                    x=xs[zs == zs_cat],
-                                    y=ys[zs == zs_cat],
+                                scatter_3d(
+                                    x=temp_x,
+                                    y=temp_y,
+                                    z=temp_z,
                                     name=name,
                                     marker=dict(symbol=marker, color=color),
-                                )
+                                ),
                             )
-                    elif len(dict_cat) == 2:  # 2 categorical variables
-                        ys = np.array(list(dict_cat.values())[0])[clusters == cluster]
-                        zs = np.array(list(dict_cat.values())[1])[clusters == cluster]
-                        fig.update_layout(
-                            scene=dict(
-                                zaxis=dict(title=list(dict_cat.keys())[0]),
-                                yaxis=dict(title=list(dict_cat.keys())[1]),
-                            )
-                        )
-                        for ys_cat in np.unique(ys):
-                            for zs_cat in np.unique(zs):
-                                name = (
-                                    prefix 
-                                    + list(dict_cat.keys())[0]
-                                    + ": "
-                                    + str(ys_cat)
-                                    + ", "
-                                    + list(dict_cat.keys())[1]
-                                    + ": "
-                                    + str(zs_cat)
-                                    + ", "
-                                    + str(cluster)
-                                )
-                                marker = next(markers)
-                                fig.add_trace(
-                                    scatter(
-                                        x=xs[(ys == ys_cat) & (zs == zs_cat)],
-                                        y=ys[(ys == ys_cat) & (zs == zs_cat)],
-                                        name=name,
-                                        marker=dict(symbol=marker, color=color),
-                                    )
-                                )
-                    elif len(dict_cont) == 2:  # 2 continuous variables
-                        ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
-                        zs = np.array(list(dict_cont.values())[1])[clusters == cluster]
-                        fig.update_layout(
-                            scene=dict(
-                                zaxis=dict(title=list(dict_cont.keys())[0]),
-                                yaxis=dict(title=list(dict_cont.keys())[1]),
-                            )
-                        )
-                        name = prefix + str(cluster)
-                        fig.add_trace(scatter_3d(x=xs, y=ys, z=zs, name=name))
-                    else:
-                        pass
-                else:  # If < 2 continuous/categorical variables are present
-                    if other_vars_present:  # If 1 continuous/categorical variable is present
-                        ys = np.array(y)[clusters == cluster]
-                        if dict_cat:  # 1 categorical variable
-                            zs = np.array(list(dict_cat.values())[0])[clusters == cluster]
-                            for zs_cat in np.unique(zs):
-                                name = prefix + str(zs_cat) + ", " + str(cluster)
-                                marker = next(markers)
-                                fig.add_trace(
-                                    scatter(
-                                        x=xs[zs == zs_cat],
-                                        y=ys[zs == zs_cat],
-                                        name=name,
-                                        marker=dict(symbol=marker, color=color),
-                                    )
-                                )
-                        elif dict_cont:  # 1 continuous variable
-                            zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
-                            fig.update_layout(scene=dict(zaxis=dict(title=list(dict_cont.keys())[0])))
-                            name = prefix + str(cluster)
-                            fig.add_trace(scatter_3d(x=xs, y=ys, z=zs, name=name))
                         else:
-                            pass
-                    else:  # If no continuous/categorical variables are present
-                        ys = np.array(y)[clusters == cluster]
-                        name = prefix + str(cluster)
-                        fig.add_trace(scatter(x=xs, y=ys))
+                            fig.add_trace(
+                                scatter(
+                                    x=temp_x,
+                                    y=temp_y,
+                                    name=name,
+                                    marker=dict(symbol=marker, color=color),
+                                ),
+                            )
+
+                        marker = next(markers)
+
+                elif one_cont_var_present:  # Only 1 continuous variable
+                    ys = np.array(y)[clusters == cluster]
+                    zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
+                    min_y.append(min(ys))
+                    max_y.append(max(ys))
+                    min_z.append(min(zs))
+                    max_z.append(max(zs))
+                    name = prefix + "Cluster: " + str(cluster)
+                    fig.add_trace(scatter_3d(x=xs, y=ys, z=zs, name=name))
+
+                elif two_cont_vars_present:  # Only 2 continuous variables
+                    ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
+                    zs = np.array(list(dict_cont.values())[1])[clusters == cluster]
+                    min_y.append(min(ys))
+                    max_y.append(max(ys))
+                    min_z.append(min(zs))
+                    max_z.append(max(zs))
+                    name = prefix + "Cluster: " + str(cluster)
+                    fig.add_trace(scatter_3d(x=xs, y=ys, z=zs, name=name))
+
+                else:  # No continuous/categorical variables
+                    ys = np.array(y)[clusters == cluster]
+                    min_y.append(min(ys))
+                    max_y.append(max(ys))
+                    name = prefix + "Cluster: " + str(cluster)
+                    fig.add_trace(scatter(x=xs, y=ys, name=name))
+
+            # Labelling + setting axis ranges
+            if dict_cont:
+                # Getting ranges for axis
+                x_min = min(min_x)
+                x_max = max(max_x)
+                if type(x_min) == np.ndarray and type(x_max) == np.ndarray:
+                    x_min = x_min[0]
+                    x_max = x_max[0]
+                y_min = min(min_y)
+                y_max = max(max_y)
+                z_min = min(min_z)
+                z_max = max(max_z)
+
+                # Setting axis ranges
+                if one_cont_var_present:
+                    fig.update_layout(
+                        scene=dict(
+                            xaxis=dict(
+                                range=[x_min, x_max],
+                            ),
+                            yaxis=dict(
+                                range=[y_min, y_max],
+                            ),
+                            zaxis=dict(
+                                title=list(dict_cont.keys())[0],
+                                range=[z_min, z_max],
+                            ),
+                        )
+                    )
+                elif two_cont_vars_present:
+                    fig.update_layout(
+                        scene=dict(
+                            xaxis=dict(
+                                range=[x_min, x_max],
+                            ),
+                            yaxis=dict(
+                                title=list(dict_cont.keys())[0],
+                                range=[y_min, y_max],
+                            ),
+                            zaxis=dict(
+                                title=list(dict_cont.keys())[1],
+                                range=[z_min, z_max],
+                            ),
+                        )
+                    )
 
         """
         # HDBSCAN clustering
@@ -427,13 +463,22 @@ class Pipeline:
             ax.legend(handles, labels, loc="lower left", title="Data Types")
         """
 
+        # Titles
         variables = text_image_columns + list(dict_cat.keys()) + list(dict_cont.keys())
         variables = [variable + " Clusters" if variable in dict_embeds.keys() else variable for variable in variables]
         variables = " vs. ".join(variables)
-        legend_title = "Columns and Clusters" if more_than_one_column else "Clusters"
+        legend_titles = ["Clusters", "Columns", "Categories"]
+        if two_or_more_text_image and dict_cat:  # 2 or more text/image columns and 1 or more categorical columns
+            legend_title = ", ".join(legend_titles)
+        elif two_or_more_text_image:  # 2 or more text/image columns
+            legend_title = " and ".join(legend_titles[:2])
+        elif dict_cat:  # 1 or more categorical columns
+            legend_title = " and ".join([legend_titles[0], legend_titles[2]])
+        else:  # No categorical columns and 1 text/image column
+            legend_title = legend_titles[0]
         fig.update_layout(
-            title = {"text": variables, "y": 0.9, "x": 0.5, "xanchor": "center", "yanchor": "top"},
-            legend = {"title": legend_title, "y": 0.9, "x": 0.9, "xanchor": "right", "yanchor": "top"},
+            title={"text": variables, "y": 0.9, "x": 0.5, "xanchor": "center", "yanchor": "top"},
+            legend={"title": legend_title, "y": 0.9, "x": 0.9, "xanchor": "right", "yanchor": "top"},
         )
 
         return fig
@@ -708,7 +753,8 @@ class Pipeline:
             )
             return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err
 
-        except Exception:  # Something went wrong -> use pandas-profiling to generate a report
+        except Exception as e:  # Something went wrong -> use pandas-profiling to generate a report
+            print(e)
             message = str(
                 "Something went wrong. Here's a report on the table generated by YData's pandas-profiling "
                 + "library that might help you. "

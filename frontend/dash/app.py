@@ -478,10 +478,13 @@ def flag_pred(
     request, pred, contents=None, filename=None, url=None, inc_clicked=None, off_clicked=None, oth_clicked=None
 ):
     if pred:
-        pred = [
-            x["props"]["children"] if x["props"]["children"] else x["props"]["src"] for x in pred["props"]["children"]
-        ]
-        pred = " ".join(pred)
+        try:
+            pred = [
+                x["props"]["children"] for x in pred["props"]["children"]
+            ]
+            pred = " ".join(pred)
+        except:
+            pred = "Graph"
 
     changed_id = total_clicks()
     buttons_clicked = [
