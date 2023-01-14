@@ -1,6 +1,8 @@
 # [captafied](https://captafied.loca.lt/)
 
-![demo](./demo.png)
+
+https://user-images.githubusercontent.com/40700820/212492942-4511107d-5e9c-415d-a253-8ecdefc3f3b8.mov
+
 
 ## Contents
 
