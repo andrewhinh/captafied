@@ -4,8 +4,6 @@
 #
 #    pip-compile requirements/prod.in
 #
---extra-index-url https://us-python.pkg.dev/colab-wheels/public/simple/
-
 aiohttp==3.8.1
     # via gradio
 aiosignal==1.2.0
@@ -179,7 +177,6 @@ markupsafe==2.1.1
     #   werkzeug
 matplotlib==3.5.2
     # via
-    #   -r requirements/prod.in
     #   gradio
     #   pandas-profiling
     #   phik
@@ -282,7 +279,9 @@ pillow==7.1.2
     #   torchvision
     #   visions
 plotly==5.11.0
-    # via dash
+    # via
+    #   -r requirements/prod.in
+    #   dash
 promise==2.3
     # via wandb
 protobuf==3.20.3

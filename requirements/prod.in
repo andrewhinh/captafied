@@ -19,11 +19,11 @@ torchvision>=0.13.0
 
 # added for this project
 dash
-matplotlib
 odfpy
 onnxruntime==1.12.1
 openai==0.23.1
 pandas_profiling
+plotly
 python-dotenv
 scikit-learn
 tabula-py
