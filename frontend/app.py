@@ -87,26 +87,8 @@ def html_text(text, fontSize=font["size"], fontWeight="normal"):
     )
 
 
-# Return stylized HTML table
-def html_table(table):
-    return (
-        html.Table(
-            children=[
-                html.Thead(html.Tr([html.Th(col) for col in table.columns])),
-                html.Tbody(
-                    [
-                        html.Tr([html.Td(table.iloc[i][col]) for col in table.columns])
-                        for i in range(min(len(table), max_rows))
-                    ]
-                ),
-            ],
-            style=html_settings(),
-        ),
-    )
-
-
 # Return stylized HTML input box
-def html_input(id, type, placeholder, width="100%"):
+def html_input(id, type, placeholder, width="80%"):
     return dcc.Input(
         id=id,
         type=type,
@@ -181,7 +163,23 @@ def show_uploaded_table(contents=None, filename=None, url=None):
         df, error = convert_to_pd(None, None, url)
     if df is not None and not error:
         if type(df) == pd.DataFrame:
-            return html.Div([html_text(heading), html_table(df)])
+            return html.Div([
+                html_text(heading), 
+                html.Center(
+                    html.Table(
+                        children=[
+                            html.Thead(html.Tr([html.Th(col) for col in df.columns])),
+                            html.Tbody(
+                                [
+                                    html.Tr([html.Td(df.iloc[i][col]) for col in df.columns])
+                                    for i in range(min(len(df), max_rows))
+                                ]
+                            ),
+                        ],
+                        style=html_settings(width="95%"),
+                    )
+                ),
+            ])
         else:
             return error
     else:
@@ -193,7 +191,22 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
     outputs = []
 
     if table is not None:
-        outputs.extend([html_table(table)])
+        outputs.extend([
+            html.Center(
+                html.Table(
+                    children=[
+                        html.Thead(html.Tr([html.Th(col) for col in table.columns])),
+                        html.Tbody(
+                            [
+                                html.Tr([html.Td(table.iloc[i][col]) for col in table.columns])
+                                for i in range(min(len(table), max_rows))
+                            ]
+                        ),
+                    ],
+                    style=html_settings(width="95%"),
+                ),
+            )
+        ])
 
     if text is not None:
         outputs.extend([html_text(text)])
@@ -311,7 +324,9 @@ app.layout = html.Div(
         html.Div(
             [
                 html_text("Or paste a public URL to it:"),
-                html_input(id="before-table-url-uploaded", type="url", placeholder=example_url, width="80%"),
+                html_input(id="before-table-url-uploaded", 
+                            type="url", 
+                            placeholder=example_url),
             ]
         ),
         html.Br(),
@@ -321,7 +336,7 @@ app.layout = html.Div(
         html.Div(
             [
                 html_text("Type in a request:"),
-                html_input(id="request-uploaded", type="text", placeholder=example_request, width="80%"),
+                html_input(id="request-uploaded", type="text", placeholder=example_request),
             ]
         ),
         html.Br(),
@@ -333,20 +348,23 @@ app.layout = html.Div(
             button_terms[0],
             id=button_id(0),
             n_clicks=0,
-            style=html_settings(width="15%"),
+            style=html_settings(width="50%"),
         ),
+        html.Br(),
         html.Button(
             button_terms[1],
             id=button_id(1),
             n_clicks=0,
-            style=html_settings(width="15%"),
+            style=html_settings(width="50%"),
         ),
+        html.Br(),
         html.Button(
             button_terms[2],
             id=button_id(2),
             n_clicks=0,
-            style=html_settings(width="15%"),
+            style=html_settings(width="50%"),
         ),
+        html.Br(),
         html.Div(id="flag_output"),
         # Extra length at the bottom of the page
         html.Div([html.Br()] * 10),
