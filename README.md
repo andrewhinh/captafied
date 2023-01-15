@@ -1,8 +1,6 @@
 # [captafied](https://captafied.loca.lt/)
 
-
-https://user-images.githubusercontent.com/40700820/212492942-4511107d-5e9c-415d-a253-8ecdefc3f3b8.mov
-
+<https://user-images.githubusercontent.com/40700820/212492942-4511107d-5e9c-415d-a253-8ecdefc3f3b8.mov>
 
 ## Contents
 
@@ -75,16 +73,14 @@ Some notes about submitting inputs to the pipeline:
 - Try to be clear what it is exactly that you're asking for; for example, to get the backend to properly understand you want text embeddings to be plotted, it may be necessary to specify as such in the request as seen in the examples above.
 - By themselves, up to three continuous +/- categorical variables can be graphed at one time. When graphed with text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
 
-
-
 ## Production
 
 To setup the production server for the website, we simply:
 
-1. Setup the Gradio app with an AWS Lambda backend on our localhost:
+1. Setup the app with an AWS Lambda backend on our localhost:
 
 ```bash
-python3 frontend/gradio/app.py --flagging --model_url=AWS_LAMBDA_URL
+python3 frontend/app.py --flagging --model_url=AWS_LAMBDA_URL
 ```
 
 2. Serve the localhost app over a permanent localtunnel link:
@@ -149,10 +145,8 @@ The repo is separated into main folders that each describe a part of the ML-proj
     ├── inference   # the inference code.
         ├── artifacts   # the model (W&B-synced) storage folder.
     ├── load_test   # the load testing code using Locust.
-    ├── monitoring  # the model monitoring code using Gradio's flagging feature.
-├── frontend        
-    ├── gradio      # Gradio frontend.
-    ├── dash        # Dash frontend.
+    ├── monitoring  # the model monitoring code
+├── frontend        # the frontend code using Dash.
 ├── tasks           # the pipeline testing code.
 ```
 
@@ -160,16 +154,16 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 From the main directory, there are various ways to test the pipeline:
 
-- To start the Gradio app locally:
+- To start the app locally:
 
 ```bash
-python frontend/gradio/app.py --flagging
+python frontend/app.py --flagging
 ```
 
-- To test the Gradio frontend by launching and pinging the frontend locally:
+- To test the frontend by launching and pinging the frontend locally:
 
 ```bash
-python -c "from frontend.gradio.tests.test_app import test_local_run; test_local_run()"
+python -c "from frontend.tests.test_app import test_local_run; test_local_run()"
 ```
 
 - To test various aspects of the model pipeline:
