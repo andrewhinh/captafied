@@ -39,8 +39,8 @@ colors = {
 max_rows = 5
 max_col = 2
 
-# Max html text character length
-max_char_length = 40 - 3  # 3 for "..." at end
+# Max html table heading character length (since there are usually no spaces)
+max_char_length = 40 - 3  # Width of IPhone screen - "..." at end
 
 # Example error message when multiple tables are found
 multiple_files_error = "Please upload one file with only one table."
@@ -51,7 +51,6 @@ ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
 # Button helper variables
 button_terms = ["incorrect", "offensive", "other"]
-button_id_end = "-button-state"
 
 # Examples
 parent_path = Path(__file__).parent / ".."
@@ -71,7 +70,7 @@ pipeline = Pipeline()
 # Helper functions
 # Return stylized HTML text settings
 def html_settings(
-    fontSize=font["size"], fontWeight="normal", width="100%", height="100%", lineHeight=None, borderStyle=None
+    fontSize=font["size"], fontWeight="normal", width="90%", height="100%", lineHeight=None, borderStyle=None
 ):
     temp = {
         "textAlign": "center",
@@ -91,32 +90,26 @@ def html_settings(
 
 
 # Return stylized HTML text
-def html_text(text, fontSize=font["size"], fontWeight="normal", width="90%"):
+def html_text(text, fontSize=font["size"], fontWeight="normal"):
     return html.Div(
         [text],
-        style=html_settings(fontSize, fontWeight, width),
+        style=html_settings(fontSize, fontWeight),
     )
 
 
 # Return stylized HTML input box
-def html_input(id, type, width="90%"):
-    return html.Div(
-        [
-            html.Center(
-                dcc.Input(
-                    id=id,
-                    type=type,
-                    debounce=True,
-                    style=html_settings(width=width),
-                )
-            ),
-        ]
+def html_input(id, type):
+    return dcc.Input(
+        id=id,
+        type=type,
+        debounce=True,
+        style=html_settings(),
     )
 
 
 # Return button id
 def button_id(idx):
-    return button_terms[idx] + button_id_end
+    return button_terms[idx] + "-button-state"
 
 
 # Show all clicked buttons
@@ -126,7 +119,7 @@ def total_clicked_buttons():
 
 # Convert files to pd.DataFrames
 def name_to_pd(name, csv_obj=None, rest_obj=None):
-    if not csv_obj and not rest_obj:
+    if not csv_obj and not rest_obj:  # For local files + URLs
         csv_obj = rest_obj = name
     if "csv" in name:
         df = pd.read_csv(csv_obj)
@@ -148,9 +141,9 @@ def name_to_pd(name, csv_obj=None, rest_obj=None):
 # Convert an uploaded file/typed-in URL to a pd.DataFrame
 def convert_to_pd(contents=None, filename=None, url=None):
     empty_df, empty_error = None, None
-    error_ending = "csv, tsv, xls(x), or ods file containing a table."
+    error_ending = "csv, tsv, xls(x), or ods file containing a table."  # /pdf/html
     url_error = "Please enter a valid public URL to a " + error_ending
-    file_error = "Please upload a valid " + error_ending  # /pdf/html
+    file_error = "Please upload a valid " + error_ending
     if not contents and filename:
         try:
             df = name_to_pd(filename)
@@ -203,19 +196,17 @@ def show_table(contents=None, filename=None, url=None, output_table=False):
                     heading = heading[:max_char_length] + "..."
                 items.append(html_text(heading))
             items.append(
-                html.Center(
-                    html.Table(
-                        children=[
-                            html.Thead(html.Tr([html.Th(df.columns[col]) for col in range(max_col)])),
-                            html.Tbody(
-                                [
-                                    html.Tr([html.Td(df.iloc[i][df.columns[col]]) for col in range(max_col)])
-                                    for i in range(min(len(df), max_rows))
-                                ]
-                            ),
-                        ],
-                        style=html_settings(width="90%"),
-                    )
+                html.Table(
+                    children=[
+                        html.Thead(html.Tr([html.Th(df.columns[col]) for col in range(max_col)])),
+                        html.Tbody(
+                            [
+                                html.Tr([html.Td(df.iloc[i][df.columns[col]]) for col in range(max_col)])
+                                for i in range(min(len(df), max_rows))
+                            ]
+                        ),
+                    ],
+                    style=html_settings(),
                 )
             )
             return html.Div(items)
@@ -232,16 +223,14 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
     if table is not None:
         outputs.extend(
             [
-                show_table(output_table=table),
+                html.Center(
+                    show_table(output_table=table),
+                ),
             ]
         )
 
     if text:
-        outputs.extend([
-            html.Center(
-                html_text(text)
-            )
-        ])
+        outputs.extend([html.Center(html_text(text))])
 
     if graph:
         outputs.extend(
@@ -249,7 +238,7 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
                 html.Center(
                     dcc.Graph(
                         figure=graph,
-                        style=html_settings(width="90%"),
+                        style=html_settings(),
                     ),
                 ),
             ]
@@ -264,7 +253,7 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
                         html_text(message),
                         html.Iframe(
                             src=report_path,
-                            style=html_settings(width="90%", height="1080px"),
+                            style=html_settings(height="540px"),
                         ),
                     ]
                 ),
@@ -318,7 +307,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets, server=serv
 
 # Initializing app layout
 app.layout = html.Div(
-    style=html_settings(),
+    style=html_settings(width="100%"),
     children=[
         # Webpage title
         html.Center(
@@ -340,7 +329,7 @@ app.layout = html.Div(
                 (and give it a star if you like it!).
                 """
                     ],
-                    style=html_settings(width="90%"),
+                    style=html_settings(),
                 ),
                 # Line break
                 html.Br(),
@@ -357,8 +346,8 @@ app.layout = html.Div(
                 dcc.Upload(
                     id="before-table-file-uploaded",
                     children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
-                    style=html_settings(width="90%", height="400%", lineHeight="400%", borderStyle="dashed"),
-                    #multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
+                    style=html_settings(height="400%", lineHeight="400%", borderStyle="dashed"),
+                    # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
                 ),
                 html.Br(),
                 html.Div(id="after-table-file-uploaded"),
@@ -375,6 +364,7 @@ app.layout = html.Div(
                 html.Br(),
                 html_input(id="before-table-url-uploaded", type="url"),
                 html.Br(),
+                html.Br(),
                 html.Div(id="after-table-url-uploaded"),
                 html.Br(),
                 # Input: text request
@@ -388,6 +378,7 @@ app.layout = html.Div(
                     style=html_settings(),
                 ),
                 html_input(id="request-uploaded", type="text"),
+                html.Br(),
                 html.Br(),
                 # Output: table, text, graph, report, and/or error
                 html.Div(id="pred_output"),
@@ -431,7 +422,7 @@ app.layout = html.Div(
     State("before-table-file-uploaded", "filename"),
     Input("file-upload-example", "n_clicks"),
 )
-def show_uploaded_table_file(contents, filename, example_clicked):  
+def show_uploaded_table_file(contents, filename, example_clicked):
     if "file-upload-example" in total_clicked_buttons():
         return show_table(None, table_example, None, None)
     if contents and filename:
@@ -439,7 +430,7 @@ def show_uploaded_table_file(contents, filename, example_clicked):
             if len(contents) > 1 and len(filename) > 1:
                 return html_text(multiple_files_error)
         return show_table(contents, filename, None, None)
-    
+
 
 # Show example/uploaded table URL
 @app.callback(
@@ -452,7 +443,7 @@ def show_uploaded_table_url(url, example_clicked):
         return show_table(None, None, url_example, None)
     if url:
         return show_table(None, None, url, None)
-    
+
 
 # When both table file/url + request are uploaded
 @app.callback(
@@ -532,13 +523,7 @@ def flag_pred(show_file, show_url, request, pred, contents, filename, url, inc_c
     if checks[0] and (not checks[1] and not checks[2]) and checks[4]:
         df, error = convert_to_pd(None, None, str(url_example))
 
-    check = (
-        (show_file or show_url)
-        and df is not None
-        and request
-        and pred is not None
-        and not error
-    )
+    check = (show_file or show_url) and df is not None and request and pred is not None and not error
     if check and buttons_clicked[0]:
         flag_output(request, pred, True, None, None)
     if check and buttons_clicked[1]:
