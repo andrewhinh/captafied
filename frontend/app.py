@@ -372,7 +372,7 @@ app.layout = html.Div(
                 dcc.Markdown(
                     [
                         """
-                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=435&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+icons+taller+than+500+pixels%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+do+the+summary+embeddings+look+like%3F)](https://git.io/typing-svg)
+                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;Show+me+the+summary+embeddings.)](https://git.io/typing-svg)
                 """
                     ],
                     style=html_settings(),
