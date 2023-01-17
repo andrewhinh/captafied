@@ -491,7 +491,7 @@ class Pipeline:
 
         # For Dash
         report_path = Path("assets") / "report.html"
-        full_report_path = parent_path / ".." / ".." / "frontend" / "dash" / report_path
+        full_report_path = parent_path / ".." / ".." / "frontend" / report_path
         report.to_file(full_report_path)
         return [message, "/" + str(report_path)]
 
