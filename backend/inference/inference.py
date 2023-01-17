@@ -497,7 +497,7 @@ class Pipeline:
 
     def predict(self, table: Union[str, Path, pd.DataFrame], request: Union[str, Path]) -> str:
         # Empty return values for both successes and failures
-        empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, empty_err = None, None, None, None, None
+        outputs = [None] * 5
 
         # Type handling
         if not isinstance(table, pd.DataFrame):
@@ -521,15 +521,11 @@ class Pipeline:
                         + "ods/pdf/html file."
                     )
             except InvalidRequest as error:
-                return empty_pred_table, empty_pred_text, empty_pred_graph, empty_pred_report, str(error)
+                outputs[4] = str(error)
+                return outputs
             except:
-                return (
-                    empty_pred_table,
-                    empty_pred_text,
-                    empty_pred_graph,
-                    empty_pred_report,
-                    str("Sorry, we don't know what went wrong."),
-                )
+                outputs[4] = str("Sorry, we don't know what went wrong.")
+                return outputs
         else:
             df = table
         if isinstance(request, Path) | os.path.exists(request):
@@ -539,13 +535,8 @@ class Pipeline:
             if isinstance(request, str):
                 request_str = request
             else:
-                return (
-                    empty_pred_table,
-                    empty_pred_text,
-                    empty_pred_graph,
-                    empty_pred_report,
-                    str("Sorry, we don't know what went wrong."),
-                )
+                outputs[4] = str("Sorry, we don't know what went wrong.")
+                return outputs
 
         # Getting data types of columns mentioned in the question
         column_data = {}
@@ -579,7 +570,7 @@ class Pipeline:
         df_info = "; ".join(df_info)
 
         # Get the user's request type
-        which_answer = self.openai_query(
+        which_answers = self.openai_query(
             prompt="You are given a Python pandas DataFrame named df. The following is a list of its columns, "
             + "their data types, and an example value from each one: "
             + df_info
@@ -597,15 +588,16 @@ class Pipeline:
             + "patterns within the table.\n"
             + "- Questions involving text and/or image embeddings/clusters, which ask for patterns within the "
             + "table.\n"
-            + "Return '1', '2', '3', '4', or '5' based on which kind of request you think the user is making. "
+            + "Return '1', '2', '3', '4', and/or '5' as a comma-separated list based on which kind of request you think the user is making. "
             + "Return '0' if you can't tell or the request doesn't belong to any of the above kinds: ",
             temperature=0,
             max_tokens=3,
         )
 
         try:  # For valid questions
-            # Converting to int
-            which_answer = int(which_answer)
+            # Converting to list
+            which_answers = which_answers.split(",")
+            which_answers = [int(item) for item in which_answers]
 
             # Define notes for OpenAI prompt
             note = str(
@@ -623,7 +615,7 @@ class Pipeline:
             )
 
             # Table modifications
-            if which_answer == 1:
+            if 1 in which_answers:
                 code_to_exec = self.openai_query(
                     prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
                     + "columns, their data types, and an example value from each one: "
@@ -638,10 +630,10 @@ class Pipeline:
                     temperature=0.1,
                     max_tokens=250,
                 )
-                return self.exec_code(df, code_to_exec), empty_pred_text, empty_pred_graph, empty_pred_report, empty_err
+                outputs[0] = self.exec_code(df, code_to_exec)
 
             # Table row-wise lookups/reasoning questions
-            elif which_answer == 2:
+            if 2 in which_answers:
                 code_to_exec = self.openai_query(
                     prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
                     + "columns, their data types, and an example value from each one: "
@@ -656,10 +648,10 @@ class Pipeline:
                     temperature=0.1,
                     max_tokens=250,
                 )
-                return self.exec_code(df, code_to_exec), empty_pred_text, empty_pred_graph, empty_pred_report, empty_err
+                outputs[0] = self.exec_code(df, code_to_exec)
 
             # Table cell-wise lookups/reasoning questions
-            elif which_answer == 3:
+            if 3 in which_answers:
                 code_to_exec = self.openai_query(
                     prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
                     + "columns, their data types, and an example value from each one: "
@@ -679,16 +671,10 @@ class Pipeline:
                     temperature=0.1,
                     max_tokens=250,
                 )
-                return (
-                    empty_pred_table,
-                    self.exec_code(df, code_to_exec).strip('"'),
-                    empty_pred_graph,
-                    empty_pred_report,
-                    empty_err,
-                )
+                outputs[1] = self.exec_code(df, code_to_exec).strip('"')
 
             # Distribution/relationship questions without text or image clusters
-            elif which_answer == 4:
+            if 4 in which_answers:
                 code_to_exec = self.openai_query(
                     prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
                     + "columns, their data types, and an example value from each one: "
@@ -699,16 +685,16 @@ class Pipeline:
                     + "\n"
                     + "Write Python code that draws an appropriate graph with Python's plotly package. Make sure that it:\n"
                     + "1. Creates a variable figure that is a plotly.graph_objects.Figure object and assigns the graph to it.\n"
-                    + "2. Labels the graph's title, axes, and legend as necessary.\n"
+                    + "2. Labels the graph's (centered) title, axes, and legend as necessary.\n"
                     + "3. Assigns the variable figure to result. "
                     + note,
                     temperature=0.3,
                     max_tokens=250,
                 )
-                return empty_pred_table, empty_pred_text, self.exec_code(df, code_to_exec), empty_pred_report, empty_err
+                outputs[2] = self.exec_code(df, code_to_exec)
 
             # Questions involving text and/or image embeddings/clusters
-            elif which_answer == 5:
+            if 5 in which_answers:
                 columns = self.openai_query(
                     prompt="You are given a Python pandas DataFrame named df. The following is a list of its "
                     + "columns, their data types, and an example value from each one: "
@@ -735,14 +721,11 @@ class Pipeline:
                 for column in columns:
                     if column not in df.columns:
                         raise InvalidRequest("Invalid request.")
-                return (
-                    empty_pred_table,
-                    empty_pred_text,
-                    self.get_embeds_graph(df, column_data, columns),
-                    empty_pred_report,
-                    empty_err,
-                )
+                outputs[2] = self.get_embeds_graph(df, column_data, columns)
 
+            # check if anything besides None in output
+            if any(outputs):
+                return outputs
             else:
                 raise InvalidRequest("Invalid request.")
 
@@ -751,15 +734,16 @@ class Pipeline:
                 "I don't know how to answer that question. Here's a report on the table generated by YData's "
                 + "pandas-profiling library that might help you. "
             )
-            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err
+            outputs[3] = self.get_report(df, message)
+            return outputs
 
-        except Exception as e:  # Something went wrong -> use pandas-profiling to generate a report
-            print(e)
+        except Exception:  # Something went wrong -> use pandas-profiling to generate a report
             message = str(
                 "Something went wrong. Here's a report on the table generated by YData's pandas-profiling "
                 + "library that might help you. "
             )
-            return empty_pred_table, empty_pred_text, empty_pred_graph, self.get_report(df, message), empty_err
+            outputs[3] = self.get_report(df, message)
+            return outputs
 
 
 # Running model
