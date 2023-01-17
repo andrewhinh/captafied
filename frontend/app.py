@@ -50,7 +50,8 @@ server = Flask(__name__)
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
 # Button helper variables
-button_terms = ["incorrect", "offensive", "other"]
+flag_terms = ["incorrect", "offensive", "other"]
+button_id_end = "-button-state"
 
 # Examples
 parent_path = Path(__file__).parent / ".."
@@ -58,7 +59,7 @@ table_path = parent_path / "backend" / "inference" / "tests" / "support" / "tabl
 table_example = table_path / "0.csv"
 url_example_path = table_path / "1.txt"
 url_example = open(url_example_path).readlines()[0]
-example_phrase = "Use example"
+example_phrase = "use example"
 
 # Flagging csv file
 flag_csv_path = parent_path / "flagged" / "log.csv"
@@ -108,8 +109,8 @@ def html_input(id, type):
 
 
 # Return button id
-def button_id(idx):
-    return button_terms[idx] + "-button-state"
+def flag_button_id(idx):
+    return flag_terms[idx] + button_id_end
 
 
 # Show all clicked buttons
@@ -216,6 +217,15 @@ def show_table(contents=None, filename=None, url=None, output_table=False):
         return error
 
 
+# Save pipeline output if = table for display
+def manage_output_table(table=None, get=False):
+    if table is not None:
+        global output_table
+        output_table = table
+    if get:
+        return output_table
+
+
 # Show output
 def show_output(table=None, text=None, graph=None, report=None, error=None):
     outputs = []
@@ -224,22 +234,44 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
         outputs.extend(
             [
                 html.Center(
-                    show_table(output_table=table),
+                    [
+                        dcc.Download(id="download-table-csv"),
+                        html.Button(
+                            "download",
+                            id="download-table" + button_id_end,
+                            n_clicks=0,
+                            style=html_settings(width="50%"),
+                        ),
+                        show_table(output_table=table),
+                        html.Br(),
+                    ],
                 ),
             ]
         )
 
     if text:
-        outputs.extend([html.Center(html_text(text))])
+        outputs.extend(
+            [
+                html.Center(
+                    [
+                        html_text(text),
+                        html.Br(),
+                    ]
+                )
+            ]
+        )
 
     if graph:
         outputs.extend(
             [
                 html.Center(
-                    dcc.Graph(
-                        figure=graph,
-                        style=html_settings(),
-                    ),
+                    [
+                        dcc.Graph(
+                            figure=graph,
+                            style=html_settings(),
+                        ),
+                        html.Br(),
+                    ]
                 ),
             ]
         )
@@ -255,6 +287,7 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
                             src=report_path,
                             style=html_settings(height="540px"),
                         ),
+                        html.Br(),
                     ]
                 ),
             ]
@@ -264,12 +297,15 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
         outputs.extend(
             [
                 html.Center(
-                    html_text(error),
+                    [
+                        html_text(error),
+                        html.Br(),
+                    ]
                 ),
             ]
         )
 
-    return html.Div(style=html_settings(), children=outputs)
+    return html.Div(style=html_settings(width="100%"), children=outputs)
 
 
 # Flag output
@@ -303,7 +339,12 @@ def flag_output(request, pred, incorrect=None, offensive=None, other=None):
 
 # Main frontend code
 # Initializing dash app
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets, server=server)
+app = dash.Dash(
+    __name__,
+    external_stylesheets=external_stylesheets,
+    server=server,
+    suppress_callback_exceptions=True,
+)
 
 # Initializing app layout
 app.layout = html.Div(
@@ -382,25 +423,24 @@ app.layout = html.Div(
                 html.Br(),
                 # Output: table, text, graph, report, and/or error
                 html.Div(id="pred_output"),
-                html.Br(),
                 # Flagging buttons
                 html.Button(
-                    button_terms[0],
-                    id=button_id(0),
+                    flag_terms[0],
+                    id=flag_button_id(0),
                     n_clicks=0,
                     style=html_settings(width="50%"),
                 ),
                 html.Br(),
                 html.Button(
-                    button_terms[1],
-                    id=button_id(1),
+                    flag_terms[1],
+                    id=flag_button_id(1),
                     n_clicks=0,
                     style=html_settings(width="50%"),
                 ),
                 html.Br(),
                 html.Button(
-                    button_terms[2],
-                    id=button_id(2),
+                    flag_terms[2],
+                    id=flag_button_id(2),
                     n_clicks=0,
                     style=html_settings(width="50%"),
                 ),
@@ -473,7 +513,19 @@ def get_prediction(show_file, show_url, request, contents, filename, url):
         df, error = convert_to_pd(None, None, str(url_example))
     if df is not None and not error:
         table, text, graph, report, pred_error = pipeline.predict(df, request)
+        manage_output_table(table)
         return show_output(table, text, graph, report, pred_error)
+
+
+# When download button is clicked
+@app.callback(
+    Output("download-table-csv", "data"),
+    Input("download-table" + button_id_end, "n_clicks"),
+    prevent_initial_call=True,
+)
+def download_table(n_clicks):
+    table = manage_output_table(get=True)
+    return dcc.send_data_frame(table.to_csv, "table.csv")
 
 
 # When flagging button(s) is/are clicked
@@ -500,9 +552,9 @@ def flag_pred(show_file, show_url, request, pred, contents, filename, url, inc_c
 
     changed_id = total_clicked_buttons()
     buttons_clicked = [
-        button_id(0) in changed_id,
-        button_id(1) in changed_id,
-        button_id(2) in changed_id,
+        flag_button_id(0) in changed_id,
+        flag_button_id(1) in changed_id,
+        flag_button_id(2) in changed_id,
     ]
 
     checks = [
