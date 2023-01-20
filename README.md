@@ -31,7 +31,7 @@
 
 ## Description
 
-A full-stack ML-powered website that helps users understand their spreadsheet data regardless of the format and without the learning curve of data processing and visualization tools such as Excel or Python.
+A website that helps users understand their spreadsheet data without the learning curve of data processing and visualization tools such as Excel or Python.
 
 ### Inference Pipeline
 
@@ -46,19 +46,28 @@ Once the user submits a table and a request regarding it, we first determine the
 
 ### Usage
 
-Some examples of requests and questions that the pipeline can handle, assuming the question references the input table:
+Some notes about submitting inputs to the pipeline:
+
+- Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
+- Up to 150,000 rows and 30 columns of data can be submitted at one time.
+- Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
+- By themselves, up to three continuous +/- categorical variables can be graphed at one time. When graphed with text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
+
+Some examples of requests and questions that the pipeline can handle:
 
 - Table Modifications:
   - Add 10 stars to all the repos that have summaries longer than 10 words and icons with a height larger than 500 pixels.
   - Add a column named 'Stars_Forks' that averages the number of stars and forks for each row.
 - Table row-wise lookups/questions:
   - Which rows have summaries longer than 10 words?
+  - Of the rows you selected, which ones have icons with a height larger than 500 pixels?
 - Table cell-wise lookups/questions:
   - Does the Transformers repo have the most stars?
   - What is the shape of the Transformers repo's icon?
   - How many words long is the Transformers repo's description?
 - Distribution/Relationship Questions:
   - What does the distribution of the stars look like?
+  - Add a best fit line to the graph.
 - Text/Image Embedding/Cluster Questions:
   - How do the description embeddings change with release year?
   - How do the summary and icon embeddings change with number of stars?
@@ -66,12 +75,6 @@ Some examples of requests and questions that the pipeline can handle, assuming t
   - How much memory does the dataset use?
   - How uniform are the columns?
   - What problems/challenges in the data need work to fix?
-
-Some notes about submitting inputs to the pipeline:
-
-- Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
-- Try to be clear what it is exactly that you're asking for; for example, to get the backend to properly understand you want text embeddings to be plotted, it may be necessary to specify as such in the request as seen in the examples above.
-- By themselves, up to three continuous +/- categorical variables can be graphed at one time. When graphed with text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
 
 ## Production
 
