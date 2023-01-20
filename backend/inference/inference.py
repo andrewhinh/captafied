@@ -606,7 +606,8 @@ class Pipeline:
                         + "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument "
                         + "and returns the image as a Python numpy array, either directly on an string path or as a mapped "
                         + "function over a list or pandas Series.\n"
-                        + "6. If the user is asking a question that cannot be answered with the information found in table, "
+                        + "6. If the user is asking a question that doesn't provide enough context or "
+                        + "cannot be answered with the information found in table, "
                         + "return 'raise InvalidRequest()'. ")
 
             # Table modifications
