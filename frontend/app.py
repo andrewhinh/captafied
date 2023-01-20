@@ -19,6 +19,14 @@ import validators
 
 
 # Variables
+# Global variables for downloading table and memory for backend
+global output_table
+global requests
+global answers
+output_table = None
+requests = []
+answers = []
+
 # Port for Dash app
 DEFAULT_PORT = 11700
 
@@ -34,6 +42,10 @@ colors = {
     "background": "#111111",
     "text": "#ffffff",
 }
+
+# Max of table to show when table is sent to backend (From AutoViz)
+max_pred_rows = 150000
+max_pred_cols = 30
 
 # Max of table to show when table is shown
 max_rows = 5
@@ -172,6 +184,15 @@ def convert_to_pd(contents=None, filename=None, url=None):
             return empty_df, html_text(url_error)
 
 
+# Set maximum number of rows/columns to work with for a table
+def set_max_rows_cols(df):
+    if len(df) > max_pred_rows:
+        df = df.iloc[:max_pred_rows]
+    if len(df.columns) > max_pred_cols:
+        df = df.iloc[:, :max_pred_cols]
+    return df
+
+
 # Show a table from an uploaded file/typed-in URL
 def show_table(contents=None, filename=None, url=None, output_table=False):
     heading = ""
@@ -218,19 +239,24 @@ def show_table(contents=None, filename=None, url=None, output_table=False):
 
 
 # Save pipeline output if = table for display
-def manage_output_table(table=None, get=False):
-    if table is not None:
-        global output_table
-        output_table = table
-    if get:
-        return output_table
+def manage_global(local=None, glob=None):
+    if local is not None and glob is not None:
+        if type(glob) == list:
+            glob.append(local)
+        else:
+            glob = local
+    if local is None and glob is not None:
+        return glob
 
 
-# Show output
-def show_output(table=None, text=None, graph=None, report=None, error=None):
+# Manage/show output
+def manage_output(table_answer=None, text_answer=None, graph_answer=None, report=None, error=None):
     outputs = []
 
-    if table is not None:
+    if table_answer is not None:
+        table = table_answer[0]
+        manage_global(table, output_table)
+        manage_global(table_answer[1], answers)
         outputs.extend(
             [
                 html.Center(
@@ -249,25 +275,27 @@ def show_output(table=None, text=None, graph=None, report=None, error=None):
             ]
         )
 
-    if text:
+    if text_answer:
+        manage_global(text_answer[1], answers)
         outputs.extend(
             [
                 html.Center(
                     [
-                        html_text(text),
+                        html_text(text_answer[0]),
                         html.Br(),
                     ]
                 )
             ]
         )
 
-    if graph:
+    if graph_answer:
+        manage_global(graph_answer[1], answers)
         outputs.extend(
             [
                 html.Center(
                     [
                         dcc.Graph(
-                            figure=graph,
+                            figure=graph_answer[0],
                             style=html_settings(),
                         ),
                         html.Br(),
@@ -511,10 +539,11 @@ def get_prediction(show_file, show_url, request, contents, filename, url):
         df, error = convert_to_pd(None, str(table_example), None)
     if (not checks[0] and not checks[1]) and checks[3]:
         df, error = convert_to_pd(None, None, str(url_example))
-    if df is not None and not error:
-        table, text, graph, report, pred_error = pipeline.predict(df, request)
-        manage_output_table(table)
-        return show_output(table, text, graph, report, pred_error)
+    if df is not None and not error:  
+        df = set_max_rows_cols(df)
+        manage_global(request, requests)
+        table_answer, text_answer, graph_answer, report, pred_error = pipeline.predict(df, requests, answers)
+        return manage_output(table_answer, text_answer, graph_answer, report, pred_error)
 
 
 # When download button is clicked
@@ -524,8 +553,7 @@ def get_prediction(show_file, show_url, request, contents, filename, url):
     prevent_initial_call=True,
 )
 def download_table(n_clicks):
-    table = manage_output_table(get=True)
-    return dcc.send_data_frame(table.to_csv, "table.csv")
+    return dcc.send_data_frame(output_table.to_csv, "table.csv")
 
 
 # When flagging button(s) is/are clicked
