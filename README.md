@@ -49,6 +49,7 @@ Once the user submits a table and a request regarding it, we first determine the
 Some notes about submitting inputs to the pipeline:
 
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
+- The file types that are currently supported include csv, xls(x), tsv, and ods files.
 - Up to 150,000 rows and 30 columns of data can be submitted at one time.
 - Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
 - By themselves, up to three continuous +/- categorical variables can be graphed at one time. When graphed with text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
