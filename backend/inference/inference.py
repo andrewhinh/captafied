@@ -110,9 +110,12 @@ class Pipeline:
 
     def exec_code(self, table, code):
         global_vars, local_vars = {"self": self, "table": table}, {}
-        exec(code, global_vars, local_vars)
-        result = local_vars["result"]
-        return result
+        try:
+            exec(code, global_vars, local_vars)
+            result = local_vars["result"]
+            return result
+        except:
+            return None  
 
     def get_column_vals(self, table, column, images_present=False):
         if images_present:
@@ -606,7 +609,8 @@ class Pipeline:
                         + "5. As necessary, call 'self.open_image()', which takes a string path to an image as an argument "
                         + "and returns the image as a Python numpy array, either directly on an string path or as a mapped "
                         + "function over a list or pandas Series.\n"
-                        + "6. If the user is asking a question that cannot be answered with the information found in table, "
+                        + "6. If the user is asking a question that doesn't provide enough context or "
+                        + "cannot be answered with the information found in table, "
                         + "return 'raise InvalidRequest()'. ")
 
             # Table modifications
@@ -619,10 +623,13 @@ class Pipeline:
                     max_tokens=100,
                 )
                 answer = [self.exec_code(table, code_to_exec), code_to_exec]
-                if type(answer[0]) == pd.DataFrame:
-                    outputs[0] = answer
+                if answer[0]:
+                    if type(answer[0]) == pd.DataFrame:
+                        outputs[0] = answer
+                    else:
+                        raise ValueError
                 else:
-                    raise ValueError
+                    raise InvalidRequest
 
             # Table row-wise lookups/reasoning questions
             if 2 in which_answers:
@@ -634,10 +641,13 @@ class Pipeline:
                     max_tokens=100,
                 )
                 answer = [self.exec_code(table, code_to_exec), code_to_exec]
-                if type(answer[0]) == pd.DataFrame:
-                    outputs[0] = answer
+                if answer[0]:
+                    if type(answer[0]) == pd.DataFrame:
+                        outputs[0] = answer
+                    else:
+                        raise ValueError
                 else:
-                    raise ValueError
+                    raise InvalidRequest
 
             # Table cell-wise lookups/reasoning questions
             if 3 in which_answers:
@@ -650,10 +660,13 @@ class Pipeline:
                     max_tokens=250,
                 )
                 answer = [self.exec_code(table, code_to_exec).strip('"'), code_to_exec]
-                if type(answer[0]) == str:
-                    outputs[1] = answer
+                if answer[0]:
+                    if type(answer[0]) == str:
+                        outputs[1] = answer
+                    else:
+                        raise ValueError
                 else:
-                    raise ValueError
+                    raise InvalidRequest
 
             # Distribution/relationship questions without text or image clusters
             if 4 in which_answers:
@@ -669,10 +682,13 @@ class Pipeline:
                     max_tokens=250,
                 )
                 answer = [self.exec_code(table, code_to_exec), code_to_exec]
-                if type(answer[0]) == plotly.graph_objects.Figure:
-                    outputs[2] = answer
+                if answer[0]:
+                    if type(answer[0]) == plotly.graph_objects.Figure:
+                        outputs[2] = answer
+                    else:
+                        raise ValueError
                 else:
-                    raise ValueError
+                    raise InvalidRequest
 
             # Questions involving text and/or image embeddings/clusters
             if 5 in which_answers:
@@ -697,11 +713,14 @@ class Pipeline:
                     if column not in table.columns:
                         raise InvalidRequest()
                 answer = self.get_embeds_graph(table, column_data, columns)
-                if type(answer[0]) == plotly.graph_objects.Figure:
-                    outputs[2] = answer
+                if answer[0]:
+                    if type(answer[0]) == plotly.graph_objects.Figure:
+                        outputs[2] = answer
+                    else:
+                        raise ValueError
                 else:
-                    raise ValueError
-
+                    raise InvalidRequest
+                    
             # Check if anything besides None in output
             if any(outputs):
                 return outputs
