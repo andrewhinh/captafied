@@ -27,8 +27,9 @@ plotly
 python-dotenv
 scikit-learn
 tabula-py
-transformers
+tenacity
 timm
+transformers
 umap-learn
 validators
 wandb==0.12.17

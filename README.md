@@ -71,8 +71,8 @@ Some examples of requests and questions that the pipeline can handle:
   - Add a best fit line to the graph.
 - Text/Image Embedding/Cluster Questions:
   - How do the description embeddings change with release year?
-  - How do the summary and icon embeddings change with number of stars?
-- Report Questions:
+  - Plot this graph by number of stars.
+- Miscellaneous Questions:
   - How much memory does the dataset use?
   - How uniform are the columns?
   - What problems/challenges in the data need work to fix?
@@ -90,7 +90,7 @@ python3 frontend/app.py --flagging --model_url=AWS_LAMBDA_URL
 2. Serve the localhost app over a permanent localtunnel link:
 
 ```bash
-. ./frontend/localtunnel.sh
+. ./frontend/lt.sh
 ```
 
 ## Development
