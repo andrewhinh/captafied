@@ -4,6 +4,7 @@ import base64
 import datetime
 import io
 import os
+import shutil
 
 from backend.inference.inference import Pipeline
 import dash
@@ -16,14 +17,12 @@ import pandas as pd
 from pathlib import Path
 import tabula as tb
 import validators
+import zipfile
 
 
 # Variables
-# Global variables for downloading table and memory for backend
-global output_table
-global requests
-global answers
-output_table = None
+# Global variables for downloading table and for backend
+output_tables = []
 requests = []
 answers = []
 
@@ -72,6 +71,11 @@ table_example = table_path / "0.csv"
 url_example_path = table_path / "1.txt"
 url_example = open(url_example_path).readlines()[0]
 example_phrase = "use example"
+
+# Table download settings
+asset_download_path = "/assets/tables/"
+download_path = parent_path / "frontend" / "assets" / "tables"
+zip_name = "temp"
 
 # Flagging csv file
 flag_csv_path = parent_path / "flagged" / "log.csv"
@@ -194,7 +198,7 @@ def set_max_rows_cols(df):
 
 
 # Show a table from an uploaded file/typed-in URL
-def show_table(contents=None, filename=None, url=None, output_table=False):
+def show_table(contents=None, filename=None, url=None, table_answer=False):
     heading = ""
     df, error = None, None
     if not contents and filename:
@@ -206,31 +210,35 @@ def show_table(contents=None, filename=None, url=None, output_table=False):
     if url:
         heading = url
         df, error = convert_to_pd(None, None, url)
-    if output_table is not None:
-        df = output_table
+    if table_answer is not None:
+        df = table_answer
     if df is not None and not error:
         if type(df) == pd.DataFrame:
             items = []
-            if validators.url(heading):
-                items.append(html.A(html_text("URL"), href=heading, target="_blank"))
-            else:
-                if len(heading) > max_char_length:
-                    heading = heading[:max_char_length] + "..."
-                items.append(html_text(heading))
+            if heading:
+                if validators.url(heading):
+                    items.append(html.A(html_text("URL"), href=heading, target="_blank"))
+                else:
+                    if len(heading) > max_char_length:
+                        heading = heading[:max_char_length] + "..."
+                    items.append(html_text(heading))
+            rows_to_show = min(len(df), max_rows)
+            cols_to_show = min(len(df.columns), max_col)
             items.append(
                 html.Table(
                     children=[
-                        html.Thead(html.Tr([html.Th(df.columns[col]) for col in range(max_col)])),
+                        html.Thead(html.Tr([html.Th(df.columns[col]) for col in range(cols_to_show)])),
                         html.Tbody(
                             [
-                                html.Tr([html.Td(df.iloc[i][df.columns[col]]) for col in range(max_col)])
-                                for i in range(min(len(df), max_rows))
+                                html.Tr([html.Td(df.iloc[i][df.columns[col]]) for col in range(cols_to_show)])
+                                for i in range(min(len(df), rows_to_show))
                             ]
                         ),
                     ],
                     style=html_settings(),
                 )
             )
+
             return html.Div(items)
         else:
             return error
@@ -238,69 +246,63 @@ def show_table(contents=None, filename=None, url=None, output_table=False):
         return error
 
 
-# Save pipeline output if = table for display
-def manage_global(local=None, glob=None):
-    if local is not None and glob is not None:
-        if type(glob) == list:
-            glob.append(local)
-        else:
-            glob = local
-    if local is None and glob is not None:
-        return glob
-
-
 # Manage/show output
-def manage_output(table_answer=None, text_answer=None, graph_answer=None, report=None, error=None):
+def manage_output(code=None, tables=None, texts=None, graphs=None, report=None):
     outputs = []
 
-    if table_answer is not None:
-        table = table_answer[0]
-        manage_global(table, output_table)
-        manage_global(table_answer[1], answers)
+    if code:
+        global answers
+        answers.append(code)
+
+    if tables:
+        elements = [
+            dcc.Download(id="download-table-csv"),
+            html.Button(
+                "download" if len(tables) == 1 else "download all",
+                id="download-table" + button_id_end,
+                n_clicks=0,
+                style=html_settings(width="50%"),
+            ),
+        ]
+        
+        global output_tables
+        for table in tables:
+            output_tables.append(table)
+            elements.append(show_table(table_answer=table))
+            elements.append(html.Br())
+
         outputs.extend(
             [
-                html.Center(
-                    [
-                        dcc.Download(id="download-table-csv"),
-                        html.Button(
-                            "download",
-                            id="download-table" + button_id_end,
-                            n_clicks=0,
-                            style=html_settings(width="50%"),
-                        ),
-                        show_table(output_table=table),
-                        html.Br(),
-                    ],
-                ),
+                html.Center(elements),
             ]
         )
 
-    if text_answer:
-        manage_global(text_answer[1], answers)
+    if texts:
+        elements = []
+        for text in texts:
+            elements.append(html_text(text))
+            elements.append(html.Br())
+
         outputs.extend(
             [
-                html.Center(
-                    [
-                        html_text(text_answer[0]),
-                        html.Br(),
-                    ]
-                )
+                html.Center(elements),
             ]
         )
 
-    if graph_answer:
-        manage_global(graph_answer[1], answers)
+    if graphs:
+        elements = []
+        for graph in graphs:
+            elements.append(
+                dcc.Graph(
+                    figure=graph,
+                    style=html_settings(),
+                ),
+            )
+            elements.append(html.Br())
+
         outputs.extend(
             [
-                html.Center(
-                    [
-                        dcc.Graph(
-                            figure=graph_answer[0],
-                            style=html_settings(),
-                        ),
-                        html.Br(),
-                    ]
-                ),
+                html.Center(elements),
             ]
         )
 
@@ -315,18 +317,6 @@ def manage_output(table_answer=None, text_answer=None, graph_answer=None, report
                             src=report_path,
                             style=html_settings(height="540px"),
                         ),
-                        html.Br(),
-                    ]
-                ),
-            ]
-        )
-
-    if error:
-        outputs.extend(
-            [
-                html.Center(
-                    [
-                        html_text(error),
                         html.Br(),
                     ]
                 ),
@@ -540,10 +530,13 @@ def get_prediction(show_file, show_url, request, contents, filename, url):
     if (not checks[0] and not checks[1]) and checks[3]:
         df, error = convert_to_pd(None, None, str(url_example))
     if df is not None and not error:  
+        global output_tables
+        output_tables = []
         df = set_max_rows_cols(df)
-        manage_global(request, requests)
-        table_answer, text_answer, graph_answer, report, pred_error = pipeline.predict(df, requests, answers)
-        return manage_output(table_answer, text_answer, graph_answer, report, pred_error)
+        global requests
+        requests.append(request)
+        code, tables, texts, graphs, report = pipeline.predict(df, requests, answers)
+        return manage_output(code, tables, texts, graphs, report)
 
 
 # When download button is clicked
@@ -553,7 +546,17 @@ def get_prediction(show_file, show_url, request, contents, filename, url):
     prevent_initial_call=True,
 )
 def download_table(n_clicks):
-    return dcc.send_data_frame(output_table.to_csv, "table.csv")
+    if "download-table" + button_id_end in total_clicked_buttons():
+        if len(output_tables) > 0 and len(output_tables) < 2:
+            return dcc.send_data_frame(output_tables[0].to_csv, "table.csv")
+        elif len(output_tables) > 1:
+            for idx, output_table in enumerate(output_tables):
+                output_table.to_csv(asset_download_path + "table_" + str(idx) + ".csv", index=False)
+            shutil.make_archive(zip_name, 'zip', download_path)
+            archive = zipfile.ZipFile(str(download_path / '..' / zip_name + '.zip'), 'r')
+            return dcc.send_data_frame(archive, zip_name)
+        else:
+            pass
 
 
 # When flagging button(s) is/are clicked

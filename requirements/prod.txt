@@ -404,7 +404,9 @@ tangled-up-in-unicode==0.2.0
 tbb==2021.7.0
     # via mkl
 tenacity==8.1.0
-    # via plotly
+    # via
+    #   -r requirements/prod.in
+    #   plotly
 threadpoolctl==3.1.0
     # via scikit-learn
 timm==0.6.11
