@@ -128,11 +128,13 @@ class Pipeline:
         return "data:image/png;base64," + img_str
 
     def exec_code(self, table, code):
-        global_vars, local_vars = {"self": self, "table": table}, {}
+        result = []
+        global_vars, local_vars = {"self": self, "table": table}, {"result": result}
         try:
             exec(code, global_vars, local_vars)
             return local_vars["result"]
-        except BaseException:
+        except Exception:
+            print(traceback.format_exc())
             return None
 
     def get_column_vals(self, table, column, images_present=False):
@@ -591,46 +593,44 @@ class Pipeline:
             code_to_exec = self.openai_query(
                 prompt=intro
                 + "If: \n"
-                + "1) USER's request involves clustering text/image embeddings, return '"
+                + "- USER's request involves clustering or embeddings, return '"
                 + self.manual_features[0]
                 + "'.\n"
-                + "2) USER's request involves searching for text using embeddings, return '"
+                + "- USER's request involves searching for text by referencing an image in the table, return '"
                 + self.manual_features[1]
                 + "'.\n"
-                + "3) USER's request involves searching for images using embeddings, return '"
+                + "- USER's request involves searching for an image by referencing text in the table, return '"
                 + self.manual_features[2]
                 + "'.\n"
-                + "4) USER's request involves text/image anomaly detection, return '"
+                + "- USER's request involves text/image anomaly detection, return '"
                 + self.manual_features[3]
                 + "'.\n"
-                + "5) USER's request involves text/image diversity measurement, return '"
+                + "- USER's request involves text/image diversity measurement, return '"
                 + self.manual_features[4]
                 + "'.\n"
-                + "6) USER's request involves text/image classification, return '"
+                + "- USER's request involves text/image classification, return '"
                 + self.manual_features[5]
                 + "'.\n"
-                + "Otherwise, write only Python code that:\n"
-                + "1) creates a list named result, \n"
-                + "2) creates pandas DataFrames/Series, Python f-strings, and/or "
-                + "Plotly Graph Objects as necessary that answer USER, and\n"
-                + "3) appends to result the created answer(s).\n"
+                + "Otherwise, write Python code that first creates pandas DataFrames/Series, Python f-strings, and/or Plotly "
+                + "Graph Objects as necessary that answer USER, then appends the created answer(s) to a list named result.\n"
                 + "Some notes about the code:\n"
-                + "1) Don't return or print anything, just append to result.\n"
-                + "2) Don't create any functions or classes.\n"
-                + "3) Import any necessary libraries.\n"
-                + "4) Only append to result the above-mentioned answer types when answering USER, "
-                + "don't append to result Python lists, dictionaries, or other data structures.\n"
-                + "5) If asked to modify/lookup table, create a copy of table, modify/lookup the copy instead while retaining "
+                + "- Make sure you are only returning Python code; don't return any other language's code or plain text.\n"
+                + "- Import any necessary libraries; don't assume they are already imported.\n"
+                + "- Don't create any functions or classes.\n"
+                + "- If asked to modify/lookup table, create a copy of table, modify/lookup the copy instead while retaining "
                 + "as many rows and columns as possible, and return the copy.\n"
-                + "6) Understand what happens when you call len() on a string or slice/call len() on a pandas object.\n"
-                + "7) If USER asks for an image, call 'self.open_image()', which takes a string path "
+                + "- Understand what happens when you call len() on a string or slice/call len() on a pandas object.\n"
+                + "- If USER asks for an image, call 'self.open_image()', which takes a string path "
                 + "to an image as input and returns the image as a Python numpy array, and append it to result.\n"
-                + "8) If USER's request doesn't provide enough context or cannot be answered with the available "
-                + "information, return an f-string that explains why the request cannot be answered. ",
-                temperature=0.2,
+                + "- If USER's request cannot be answered with the available information, "
+                + "return a Python string that explains why the request cannot be answered.\n"
+                + "- Only append to result the above-mentioned answer types when answering USER, "
+                + "don't append to result Python lists, dictionaries, or other data structures.\n"
+                + "- Don't return or print anything; just append answers to result. ",
+                temperature=0.3,
                 max_tokens=self.max_ans_tokens,
-            )
-            print(code_to_exec)
+            )           
+            print(code_to_exec + "\n\n\n\n\n")
 
             # Execute the code to generate the answer if applicable
             if code_to_exec not in self.manual_features:  # If there is code to execute
@@ -667,7 +667,7 @@ class Pipeline:
                     temperature=0,
                     max_tokens=50,
                 )
-                print(str_columns)
+                print(str_columns + "\n\n\n\n\n")
                 columns = str_columns.split(", ")
                 for column in columns:
                     if column not in table.columns:
