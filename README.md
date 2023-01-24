@@ -65,7 +65,7 @@ Some notes about submitting inputs to the pipeline:
 - When graphing text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
 - Explain in your request any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "Show me the repo." or "Show me the icon.".
 
-Some examples of requests and questions that the pipeline can handle:
+Some examples of requests and questions that the pipeline can handle (with respect to the example table found in the repo and website):
 
 - Add 10 stars to all the repos that have summaries longer than 10 words and icons with a height larger than 500 pixels.
   - Of the repos you just added stars to, which ones have the most stars?
@@ -77,6 +77,8 @@ Some examples of requests and questions that the pipeline can handle:
   - Center the title.
 - How do the description embeddings change with release year?
   - Plot this graph vs. the number of stars.
+- What does the Transformers icon look like?
+  - Make it half as tall.
 - How much memory does the dataset use?
   - What's this number in MB?
 
