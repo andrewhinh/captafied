@@ -17,6 +17,7 @@
       - [Steps](#steps)
     - [Repository Structure](#repository-structure)
     - [Testing](#testing)
+    - [Linting](#linting)
   - [Credit](#credit)
 
 ## Contributors
@@ -35,47 +36,49 @@ A website that helps users understand their spreadsheet data without the learnin
 
 ### Inference Pipeline
 
-Once the user submits a table and a request regarding it, we first determine the kind of request. Then,
+Once the user submits a table and a request regarding it, we first determine if the request involves:
 
-- If a table modification is requested, we use [OpenAI's API](#credit) to generate Python code to return the whole modified table.
-- If a table row-wise lookup is requested or reasoning question is asked, we use [OpenAI's API](#credit) to generate Python code to return the sliced table.
-- If a table cell-wise lookup is requested or reasoning question is asked, we use [OpenAI's API](#credit) to generate Python code to return a conversational string that utilizes information in the table to answer the user.
-- If a distribution or relationship is mentioned in the user's question, we use [OpenAI's API](#credit) to generate Python matplotlib code to execute, displaying a graph.
-- If text or image embeddings or clusters are asked to be displayed, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and Python matplotlib to display the graph accordingly.
-- If the question doesn't belong to any of the above formats, we use [pandas-profiling](#credit) to generate a descriptive table profile.
+- Clustering (where text strings and/or images are grouped by similarity)
+- Text Search (where results are ranked by relevance to a query string)
+- Image Search (where results are ranked by relevance to a query image)
+- Anomaly detection (where outliers with little relatedness are identified)
+- Diversity measurement (where similarity distributions are analyzed)
+- Classification (where text strings and/or images are classified by their most similar label)
+
+If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
+
+- pandas DataFrames
+- Python f-strings
+- Plotly graphs
+- Images opened from URLs in the table
+
+that can be used to answer the user's request. If something fails in this process, we use [pandas-profiling](#credit) to generate a descriptive table profile that can be used to help the user understand their data.
 
 ### Usage
 
 Some notes about submitting inputs to the pipeline:
 
-- Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
-- The file types that are currently supported include csv, xls(x), tsv, and ods files.
-- Up to 150,000 rows and 30 columns of data can be submitted at one time.
 - Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
-- By themselves, up to three continuous +/- categorical variables can be graphed at one time. When graphed with text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
+- Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
+- Only csv, xls(x), tsv, and ods files are currently supported.
+- Only up to 150,000 rows and 30 columns of data can be submitted at one time.
+- When graphing text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
+- Explain in your request any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "Show me the repo." or "Show me the icon.".
 
 Some examples of requests and questions that the pipeline can handle:
 
-- Table Modifications:
-  - Add 10 stars to all the repos that have summaries longer than 10 words and icons with a height larger than 500 pixels.
-  - Add a column named 'Stars_Forks' that averages the number of stars and forks for each row.
-- Table row-wise lookups/questions:
-  - Which rows have summaries longer than 10 words?
-  - Of the rows you selected, which ones have icons with a height larger than 500 pixels?
-- Table cell-wise lookups/questions:
-  - Does the Transformers repo have the most stars?
-  - What is the shape of the Transformers repo's icon?
-  - How many words long is the Transformers repo's description?
-- Distribution/Relationship Questions:
-  - What does the distribution of the stars look like?
-  - Add a best fit line to the graph.
-- Text/Image Embedding/Cluster Questions:
-  - How do the description embeddings change with release year?
-  - Plot this graph by number of stars.
-- Miscellaneous Questions:
-  - How much memory does the dataset use?
-  - How uniform are the columns?
-  - What problems/challenges in the data need work to fix?
+- Add 10 stars to all the repos that have summaries longer than 10 words and icons with a height larger than 500 pixels.
+  - Of the repos you just added stars to, which ones have the most stars?
+- Which rows have summaries longer than 10 words?
+  - Of the rows you just selected, which ones were released in 2020?
+- Does the Transformers repo have the most stars?
+  - What about the least?
+- What does the distribution of the stars look like?
+  - Center the title.
+- How do the description embeddings change with release year?
+  - Plot this graph vs. the number of stars.
+- How much memory does the dataset use?
+  - What's this number in MB?
 
 ## Production
 
@@ -156,24 +159,18 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 ### Testing
 
-From the main directory, there are various ways to test the pipeline:
-
 - To start the app locally:
 
 ```bash
 python frontend/app.py --flagging
 ```
 
-- To test the frontend by launching and pinging the frontend locally:
+### Linting
+
+- To lint the code:
 
 ```bash
-python -c "from frontend.tests.test_app import test_local_run; test_local_run()"
-```
-
-- To test various aspects of the model pipeline:
-
-```bash
-. ./tasks/REPLACE #replacing REPLACE with the corresponding shell script in the tasks/ folder
+make lint
 ```
 
 ## Credit

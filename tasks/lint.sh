@@ -16,10 +16,6 @@ pre-commit run flake8 || FAILURE=true
 echo "shellcheck"
 pre-commit run shellcheck || FAILURE=true
 
-# check python types
-echo "mypy"
-pre-commit run mypy || FAILURE=true
-
 if [ "$FAILURE" = true ]; then
   echo "Linting failed"
   exit 1

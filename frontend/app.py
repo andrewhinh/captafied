@@ -4,20 +4,18 @@ import base64
 import datetime
 import io
 import os
+from pathlib import Path
 import shutil
+import zipfile
 
 from backend.inference.inference import Pipeline
 import dash
-from dash.dependencies import Input, Output, State
 from dash import dcc, html
+from dash.dependencies import Input, Output, State
 import flask
 from flask import Flask
-import os
 import pandas as pd
-from pathlib import Path
-import tabula as tb
 import validators
-import zipfile
 
 
 # Variables
@@ -160,7 +158,7 @@ def convert_to_pd(contents=None, filename=None, url=None):
     if not contents and filename:
         try:
             df = name_to_pd(filename)
-        except:
+        except BaseException:
             return empty_df, html_text(file_error)
         return df, empty_error
     if contents and filename:
@@ -168,7 +166,7 @@ def convert_to_pd(contents=None, filename=None, url=None):
             _, content_string = contents.split(",")
             decoded = base64.b64decode(content_string)
             df = name_to_pd(filename, io.StringIO(decoded.decode("utf-8")), io.BytesIO(decoded))
-        except:
+        except BaseException:
             return empty_df, html_text(file_error)
         return df, empty_error
     if url:
@@ -177,7 +175,7 @@ def convert_to_pd(contents=None, filename=None, url=None):
                 url = url.replace("/edit#gid=", "/export?format=csv&gid=")
             try:
                 df = name_to_pd(url)
-            except:
+            except BaseException:
                 return empty_df, html_text(url_error)
             return df, empty_error
         else:
@@ -243,7 +241,7 @@ def show_table(contents=None, filename=None, url=None, table_answer=False):
 
 
 # Manage/show output
-def manage_output(code=None, tables=None, texts=None, graphs=None, report=None):
+def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, report=None):
     outputs = []
 
     if code:
@@ -260,13 +258,11 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, report=None):
                 style=html_settings(width="50%"),
             ),
         ]
-        
         global output_tables
         for table in tables:
             output_tables.append(table)
             elements.append(show_table(table_answer=table))
             elements.append(html.Br())
-
         outputs.extend(
             [
                 html.Center(elements),
@@ -278,7 +274,6 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, report=None):
         for text in texts:
             elements.append(html_text(text))
             elements.append(html.Br())
-
         outputs.extend(
             [
                 html.Center(elements),
@@ -295,7 +290,23 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, report=None):
                 ),
             )
             elements.append(html.Br())
+        outputs.extend(
+            [
+                html.Center(elements),
+            ]
+        )
 
+    if images:
+        elements = []
+        for image in images:
+            elements.append(
+                html.Img(
+                    src=image,
+                    style=html_settings(),
+                ),
+            )
+            elements.append(html.Br())
+        elements.append(html.Br())
         outputs.extend(
             [
                 html.Center(elements),
@@ -313,6 +324,7 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, report=None):
                             src=report_path,
                             style=html_settings(height="540px"),
                         ),
+                        html.Br(),
                         html.Br(),
                     ]
                 ),
@@ -374,13 +386,13 @@ app.layout = html.Div(
                 dcc.Markdown(
                     [
                         """
-                Some notes and examples for the supported requests 
+                Some notes and examples for the supported requests
                 can be found [here](https://github.com/andrewhinh/captafied#usage).
-                If the output is wrong in some way, 
+                If the output is wrong in some way,
                 let us know by clicking the "flagging" buttons underneath.
-                We'll analyze the results and use them to improve the model! 
-                For more on how this application works, 
-                check out the [GitHub repo](https://github.com/andrewhinh/captafied) 
+                We'll analyze the results and use them to improve the model!
+                For more on how this application works,
+                check out the [GitHub repo](https://github.com/andrewhinh/captafied)
                 (and give it a star if you like it!).
                 """
                     ],
@@ -525,14 +537,14 @@ def get_prediction(show_file, show_url, request, contents, filename, url):
         df, error = convert_to_pd(None, str(table_example), None)
     if (not checks[0] and not checks[1]) and checks[3]:
         df, error = convert_to_pd(None, None, str(url_example))
-    if df is not None and not error:  
+    if df is not None and not error:
         global output_tables
         output_tables = []
         df = set_max_rows_cols(df)
         global requests
         requests.append(request)
-        code, tables, texts, graphs, report = pipeline.predict(df, requests, answers)
-        return manage_output(code, tables, texts, graphs, report)
+        code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers)
+        return manage_output(code, tables, texts, graphs, images, report)
 
 
 # When download button is clicked
@@ -548,8 +560,8 @@ def download_table(n_clicks):
         elif len(output_tables) > 1:
             for idx, output_table in enumerate(output_tables):
                 output_table.to_csv(asset_download_path + "table_" + str(idx) + ".csv", index=False)
-            shutil.make_archive(zip_name, 'zip', download_path)
-            archive = zipfile.ZipFile(str(download_path / '..' / zip_name + '.zip'), 'r')
+            shutil.make_archive(zip_name, "zip", download_path)
+            archive = zipfile.ZipFile(str(download_path / ".." / zip_name + ".zip"), "r")
             return dcc.send_data_frame(archive, zip_name)
         else:
             pass
@@ -574,7 +586,7 @@ def flag_pred(show_file, show_url, request, pred, contents, filename, url, inc_c
         try:
             pred = [x["props"]["children"] for x in pred["props"]["children"]]
             pred = " ".join(pred)
-        except:
+        except BaseException:
             pred = "Graph"
 
     changed_id = total_clicked_buttons()
