@@ -43,7 +43,7 @@ per-file-ignores =
 
   #ADDED###################################
   *backend/inference/*:I100,I202,I201,DAR101,F401,DAR201,DAR002
-  *backend/inference/answer.py:C901
+  *backend/inference/inference.py:S102,C901
   *backend/load_test/locust_http_user.py:F841
   *backend/deploy/deploy.py:S404,S607,S602,S603
   #ADDED###################################
