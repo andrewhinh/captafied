@@ -146,10 +146,6 @@ def name_to_pd(name, csv_obj=None, rest_obj=None):
         df = pd.read_excel(rest_obj)
     elif "ods" in name:
         df = pd.read_excel(rest_obj, engine="odf")
-    # elif "pdf" in name:
-    # df = tb.read_pdf(rest_obj, pages="all")
-    # elif "html" in name:
-    # df = pd.read_html(rest_obj)
     else:
         raise ValueError()
     return df
@@ -158,7 +154,7 @@ def name_to_pd(name, csv_obj=None, rest_obj=None):
 # Convert an uploaded file/typed-in URL to a pd.DataFrame
 def convert_to_pd(contents=None, filename=None, url=None):
     empty_df, empty_error = None, None
-    error_ending = "csv, tsv, xls(x), or ods file containing a table."  # /pdf/html
+    error_ending = "csv, tsv, xls(x), or ods file containing a table."
     url_error = "Please enter a valid public URL to a " + error_ending
     file_error = "Please upload a valid " + error_ending
     if not contents and filename:
