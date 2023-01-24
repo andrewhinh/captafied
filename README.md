@@ -39,11 +39,13 @@ A website that helps users understand their spreadsheet data without the learnin
 Once the user submits a table and a request regarding it, we first determine if the request involves:
 
 - Clustering (where text strings and/or images are grouped by similarity)
-- Text Search (where results are ranked by relevance to a query string)
-- Image Search (where results are ranked by relevance to a query image)
-- Anomaly detection (where outliers with little relatedness are identified)
-- Diversity measurement (where similarity distributions are analyzed)
-- Classification (where text strings and/or images are classified by their most similar label)
+
+To be implemented:
+- *Text Search (where results are ranked by relevance to a query string)*
+- *Image Search (where results are ranked by relevance to a query image)*
+- *Anomaly detection (where outliers with little relatedness are identified)*
+- *Diversity measurement (where similarity distributions are analyzed)*
+- *Classification (where text strings and/or images are classified by their most similar label)*
 
 If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
