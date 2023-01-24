@@ -67,7 +67,7 @@ Some notes about submitting inputs to the pipeline:
 
 Some examples of requests and questions that the pipeline can handle (with respect to the example table found in the repo and website):
 
-- Add 10 stars to all the repos that have summaries longer than 10 words and icons with a height larger than 500 pixels.
+- Add 10 stars to all the repos that have summaries longer than 10 words.
   - Of the repos you just added stars to, which ones have the most stars?
 - Which rows have summaries longer than 10 words?
   - Of the rows you just selected, which ones were released in 2020?
