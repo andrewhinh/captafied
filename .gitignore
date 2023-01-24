@@ -7,11 +7,11 @@ data/interim
 # Production files
 /backend/inference/artifacts/inference/
 
-# OpenAI API Key
-.env
-
 # AWS EC2 SSH Key
 /captafied-key.pem
+
+# pandas-profiling report
+/frontend/assets/report.html
 #ADDED###################################
 
 # Editors
