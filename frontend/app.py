@@ -207,35 +207,31 @@ def show_table(contents=None, filename=None, url=None, table_answer=False):
     if table_answer is not None:
         df = table_answer
     if df is not None and not error:
-        if type(df) == pd.DataFrame:
-            items = []
-            if heading:
-                if validators.url(heading):
-                    items.append(html.A(html_text("URL"), href=heading, target="_blank"))
-                else:
-                    if len(heading) > max_char_length:
-                        heading = heading[:max_char_length] + "..."
-                    items.append(html_text(heading))
-            rows_to_show = min(len(df), max_rows)
-            cols_to_show = min(len(df.columns), max_col)
-            items.append(
-                html.Table(
-                    children=[
-                        html.Thead(html.Tr([html.Th(df.columns[col]) for col in range(cols_to_show)])),
-                        html.Tbody(
-                            [
-                                html.Tr([html.Td(df.iloc[i][df.columns[col]]) for col in range(cols_to_show)])
-                                for i in range(min(len(df), rows_to_show))
-                            ]
-                        ),
-                    ],
-                    style=html_settings(),
-                )
+        items = []
+        if heading:
+            if validators.url(heading):
+                items.append(html.A(html_text("URL"), href=heading, target="_blank"))
+            else:
+                if len(heading) > max_char_length:
+                    heading = heading[:max_char_length] + "..."
+                items.append(html_text(heading))
+        rows_to_show = min(len(df), max_rows)
+        cols_to_show = min(len(df.columns), max_col)
+        items.append(
+            html.Table(
+                children=[
+                    html.Thead(html.Tr([html.Th(df.columns[col]) for col in range(cols_to_show)])),
+                    html.Tbody(
+                        [
+                            html.Tr([html.Td(df.iloc[i][df.columns[col]]) for col in range(cols_to_show)])
+                            for i in range(min(len(df), rows_to_show))
+                        ]
+                    ),
+                ],
+                style=html_settings(),
             )
-
-            return html.Div(items)
-        else:
-            return error
+        )
+        return html.Div(items)
     else:
         return error
 
@@ -436,10 +432,11 @@ app.layout = html.Div(
                 html.Br(),
                 # Input: text request
                 html_text("Type in a request:"),
+                # Width = 390px for Typing SVG for iphone devices
                 dcc.Markdown(
                     [
                         """
-                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;Show+me+the+summary+embeddings.)](https://git.io/typing-svg)
+                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+me+the+summary+embeddings.)](https://git.io/typing-svg)
                 """
                     ],
                     style=html_settings(),

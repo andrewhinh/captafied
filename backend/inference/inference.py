@@ -189,24 +189,7 @@ class Pipeline:
 
         return dict_embeds
 
-    def get_embeds_graph(self, table, column_data, columns):
-        # Separate columns by type
-        text_columns = []
-        image_columns = []
-        cat_columns = []
-        cont_columns = []
-        for column in columns:
-            if column_data[column] == self.data_types[0]:
-                text_columns.append(column)
-            elif column_data[column] == self.data_types[1]:
-                image_columns.append(column)
-            elif column_data[column] == self.data_types[2]:
-                cat_columns.append(column)
-            elif column_data[column] == self.data_types[3]:
-                cont_columns.append(column)
-            else:
-                pass
-
+    def get_embeds_graph(self, table, text_columns, image_columns, cat_columns, cont_columns):
         # CLIP embeddings of text and/or images and getting values of any categorical/continuous columns
         dict_embeds = self.clip_encode(table, text_columns, image_columns)
         text_image_columns = list(dict_embeds.keys())
@@ -513,6 +496,21 @@ class Pipeline:
 
         return fig
 
+    def get_text_search(self, table, text_columns, image_columns, cat_columns, cont_columns):
+        raise InvalidRequest()
+
+    def get_image_search(self, table, text_columns, image_columns, cat_columns, cont_columns):
+        raise InvalidRequest()
+
+    def get_anomaly_rows(self, table, text_columns, image_columns, cat_columns, cont_columns):
+        raise InvalidRequest()
+
+    def get_diversity_measure(self, table, text_columns, image_columns, cat_columns, cont_columns):
+        raise InvalidRequest()
+
+    def get_classification_label(self, table, text_columns, image_columns, cat_columns, cont_columns):
+        raise InvalidRequest()
+
     def get_report(self, table, message):
         if len(table) > 1000:
             report = ProfileReport(table, title="Pandas Profiling Report", minimal=True)
@@ -613,15 +611,15 @@ class Pipeline:
                 + "'.\n"
                 + "Otherwise, write only Python code that:\n"
                 + "1) creates a list named result, \n"
-                + "2) creates pandas DataFrames, Python f-strings, and/or "
+                + "2) creates pandas DataFrames/Series, Python f-strings, and/or "
                 + "Plotly Graph Objects as necessary that answer USER, and\n"
                 + "3) appends to result the created answer(s).\n"
                 + "Some notes about the code:\n"
-                + "1) Don't return anything, just append to result.\n"
+                + "1) Don't return or print anything, just append to result.\n"
                 + "2) Don't create any functions or classes.\n"
                 + "3) Import any necessary libraries.\n"
-                + "4) Only use the above-mentioned answer types when answering USER, don't answer with "
-                + "Python lists, dictionaries, or other data structures.\n"
+                + "4) Only append to result the above-mentioned answer types when answering USER, "
+                + "don't append to result Python lists, dictionaries, or other data structures.\n"
                 + "5) If asked to modify/lookup table, create a copy of table, modify/lookup the copy instead while retaining "
                 + "as many rows and columns as possible, and return the copy.\n"
                 + "6) Understand what happens when you call len() on a string or slice/call len() on a pandas object.\n"
@@ -676,20 +674,50 @@ class Pipeline:
                         raise InvalidRequest()
                 outputs[0] = str_columns
 
+                # Separate columns by type
+                text_columns = []
+                image_columns = []
+                cat_columns = []
+                cont_columns = []
+                for column in columns:
+                    if column_data[column] == self.data_types[0]:
+                        text_columns.append(column)
+                    elif column_data[column] == self.data_types[1]:
+                        image_columns.append(column)
+                    elif column_data[column] == self.data_types[2]:
+                        cat_columns.append(column)
+                    elif column_data[column] == self.data_types[3]:
+                        cont_columns.append(column)
+                    else:
+                        pass
+
                 # Which manual feature is being used
                 if code_to_exec == self.manual_features[0]:  # Embeddings
-                    outputs[3].append(self.get_embeds_graph(table, column_data, columns))
+                    outputs[3].append(
+                        self.get_embeds_graph(table, text_columns, image_columns, cat_columns, cont_columns)
+                    )
                 elif code_to_exec == self.manual_features[1]:  # Text search
-                    outputs[2].append(self.get_text_search(table, column_data, columns))
+                    outputs[2].append(
+                        self.get_text_search(table, text_columns, image_columns, cat_columns, cont_columns)
+                    )
                 elif code_to_exec == self.manual_features[2]:  # Image search
-                    img_data = self.get_image_search(table, column_data, columns)
-                    outputs[4].append(self.img_to_str(img_data))
+                    outputs[4].append(
+                        self.img_to_str(
+                            self.get_image_search(table, text_columns, image_columns, cat_columns, cont_columns)
+                        )
+                    )
                 elif code_to_exec == self.manual_features[3]:  # Anomaly detection
-                    outputs[1].append(self.get_anomaly_rows(table, column_data, columns))
+                    outputs[1].append(
+                        self.get_anomaly_rows(table, text_columns, image_columns, cat_columns, cont_columns)
+                    )
                 elif code_to_exec == self.manual_features[4]:  # Diversity measurement
-                    outputs[2].append(self.get_diversityt_measure(table, column_data, columns))
+                    outputs[2].append(
+                        self.get_diversity_measure(table, text_columns, image_columns, cat_columns, cont_columns)
+                    )
                 elif code_to_exec == self.manual_features[5]:  # Classification
-                    outputs[2].append(self.get_classification_label(table, column_data, columns))
+                    outputs[2].append(
+                        self.get_classification_label(table, text_columns, image_columns, cat_columns, cont_columns)
+                    )
                 else:
                     raise ValueError()
 
