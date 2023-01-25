@@ -6,7 +6,6 @@ https://user-images.githubusercontent.com/40700820/214430538-da18d31c-2e7e-4511-
 
 - [captafied](#captafied)
   - [Contents](#contents)
-  - [Contributors](#contributors)
   - [Description](#description)
     - [Inference Pipeline](#inference-pipeline)
     - [Usage](#usage)
@@ -19,16 +18,6 @@ https://user-images.githubusercontent.com/40700820/214430538-da18d31c-2e7e-4511-
     - [Testing](#testing)
     - [Linting](#linting)
   - [Credit](#credit)
-
-## Contributors
-
-1. Andrew Hinh (ajhinh@gmail.com)
-2. Laith Darras (laith.s.darras@gmail.com)
-3. Calvin Hoang (calvinhoang21403@gmail.com)
-4. Edison Zhang (edisonzhangsw@gmail.com)
-5. Albert Ho (almtho2003@gmail.com)
-6. Jair Martinez (martinez.jair1224@gmail.com, 1999jairmartinez@gmail.com)
-7. Brian Huynh (brianhuynh1028@gmail.com)
 
 ## Description
 
