@@ -152,12 +152,12 @@ The repo is separated into main folders that each describe a part of the ML-proj
 - To start the app locally:
 
 ```bash
-python frontend/app.py --flagging
+python frontend/app.py
 ```
 
 ### Linting
 
-- To lint the code:
+- To lint the code (after staging your changes):
 
 ```bash
 make lint
