@@ -10,7 +10,9 @@ data/interim
 # AWS EC2 SSH Key
 /captafied-key.pem
 
-# pandas-profiling report
+# Production-created files
+/frontend/assets/tables/
+/frontend/assets/temp.zip
 /frontend/assets/report.html
 #ADDED###################################
 

@@ -6,7 +6,6 @@ import io
 import os
 from pathlib import Path
 import shutil
-import zipfile
 
 from backend.inference.inference import Pipeline
 import dash
@@ -71,8 +70,11 @@ url_example = open(url_example_path).readlines()[0]
 example_phrase = "use example"
 
 # Table download settings
-asset_download_path = "/assets/tables/"
-download_path = parent_path / "frontend" / "assets" / "tables"
+asset_path = parent_path / "frontend" / "assets"
+download_path = asset_path / "tables"
+# Make this directory if it doesn't exist
+if not os.path.exists(download_path):
+    os.makedirs(download_path)
 zip_name = "temp"
 
 # Flagging csv file
@@ -575,10 +577,10 @@ def download_table(n_clicks):
             return dcc.send_data_frame(output_tables[0].to_csv, "table.csv")
         elif len(output_tables) > 1:
             for idx, output_table in enumerate(output_tables):
-                output_table.to_csv(asset_download_path + "table_" + str(idx) + ".csv", index=False)
-            shutil.make_archive(zip_name, "zip", download_path)
-            archive = zipfile.ZipFile(str(download_path / ".." / zip_name + ".zip"), "r")
-            return dcc.send_data_frame(archive, zip_name)
+                output_table.to_csv(str(download_path / str("table_" + str(idx) + ".csv")), index=False)
+            zip_file_name = str(asset_path / zip_name)
+            shutil.make_archive(zip_file_name, "zip", str(download_path))
+            return dcc.send_file(zip_file_name + ".zip")
         else:
             pass
 
