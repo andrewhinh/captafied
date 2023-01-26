@@ -78,6 +78,9 @@ zip_name = "temp"
 # Flagging csv file
 flag_csv_path = parent_path / "flagged" / "log.csv"
 
+# Loading spinner
+spinner = "default"
+
 # Backend pipeline
 pipeline = Pipeline()
 
@@ -259,6 +262,7 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
             output_tables.append(table)
             elements.append(show_table(table_answer=table))
             elements.append(html.Br())
+        elements = elements[:-1]
         outputs.extend(
             [
                 html.Center(elements),
@@ -270,6 +274,7 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
         for text in texts:
             elements.append(html_text(text))
             elements.append(html.Br())
+        elements = elements[:-1]
         outputs.extend(
             [
                 html.Center(elements),
@@ -286,6 +291,7 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
                 ),
             )
             elements.append(html.Br())
+        elements = elements[:-1]
         outputs.extend(
             [
                 html.Center(elements),
@@ -302,7 +308,6 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
                 ),
             )
             elements.append(html.Br())
-        elements.append(html.Br())
         outputs.extend(
             [
                 html.Center(elements),
@@ -320,7 +325,6 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
                             src=report_path,
                             style=html_settings(height="540px"),
                         ),
-                        html.Br(),
                         html.Br(),
                     ]
                 ),
@@ -358,6 +362,7 @@ def flag_output(request, pred, incorrect=None, offensive=None, other=None):
     if clicked:
         log.to_csv(flag_csv_path, mode="a", index=False, header=not os.path.exists(flag_csv_path))
 
+    return html_text("Done! Thanks for your feedback."),
 
 # Main frontend code
 # Initializing dash app
@@ -413,7 +418,10 @@ app.layout = html.Div(
                     # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
                 ),
                 html.Br(),
-                html.Div(id="after-table-file-uploaded"),
+                dcc.Loading(
+                    type=spinner,
+                    children=html.Div(id="after-table-file-uploaded"),
+                ),
                 html.Br(),
                 # Input: table as a URL
                 html_text("Or paste a public URL to it:"),
@@ -428,7 +436,10 @@ app.layout = html.Div(
                 html_input(id="before-table-url-uploaded", type="url"),
                 html.Br(),
                 html.Br(),
-                html.Div(id="after-table-url-uploaded"),
+                dcc.Loading(
+                    type=spinner,
+                    children=html.Div(id="after-table-url-uploaded"),
+                ),
                 html.Br(),
                 # Input: text request
                 html_text("Type in a request:"),
@@ -445,7 +456,11 @@ app.layout = html.Div(
                 html.Br(),
                 html.Br(),
                 # Output: table, text, graph, report, and/or error
-                html.Div(id="pred_output"),
+                dcc.Loading(
+                    type=spinner,
+                    children=html.Div(id="pred_output"),
+                ),
+                html.Br(),
                 # Flagging buttons
                 html.Button(
                     flag_terms[0],
@@ -468,7 +483,11 @@ app.layout = html.Div(
                     style=html_settings(width="50%"),
                 ),
                 html.Br(),
-                html.Div(id="flag_output"),
+                html.Br(),
+                dcc.Loading(
+                    type=spinner,
+                    children=html.Div(id="flag_output"),
+                ),
                 # Extra length at the bottom of the page
                 html.Div([html.Br()] * 10),
             ]
@@ -613,11 +632,11 @@ def flag_pred(show_file, show_url, request, pred, contents, filename, url, inc_c
 
     check = (show_file or show_url) and df is not None and request and pred is not None and not error
     if check and buttons_clicked[0]:
-        flag_output(request, pred, True, None, None)
+        return flag_output(request, pred, True, None, None)
     if check and buttons_clicked[1]:
-        flag_output(request, pred, None, True, None)
+        return flag_output(request, pred, None, True, None)
     if check and buttons_clicked[2]:
-        flag_output(request, pred, None, None, True)
+        return flag_output(request, pred, None, None, True)
 
 
 # When report is generated and needs to be displayed
