@@ -1,6 +1,6 @@
 # [captafied](https://captafied.loca.lt/)
 
-https://user-images.githubusercontent.com/40700820/214430538-da18d31c-2e7e-4511-a307-80f0903e61a4.mov
+<https://user-images.githubusercontent.com/40700820/214430538-da18d31c-2e7e-4511-a307-80f0903e61a4.mov>
 
 ## Contents
 
@@ -29,16 +29,17 @@ Once the user submits a table and a request regarding it, we first determine if 
 - Clustering (where text strings and/or images are grouped by similarity)
 
 To be implemented:
+
 - *Text Search (where results are ranked by relevance to a query string)*
 - *Image Search (where results are ranked by relevance to a query image)*
 - *Anomaly detection (where outliers with little relatedness are identified)*
 - *Diversity measurement (where similarity distributions are analyzed)*
 - *Classification (where text strings and/or images are classified by their most similar label)*
 
-If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
+If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. (Note that for efficiency and quality purposes, only changes to which columns are used are supported.) Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
 - pandas DataFrames
-- Python f-strings
+- Python strings/f-strings
 - Plotly graphs
 - Images opened from URLs in the table
 
@@ -53,7 +54,7 @@ Some notes about submitting inputs to the pipeline:
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
 - When graphing text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
-- Explain in your request any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "Show me the repo." or "Show me the icon.".
+- Explain in your request any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "What does {repo} look like?".
 
 Some examples of requests and questions that the pipeline can handle (with respect to the example table found in the repo and website):
 
@@ -65,7 +66,7 @@ Some examples of requests and questions that the pipeline can handle (with respe
   - What about the least?
 - What does the distribution of the stars look like?
   - Center the title.
-- How do the description embeddings change with release year?
+- How do the description clusters change with release year?
   - Plot this graph vs. the number of stars.
 - What does the Transformers icon look like?
   - Make it half as tall.
@@ -91,6 +92,7 @@ python3 frontend/app.py --flagging --model_url=AWS_LAMBDA_URL
 ## Development
 
 ### Contributing
+
 To contribute, check out the [guide](./CONTRIBUTING.MD).
 
 ### Setup

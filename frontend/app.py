@@ -364,7 +364,8 @@ def flag_output(request, pred, incorrect=None, offensive=None, other=None):
     if clicked:
         log.to_csv(flag_csv_path, mode="a", index=False, header=not os.path.exists(flag_csv_path))
 
-    return html_text("Done! Thanks for your feedback."),
+    return (html_text("Done! Thanks for your feedback."),)
+
 
 # Main frontend code
 # Initializing dash app
@@ -449,7 +450,7 @@ app.layout = html.Div(
                 dcc.Markdown(
                     [
                         """
-                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+me+the+summary+embeddings.)](https://git.io/typing-svg)
+                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.)](https://git.io/typing-svg)
                 """
                     ],
                     style=html_settings(),
