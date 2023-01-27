@@ -24,9 +24,9 @@ A website that helps users understand their spreadsheet data without the learnin
 
 ### Inference Pipeline
 
-Once the user submits a table and a request regarding it, we first determine if the request involves:
+We provide the user with check-boxes to indicate if they want to use manually-implemented functions that perform the following tasks:
 
-- Clustering (where text strings and/or images are grouped by similarity)
+- Clustering (where text and/or images are grouped by similarity)
 
 To be implemented:
 
@@ -34,9 +34,13 @@ To be implemented:
 - *Image Search (where results are ranked by relevance to a query image)*
 - *Anomaly detection (where outliers with little relatedness are identified)*
 - *Diversity measurement (where similarity distributions are analyzed)*
-- *Classification (where text strings and/or images are classified by their most similar label)*
+- *Classification (where text and/or images are classified by their most similar label)*
+  
+Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
 
-If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. (Note that for efficiency and quality purposes, only changes to which columns are used are supported.) Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
+If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. (Note that for efficiency and quality purposes, only changes to which columns are used are supported.)
+
+Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
 - pandas DataFrames
 - Python strings/f-strings
@@ -51,6 +55,7 @@ Some notes about submitting inputs to the pipeline:
 
 - Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
 - Because multiple outputs are supported, you can submit multiple requests at one time.
+- Click which checkboxes you want to use before submitting your request.
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.

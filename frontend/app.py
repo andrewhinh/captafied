@@ -264,7 +264,6 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
             output_tables.append(table)
             elements.append(show_table(table_answer=table))
             elements.append(html.Br())
-        elements = elements[:-1]
         outputs.extend(
             [
                 html.Center(elements),
@@ -276,7 +275,6 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
         for text in texts:
             elements.append(html_text(text))
             elements.append(html.Br())
-        elements = elements[:-1]
         outputs.extend(
             [
                 html.Center(elements),
@@ -293,7 +291,6 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
                 ),
             )
             elements.append(html.Br())
-        elements = elements[:-1]
         outputs.extend(
             [
                 html.Center(elements),
@@ -455,6 +452,20 @@ app.layout = html.Div(
                     ],
                     style=html_settings(),
                 ),
+                dcc.Checklist(
+                    id="request-type-uploaded",
+                    options={
+                        "cluster": "Clustering",
+                        "text": "Text Search",
+                        "image": "Image Search",
+                        "anomaly": "Anomaly Detection",
+                        "diversity": "Diversity Measurement",
+                        "classification": "Classification",
+                    },
+                    value=[],
+                    inline=True,
+                ),
+                html.Br(),
                 html_input(id="request-uploaded", type="text"),
                 html.Br(),
                 html.Br(),
@@ -536,11 +547,12 @@ def show_uploaded_table_url(url, example_clicked):
     State("after-table-file-uploaded", "children"),
     State("after-table-url-uploaded", "children"),
     Input("request-uploaded", "value"),
+    Input("request-type-uploaded", "value"),
     Input("before-table-file-uploaded", "contents"),
     State("before-table-file-uploaded", "filename"),
     Input("before-table-url-uploaded", "value"),
 )
-def get_prediction(show_file, show_url, request, contents, filename, url):
+def get_prediction(show_file, show_url, request, request_types, contents, filename, url):
     df, error = None, None
     checks = [
         contents and filename and request,
@@ -562,7 +574,7 @@ def get_prediction(show_file, show_url, request, contents, filename, url):
         df = set_max_rows_cols(df)
         global requests
         requests.append(request)
-        code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers)
+        code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers, request_types)
         return manage_output(code, tables, texts, graphs, images, report)
 
 
