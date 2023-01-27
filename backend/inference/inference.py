@@ -69,22 +69,12 @@ class Pipeline:
         # OpenAI Engine
         self.engine = "text-davinci-003"
         self.max_prompt_tokens = 4000
-        self.max_manual_tokens = 100
-        self.max_code_tokens = 400
+        self.max_manual_tokens = 50
+        self.max_code_tokens = 350
         self.max_prev = int(self.max_prompt_tokens / (self.max_code_tokens + self.max_manual_tokens)) - 2  # buffer
 
         # OpenAI Context
         self.data_types = ["text string", "image path/URL", "categorical", "continuous"]
-
-        # Manual feature support
-        self.manual_features = {
-            "cluster": "Clustering (where images and/or text in table are grouped by similarity)",  # graph output
-            "text": "Text search (where images in table are ranked by relevance to an input string)",  # text
-            "image": "Image search (where text in table is ranked by relevance to an input image)",  # image
-            "anomaly": "Anomaly detection (where outliers with little relatedness are identified)",  # table
-            "diversity": "Diversity measurement (where similarity distributions are analyzed)",  # text
-            "class": "Classification (where images and/or text in table are classified by their most similar label)",  # text
-        }
 
         # Number of output types
         self.outputs = ["code", "table", "text", "plot", "image", "report"]
@@ -128,9 +118,9 @@ class Pipeline:
         img_str = base64.b64encode(buff.getvalue()).decode("utf-8")
         return "data:image/png;base64," + img_str
 
-    def exec_code(self, table, code):
+    def exec_code(self, global_vars, code):
         result = []
-        global_vars, local_vars = {"self": self, "table": table}, {"result": result}
+        local_vars = {"result": result}
         try:
             exec(code, global_vars, local_vars)
             return local_vars["result"]
@@ -489,19 +479,19 @@ class Pipeline:
 
         return fig
 
-    def get_text_from_image(self, search_image, dict_embeds, dict_cont, dict_cat):
+    def get_text_from_image(self, search_image, dict_embeds):
         raise InvalidRequest()
 
-    def get_image_from_text(self, search_text, dict_embeds, dict_cont, dict_cat):
+    def get_image_from_text(self, search_text, dict_embeds):
         raise InvalidRequest()
 
-    def get_anomaly_rows(self, table, dict_embeds, dict_cont, dict_cat):
+    def get_anomaly_rows(self, table, dict_embeds):
         raise InvalidRequest()
 
-    def get_diversity_measure(self, dict_embeds, dict_cont, dict_cat):
+    def get_diversity_measure(self, dict_embeds):
         raise InvalidRequest()
 
-    def get_classification_label(self, dict_embeds, dict_cont, dict_cat):
+    def get_classification_label(self, dict_embeds, dict_cat):
         raise InvalidRequest()
 
     def get_report(self, table, message):
@@ -521,6 +511,7 @@ class Pipeline:
         table: pd.DataFrame,
         requests: List[str],
         prev_answers: Optional[List[str]] = None,
+        request_types: Optional[List[str]] = None,
     ) -> str:  # Type handling is done by frontend
         try:
             # Initializing output variables
@@ -551,9 +542,32 @@ class Pipeline:
                         column_data[column] = self.data_types[3]
                 else:  # For categorical data
                     column_data[column] = self.data_types[2]
-            str_info = ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
+
+            # CLIP embeddings of text and/or image columns
+            text_columns = [k for k, v in column_data.items() if v == self.data_types[0]]
+            image_columns = [k for k, v in column_data.items() if v == self.data_types[1]]
+            dict_embeds = {}
+            if text_columns or image_columns:
+                dict_embeds = self.clip_encode(
+                    table,
+                    text_columns,
+                    image_columns,
+                )
+
+            # Get values of categorical/continuous columns
+            dict_cat = {}
+            dict_cont = {}
+            cat_columns = [k for k, v in column_data.items() if v == self.data_types[2]]
+            cont_columns = [k for k, v in column_data.items() if v == self.data_types[3]]
+            if cat_columns:
+                for column in cat_columns:
+                    dict_cat[column] = self.get_column_vals(table, column)
+            if cont_columns:
+                for column in cont_columns:
+                    dict_cont[column] = self.get_column_vals(table, column)
 
             # Introduction for every OpenAI prompt
+            str_info = ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
             intro = str(
                 "You are given a Python pandas DataFrame named table. "
                 + "You are also given a comma-separated list that contains "
@@ -577,28 +591,64 @@ class Pipeline:
             else:  # If there are no previous requests
                 intro += "asks: " + requests[0] + "\n"
 
-            # Feature keywords
-            feat_keywords = list(self.manual_features.keys())
+            # Check if USER wants to use a manually-defined function
+            if request_types:  # If so
+                # Get the column names to use
+                str_cols = self.openai_query(
+                    prompt=intro
+                    + "Return a comma-separated list that contains the columns in table "
+                    + "that USER explicitly references. Some notes:\n"
+                    + "1) If USER references a past request or answer, be sure to include any past columns "
+                    + "that are necessary for the current request.\n"
+                    + "2) If you think a column is necessary but it is phrased in a way that suggests it posseses "
+                    + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
+                    + "description clusters.' regarding table, the column 'Repos' should be "
+                    + "ignored because it posseses the column 'Description', and only the column 'Description' "
+                    + "should be used.\n"
+                    + "3) If USER is asking to graph more than two categorical and/or continuous columns, "
+                    + "return 'None'. ",
+                    temperature=0,
+                    max_tokens=self.max_manual_tokens,
+                )
+                print(str_cols + "\n\n\n\n\n")
 
-            # Check for manual feature use cases
-            str_feats = self.openai_query(
-                prompt=intro
-                + "You are given a list of supported features: "
-                + ", ".join(list(self.manual_features.values()))
-                + ".\n"
-                + "You are also given a corresponding list of keywords: "
-                + ", ".join(feat_keywords)
-                + ".\n"
-                + "Create a list named FEATS. If USER's request requires any of the supported "
-                + "features to be used as an answer, add to FEATS the corresponding keyword. "
-                + "If FEATS is empty, return 'None'. Otherwise, return FEATS. ",
-                temperature=0,
-                max_tokens=self.max_manual_tokens,
-            )
-            print(str_feats + "\n")
+                # Check if the columns are valid
+                columns = []
+                for col in table.columns:
+                    if col in str_cols:
+                        columns.append(col)
+                if not columns:
+                    raise ValueError()
 
-            # Check if USER's request involves manual features
-            if "None" in str_feats:  # If no manual features are used
+                # Add selected columns to the list of outputs
+                outputs[0] = str_cols
+
+                # Selecting the columns to use
+                dict_embeds = {k: v for k, v in dict_embeds.items() if k in columns}
+                dict_cont = {k: v for k, v in dict_cont.items() if k in columns}
+                dict_cat = {k: v for k, v in dict_cat.items() if k in columns}
+
+                if "cluster" in request_types:  # If USER wants to cluster
+                    outputs[3].append(self.get_embeds_graph(int(len(table) / 2), dict_embeds, dict_cont, dict_cat))
+                elif "text" in request_types:  # If USER wants to search for text
+                    raise NotImplementedError()
+                    # outputs[2].append(self.get_text_from_image(search_image, dict_embeds))
+                elif "image" in request_types:  # If USER wants to search for images
+                    raise NotImplementedError()
+                    # outputs[4].append(self.get_image_from_text(search_text, dict_embeds))
+                elif "anomaly" in request_types:  # If USER wants to detect anomalies
+                    raise NotImplementedError()
+                    # outputs[1].append(self.get_anomaly_rows(table, dict_embeds))
+                elif "diversity" in request_types:  # If USER wants to measure diversity
+                    raise NotImplementedError()
+                    # outputs[2].append(self.get_diversity_measure(dict_embeds))
+                elif "class" in request_types:  # If USER wants to classify text/image
+                    raise NotImplementedError()
+                    # outputs[2].append(self.get_classification_label(dict_embeds, dict_cat))
+                else:  # If USER wants to do something else
+                    raise InvalidRequest()
+            else:  # If not
+                # Getting the code to execute
                 code_to_exec = self.openai_query(
                     prompt=intro
                     + "Write Python code that:\n"
@@ -606,10 +656,10 @@ class Pipeline:
                     + "2) creates an empty list named result,\n"
                     + "3) checks if table can be used to answer USER's request; if not, appends"
                     + "to result a Python string that explains to USER why not. If so,\n"
-                    + "3) creates pandas DataFrames/Series, Python strings/f-strings, "
-                    + "and/or Plotly Graph Objects as necessary that answer USER,\n"
-                    + "4) appends to result the answer(s),\n"
-                    + "5) and NEVER returns result.\n"
+                    + "4) creates only pandas DataFrames/Series, Python f-strings, and/or "
+                    + "Plotly Graph Objects as necessary that answer USER,\n"
+                    + "5) appends to result the answer(s),\n"
+                    + "6) and NEVER returns result.\n"
                     + "Some notes about the code:\n"
                     + "- Never write plain text, only Python code.\n"
                     + "- Never reference variables created in previous answers, "
@@ -619,7 +669,7 @@ class Pipeline:
                     + "the copy instead while retaining as many rows and columns as possible, and return the copy.\n"
                     + "- Understand what happens when you call len() on a string or slice/call len() on a pandas object.\n"
                     + "- If USER asks for an image, call 'self.open_image()', which takes a string path "
-                    + "to an image as input and returns the image as a Python numpy array, and append it to result.\n",
+                    + "to an image as input and returns the image as a Python numpy array, and append it to result. ",
                     temperature=0.3,
                     max_tokens=self.max_code_tokens,
                 )
@@ -627,7 +677,11 @@ class Pipeline:
 
                 # Add the code to execute to the list of outputs
                 outputs[0] = code_to_exec
-                answer = self.exec_code(table, code_to_exec)
+                vars = {
+                    "table": table,
+                    "self": self,
+                }
+                answer = self.exec_code(vars, code_to_exec)
 
                 # Check the answer
                 if answer:
@@ -645,89 +699,6 @@ class Pipeline:
                             raise ValueError()
                 else:
                     raise ValueError()
-            else:  # If it does
-                # Get the column names to use
-                str_cols = self.openai_query(
-                    prompt=intro
-                    + "Create a list named COLS that contains the columns in "
-                    + "table that USER's request references. Some notes:\n"
-                    + "1) If USER references a past request or answer, be sure to include any past columns "
-                    + "that are necessary for the current request.\n"
-                    + "2) If you think a column is necessary but it is phrased in a way that suggests it posseses "
-                    + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
-                    + "description clusters.' regarding table, the column 'Repos' should be "
-                    + "ignored because it posseses the column 'Description', and only the column 'Description' "
-                    + "should be used.\n"
-                    + "3) If USER is asking to graph more than two categorical and/or continuous columns, "
-                    + "return 'None'.\n"
-                    + "If COLS is empty, return 'None'. Otherwise, return COLS. ",
-                    temperature=0,
-                    max_tokens=self.max_manual_tokens,
-                )
-                print(str_cols + "\n\n\n\n\n")
-
-                # Check if the features and columns are valid
-                features = []
-                columns = []
-                for feat in feat_keywords:
-                    if feat in str_feats:
-                        features.append(feat)
-                if not features:
-                    raise ValueError()
-                for col in table.columns:
-                    if col in str_cols:
-                        columns.append(col)
-                if not columns:
-                    raise ValueError()
-
-                outputs[0] = "FEATURES: " + ", ".join(features) + "; COLUMNS: " + ", ".join(columns)
-
-                # Separate columns by type
-                text_columns = []
-                image_columns = []
-                cat_columns = []
-                cont_columns = []
-                for column in columns:
-                    if column_data[column] == self.data_types[0]:
-                        text_columns.append(column)
-                    elif column_data[column] == self.data_types[1]:
-                        image_columns.append(column)
-                    elif column_data[column] == self.data_types[2]:
-                        cat_columns.append(column)
-                    elif column_data[column] == self.data_types[3]:
-                        cont_columns.append(column)
-                    else:
-                        pass
-
-                # CLIP embeddings of text and/or images and getting values of any categorical/continuous columns
-                dict_embeds = self.clip_encode(table, text_columns, image_columns)
-
-                # Get values of categorical/continuous columns
-                dict_cat = {}
-                dict_cont = {}
-                if cat_columns:
-                    for column in cat_columns:
-                        dict_cat[column] = self.get_column_vals(table, column)
-                if cont_columns:
-                    for column in cont_columns:
-                        dict_cont[column] = self.get_column_vals(table, column)
-
-                # Execute the features
-                for feat in features:
-                    if feat == feat_keywords[0]:  # Embeddings
-                        outputs[3].append(self.get_embeds_graph(int(len(table) / 2), dict_embeds, dict_cont, dict_cat))
-                    elif feat == feat_keywords[1]:  # Text search
-                        outputs[2].append(self.get_text_from_image(dict_embeds, dict_cont, dict_cat))
-                    elif feat == feat_keywords[2]:  # Image search
-                        outputs[4].append(self.img_to_str(self.get_image_from_text(dict_embeds, dict_cont, dict_cat)))
-                    elif feat == feat_keywords[3]:  # Anomaly detection
-                        outputs[1].append(self.get_anomaly_rows(dict_embeds, dict_cont, dict_cat))
-                    elif feat == feat_keywords[4]:  # Diversity measurement
-                        outputs[2].append(self.get_diversity_measure(dict_embeds, dict_cont, dict_cat))
-                    elif feat == feat_keywords[5]:  # Classification
-                        outputs[2].append(self.get_classification_label(dict_embeds, dict_cont, dict_cat))
-                    else:
-                        pass  # Should never happen since we checked for invalid features earlier
 
             # Check if anything besides None in output
             if any(outputs):
