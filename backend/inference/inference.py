@@ -135,7 +135,7 @@ class Pipeline:
         else:
             return list(table[column])
 
-    def clip_encode(self, texts, images):
+    def clip_encode(self, texts=None, images=None):
         # Set up inputs for CLIP
         if not texts:
             clip_images = list(itertools.chain.from_iterable(images))
@@ -458,6 +458,7 @@ class Pipeline:
         return fig
 
     def get_most_similar(self, table, cols, search_embed, embeds):
+        search_embed = np.squeeze(search_embed)
         highest_similarity = 0
         text = ""
         for text_col, text_embed in zip(cols, embeds):
@@ -591,8 +592,8 @@ class Pipeline:
                     else:
                         return [k for k, v in column_data.items() if v == type]
 
-                def get_vals_as_list(cols, image_present=None):
-                    return [self.get_column_vals(table, column, image_present) for column in cols if cols]
+                def get_vals_as_list(cols, images_present=None):
+                    return [self.get_column_vals(table, column, images_present) for column in cols if cols]
 
                 def get_vals_as_dict(cols):
                     return {column: self.get_column_vals(table, column) for column in cols if cols}
@@ -637,15 +638,16 @@ class Pipeline:
                         )
                     )
                 elif "text_search" in request_types:  # If USER wants to search for text
-                    _, image_embed = self.clip_encode([], [request])
+                    _, image_embed = self.clip_encode(images=[[requests[-1]]])
                     text_cols, _, text_embeds, _, _, _ = get_all()
                     text = self.get_most_similar(table, text_cols, image_embed, text_embeds)
                     outputs[2].append(text)
                 elif "image_search" in request_types:  # If USER wants to search for images
-                    text_embed, _ = self.clip_encode([request], [])
+                    text_embed, _ = self.clip_encode(texts=[[requests[-1]]])
                     _, image_cols, _, image_embeds, _, _ = get_all()
                     image = self.get_most_similar(table, image_cols, text_embed, image_embeds)
-                    outputs[4].append(self.open_image(image))
+                    image = self.open_image(image)
+                    outputs[4].append(self.img_to_str(image))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
                     columns = select_columns()
                     if columns:
@@ -662,14 +664,14 @@ class Pipeline:
                     columns = select_columns()
                     if columns:
                         get_all = partial(get_all, columns)
-                    text_embed, _ = self.clip_encode([request], [])
+                    text_embed, _ = self.clip_encode(texts=[[requests[-1]]])
                     _, _, text_embeds, _, dict_cat, _ = get_all()
                     outputs[2].append(self.get_classification_label(text_embed, text_embeds, dict_cat))
                 elif "image_class" in request_types:  # If USER wants to classify images
                     columns = select_columns()
                     if columns:
                         get_all = partial(get_all, columns)
-                    _, image_embed = self.clip_encode([], [request])
+                    _, image_embed = self.clip_encode(images=[[requests[-1]]])
                     _, _, _, image_embeds, dict_cat, _ = get_all()
                     outputs[4].append(self.get_classification_label(image_embed, image_embeds, dict_cat))
                 else:  # If USER wants to do something else
