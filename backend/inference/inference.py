@@ -468,7 +468,7 @@ class Pipeline:
     def get_diversity_measure(self, text_image_embeds):
         raise InvalidRequest()
 
-    def get_classification_label(self, text_image_embeds, dict_cat):
+    def get_classification_label(self, embed, text_image_embeds, dict_cat):
         raise InvalidRequest()
 
     def get_report(self, table, message):
@@ -621,18 +621,22 @@ class Pipeline:
                             dict_cat,
                         )
                     )
-                elif "text" in request_types:  # If USER wants to search for text
-                    _, image_embeds = self.clip_encode([], [request])
-                    outputs[2].append(self.get_text_from_image(image_embeds, text_image_embeds))
-                elif "image" in request_types:  # If USER wants to search for images
-                    text_embeds, _ = self.clip_encode([request], [])
-                    outputs[4].append(self.get_image_from_text(text_embeds, text_image_embeds))
+                elif "text_search" in request_types:  # If USER wants to search for text
+                    _, image_embed = self.clip_encode([], [request])
+                    outputs[2].append(self.get_text_from_image(image_embed, text_embeds))
+                elif "image_search" in request_types:  # If USER wants to search for images
+                    text_embed, _ = self.clip_encode([request], [])
+                    outputs[4].append(self.get_image_from_text(text_embed, image_embeds))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
                     outputs[1].append(self.get_anomaly_rows(text_image_embeds))
                 elif "diversity" in request_types:  # If USER wants to measure diversity
                     outputs[2].append(self.get_diversity_measure(text_image_embeds))
-                elif "class" in request_types:  # If USER wants to classify text/image
-                    outputs[2].append(self.get_classification_label(text_image_embeds, dict_cat))
+                elif "text_class" in request_types:  # If USER wants to classify text
+                    text_embed, _ = self.clip_encode([request], [])
+                    outputs[2].append(self.get_classification_label(text_embed, text_image_embeds, dict_cat))
+                elif "image_class" in request_types:  # If USER wants to classify images
+                    _, image_embed = self.clip_encode([], [request])
+                    outputs[4].append(self.get_classification_label(image_embed, text_image_embeds, dict_cat))
                 else:  # If USER wants to do something else
                     raise InvalidRequest()
             else:  # If not
