@@ -457,27 +457,16 @@ class Pipeline:
 
         return fig
 
-    def get_text_from_image(self, table, text_columns, image_embed, text_embeds):
+    def get_most_similar(self, table, cols, search_embed, embeds):
         highest_similarity = 0
         text = ""
-        for text_col, text_embed in zip(text_columns, text_embeds):
+        for text_col, text_embed in zip(cols, embeds):
             for row_idx in range(len(text_embed)):
-                similarity = cosine_similarity(text_embed[row_idx], image_embed)
+                similarity = cosine_similarity(text_embed[row_idx], search_embed)
                 if similarity > highest_similarity:
                     highest_similarity = similarity
                     text = table.loc[row_idx, text_col]
         return text
-
-    def get_image_from_text(self, table, image_columns, text_embed, image_embeds):
-        highest_similarity = 0
-        image = ""
-        for text_col, image_embed in zip(image_columns, image_embeds):
-            for row_idx in range(len(image_embed)):
-                similarity = cosine_similarity(image_embed[row_idx], text_embed)
-                if similarity > highest_similarity:
-                    highest_similarity = similarity
-                    image = table.loc[row_idx, text_col]
-        return self.open_image(image)
 
     def get_anomaly_rows(self, text_image_embeds):
         raise InvalidRequest()
@@ -594,7 +583,7 @@ class Pipeline:
                 # Add selected columns to the list of outputs
                 outputs[0] = str_cols
 
-                # Lambda functions
+                # Helper functions
                 def get_list(type):
                     return [k for k, v in column_data.items() if k in columns and v == type]
 
@@ -640,10 +629,12 @@ class Pipeline:
                     )
                 elif "text_search" in request_types:  # If USER wants to search for text
                     _, image_embed = self.clip_encode([], [request])
-                    outputs[2].append(self.get_text_from_image(table, text_columns, image_embed, text_embeds))
+                    text = self.get_most_similar(table, text_columns, image_embed, text_embeds)
+                    outputs[2].append(text)
                 elif "image_search" in request_types:  # If USER wants to search for images
                     text_embed, _ = self.clip_encode([request], [])
-                    outputs[4].append(self.get_image_from_text(table, image_columns, text_embed, image_embeds))
+                    image = self.get_most_similar(table, image_columns, text_embed, image_embeds)
+                    outputs[4].append(self.open_image(image))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
                     outputs[1].append(self.get_anomaly_rows(text_image_embeds))
                 elif "diversity" in request_types:  # If USER wants to measure diversity
