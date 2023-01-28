@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import numpy as np
 from onnxruntime import InferenceSession
 import openai
+from openai.embeddings_utils import cosine_similarity
 import pandas as pd
 from pandas_profiling import ProfileReport
 from PIL import Image
@@ -456,11 +457,27 @@ class Pipeline:
 
         return fig
 
-    def get_text_from_image(self, image_embeds, text_image_embeds):
-        raise InvalidRequest()
+    def get_text_from_image(self, table, text_columns, image_embed, text_embeds):
+        highest_similarity = 0
+        text = ""
+        for text_col, text_embed in zip(text_columns, text_embeds):
+            for row_idx in range(len(text_embed)):
+                similarity = cosine_similarity(text_embed[row_idx], image_embed)
+                if similarity > highest_similarity:
+                    highest_similarity = similarity
+                    text = table.loc[row_idx, text_col]
+        return text
 
-    def get_image_from_text(self, text_embeds, text_image_embeds):
-        raise InvalidRequest()
+    def get_image_from_text(self, table, image_columns, text_embed, image_embeds):
+        highest_similarity = 0
+        image = ""
+        for text_col, image_embed in zip(image_columns, image_embeds):
+            for row_idx in range(len(image_embed)):
+                similarity = cosine_similarity(image_embed[row_idx], text_embed)
+                if similarity > highest_similarity:
+                    highest_similarity = similarity
+                    image = table.loc[row_idx, text_col]
+        return self.open_image(image)
 
     def get_anomaly_rows(self, text_image_embeds):
         raise InvalidRequest()
@@ -623,10 +640,10 @@ class Pipeline:
                     )
                 elif "text_search" in request_types:  # If USER wants to search for text
                     _, image_embed = self.clip_encode([], [request])
-                    outputs[2].append(self.get_text_from_image(image_embed, text_embeds))
+                    outputs[2].append(self.get_text_from_image(table, text_columns, image_embed, text_embeds))
                 elif "image_search" in request_types:  # If USER wants to search for images
                     text_embed, _ = self.clip_encode([request], [])
-                    outputs[4].append(self.get_image_from_text(text_embed, image_embeds))
+                    outputs[4].append(self.get_image_from_text(table, image_columns, text_embed, image_embeds))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
                     outputs[1].append(self.get_anomaly_rows(text_image_embeds))
                 elif "diversity" in request_types:  # If USER wants to measure diversity

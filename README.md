@@ -27,14 +27,15 @@ A website that helps users understand their spreadsheet data without the learnin
 We provide the user with check-boxes to indicate if they want to use manually-implemented functions that perform the following tasks:
 
 - Clustering (where text and/or images are grouped by similarity)
+- Text search (where results are ranked by relevance to a query string)
+- Image search (where results are ranked by relevance to a query image)
 
 To be implemented:
 
-- *Text Search (where results are ranked by relevance to a query string)*
-- *Image Search (where results are ranked by relevance to a query image)*
-- *Anomaly detection (where outliers with little relatedness are identified)*
+- *Anomaly detection (where rows that have outliers with little relatedness are identified)*
 - *Diversity measurement (where similarity distributions are analyzed)*
-- *Classification (where text and/or images are classified by their most similar label)*
+- *Text classification (where text is classified by their most similar label)*
+- *Image classification (where images are classified by their most similar label)*
   
 Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
 
