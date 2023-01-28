@@ -39,7 +39,7 @@ To be implemented:
   
 Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
 
-If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. (Note that for efficiency and quality purposes, only changes to which columns are used are supported.)
+If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings, and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task. (Note that for efficiency and quality purposes, only changes to which columns are used are supported.)
 
 Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
@@ -100,14 +100,13 @@ python3 frontend/app.py --flagging --model_url=AWS_LAMBDA_URL
 
 ### Contributing
 
-To contribute, check out the [guide](./CONTRIBUTING.MD).
+To contribute, check out the [guide](./CONTRIBUTING.md).
 
 ### Setup
 
 1. Set up the conda environment locally, referring to the instructions of the commented links as needed:
 
 ```bash
-git clone https://github.com/andrewhinh/captafied.git
 cd captafied
 # Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
     # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
