@@ -106,7 +106,6 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
 1. Set up the conda environment locally, referring to the instructions of the commented links as needed:
 
 ```bash
-git clone https://github.com/andrewhinh/captafied.git
 cd captafied
 # Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
     # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
