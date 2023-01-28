@@ -553,39 +553,43 @@ class Pipeline:
 
             # Check if USER wants to use a manually-defined function
             if request_types:  # If so
-                # Get the column names to use
-                str_cols = self.openai_query(
-                    prompt=intro
-                    + "Return a comma-separated list that contains the columns in table "
-                    + "that USER explicitly references. Some notes:\n"
-                    + "1) If USER references a past request or answer, be sure to include any past columns "
-                    + "that are necessary for the current request.\n"
-                    + "2) If you think a column is necessary but it is phrased in a way that suggests it posseses "
-                    + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
-                    + "description clusters.' regarding table, the column 'Repos' should be "
-                    + "ignored because it posseses the column 'Description', and only the column 'Description' "
-                    + "should be used.\n"
-                    + "3) If USER is asking to graph more than two categorical and/or continuous columns, "
-                    + "return 'None'. ",
-                    temperature=0,
-                    max_tokens=self.max_manual_tokens,
-                )
-                print(str_cols + "\n\n\n\n\n")
-
-                # Check if the columns are valid
-                columns = []
-                for col in table.columns:
-                    if col in str_cols:
-                        columns.append(col)
-                if not columns:
-                    raise ValueError()
-
-                # Add selected columns to the list of outputs
-                outputs[0] = str_cols
-
                 # Helper functions
-                def get_list(type):
-                    return [k for k, v in column_data.items() if k in columns and v == type]
+                def select_columns():  # When USER wants to select columns
+                    # Get the column names to use
+                    str_cols = self.openai_query(
+                        prompt=intro
+                        + "Return a comma-separated list that contains the columns in table "
+                        + "that USER explicitly references. Some notes:\n"
+                        + "1) If USER references a past request or answer, be sure to include any past columns "
+                        + "that are necessary for the current request.\n"
+                        + "2) If you think a column is necessary but it is phrased in a way that suggests it posseses "
+                        + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
+                        + "description clusters.' regarding table, the column 'Repos' should be "
+                        + "ignored because it posseses the column 'Description', and only the column 'Description' "
+                        + "should be used.\n"
+                        + "3) If USER is asking to graph more than two categorical and/or continuous columns, "
+                        + "return 'None'. ",
+                        temperature=0,
+                        max_tokens=self.max_manual_tokens,
+                    )
+                    print(str_cols + "\n\n\n\n\n")
+
+                    # Check if the columns are valid
+                    columns = []
+                    for col in table.columns:
+                        if col in str_cols:
+                            columns.append(col)
+
+                    # Add selected columns to the list of outputs
+                    outputs[0] = str_cols
+
+                    return columns
+
+                def get_list(type, columns=None):
+                    if columns:
+                        return [k for k, v in column_data.items() if k in columns and v == type]
+                    else:
+                        return [k for k, v in column_data.items() if v == type]
 
                 def get_vals_as_list(cols, image_present=None):
                     return [self.get_column_vals(table, column, image_present) for column in cols if cols]
@@ -596,55 +600,78 @@ class Pipeline:
                 def to_list_of_lists(x):
                     return [x[i : i + len(table)] for i in range(0, len(x), len(table))]
 
-                # CLIP embeddings of text and/or image columns
-                text_columns = get_list(self.data_types[0])
-                image_columns = get_list(self.data_types[1])
-                texts = get_vals_as_list(text_columns)
-                images = get_vals_as_list(image_columns, images_present=True)
-                if not texts and not images:
-                    raise ValueError()
-                text_image_cols = text_columns + image_columns
-                text_embeds, image_embeds = self.clip_encode(texts, images)
-                text_embeds = to_list_of_lists(text_embeds)
-                image_embeds = to_list_of_lists(image_embeds)
-                text_image_embeds = text_embeds + image_embeds
+                def get_all(columns=None):
+                    # CLIP embeddings of text and/or image columns
+                    text_columns = get_list(self.data_types[0], columns)
+                    image_columns = get_list(self.data_types[1], columns)
+                    texts = get_vals_as_list(text_columns)
+                    images = get_vals_as_list(image_columns, images_present=True)
+                    if not texts and not images:
+                        raise ValueError()
+                    text_embeds, image_embeds = self.clip_encode(texts, images)
+                    text_embeds = to_list_of_lists(text_embeds)
+                    image_embeds = to_list_of_lists(image_embeds)
 
-                # Get values of categorical/continuous columns
-                dict_cat = {}
-                dict_cont = {}
-                cat_columns = get_list(self.data_types[2])
-                cont_columns = get_list(self.data_types[3])
-                dict_cat = get_vals_as_dict(cat_columns)
-                dict_cont = get_vals_as_dict(cont_columns)
+                    # Get values of categorical/continuous columns
+                    dict_cat = {}
+                    dict_cont = {}
+                    cat_columns = get_list(self.data_types[2], columns)
+                    cont_columns = get_list(self.data_types[3], columns)
+                    dict_cat = get_vals_as_dict(cat_columns)
+                    dict_cont = get_vals_as_dict(cont_columns)
+
+                    return text_columns, image_columns, text_embeds, image_embeds, dict_cat, dict_cont
 
                 if "cluster" in request_types:  # If USER wants to cluster
+                    columns = select_columns()
+                    if columns:
+                        get_all = partial(get_all, columns)
+                    text_cols, image_cols, text_embeds, image_embeds, dict_cat, dict_cont = get_all()
                     outputs[3].append(
                         self.get_embeds_graph(
                             int(len(table) / 2),
-                            text_image_cols,
-                            text_image_embeds,
+                            text_cols + image_cols,
+                            text_embeds + image_embeds,
                             dict_cont,
                             dict_cat,
                         )
                     )
                 elif "text_search" in request_types:  # If USER wants to search for text
                     _, image_embed = self.clip_encode([], [request])
-                    text = self.get_most_similar(table, text_columns, image_embed, text_embeds)
+                    text_cols, _, text_embeds, _, _, _ = get_all()
+                    text = self.get_most_similar(table, text_cols, image_embed, text_embeds)
                     outputs[2].append(text)
                 elif "image_search" in request_types:  # If USER wants to search for images
                     text_embed, _ = self.clip_encode([request], [])
-                    image = self.get_most_similar(table, image_columns, text_embed, image_embeds)
+                    _, image_cols, _, image_embeds, _, _ = get_all()
+                    image = self.get_most_similar(table, image_cols, text_embed, image_embeds)
                     outputs[4].append(self.open_image(image))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
-                    outputs[1].append(self.get_anomaly_rows(text_image_embeds))
+                    columns = select_columns()
+                    if columns:
+                        get_all = partial(get_all, columns)
+                    _, _, text_embeds, image_embeds, _, _ = get_all()
+                    outputs[1].append(self.get_anomaly_rows(text_embeds + image_embeds))
                 elif "diversity" in request_types:  # If USER wants to measure diversity
-                    outputs[2].append(self.get_diversity_measure(text_image_embeds))
+                    columns = select_columns()
+                    if columns:
+                        get_all = partial(get_all, columns)
+                    _, _, text_embeds, image_embeds, _, _ = get_all()
+                    outputs[2].append(self.get_diversity_measure(text_embeds + image_embeds))
                 elif "text_class" in request_types:  # If USER wants to classify text
+                    columns = select_columns()
+                    if columns:
+                        get_all = partial(get_all, columns)
                     text_embed, _ = self.clip_encode([request], [])
-                    outputs[2].append(self.get_classification_label(text_embed, text_image_embeds, dict_cat))
+                    _, _, text_embeds, _, dict_cat, _ = get_all()
+                    outputs[2].append(self.get_classification_label(text_embed, text_embeds, dict_cat))
                 elif "image_class" in request_types:  # If USER wants to classify images
+                    columns = select_columns()
+                    if columns:
+                        get_all = partial(get_all, columns)
                     _, image_embed = self.clip_encode([], [request])
-                    outputs[4].append(self.get_classification_label(image_embed, text_image_embeds, dict_cat))
+                    _, _, _, image_embeds, dict_cat, _ = get_all()
+                    outputs[4].append(self.get_classification_label(image_embed, image_embeds, dict_cat))
                 else:  # If USER wants to do something else
                     raise InvalidRequest()
             else:  # If not
