@@ -99,7 +99,7 @@ python3 frontend/app.py --flagging --model_url=AWS_LAMBDA_URL
 
 ### Contributing
 
-To contribute, check out the [guide](./CONTRIBUTING.MD).
+To contribute, check out the [guide](./CONTRIBUTING.md).
 
 ### Setup
 
