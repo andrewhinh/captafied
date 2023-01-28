@@ -87,7 +87,7 @@ To setup the production server for the website, we simply:
 1. Setup the app with an AWS Lambda backend on our localhost:
 
 ```bash
-python3 frontend/app.py --flagging --model_url=AWS_LAMBDA_URL
+python3 frontend/app.py --model_url=AWS_LAMBDA_URL
 ```
 
 2. Serve the localhost app over a permanent localtunnel link:
