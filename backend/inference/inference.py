@@ -134,17 +134,8 @@ class Pipeline:
         else:
             return list(table[column])
 
-    def clip_encode(self, table, text_columns, image_columns):
+    def clip_encode(self, texts, images):
         # Set up inputs for CLIP
-        texts = []
-        images = []
-        if text_columns:
-            for column in text_columns:
-                texts.append(self.get_column_vals(table, column))
-        if image_columns:
-            for column in image_columns:
-                images.append(self.get_column_vals(table, column, images_present=True))
-
         if not texts:
             clip_images = list(itertools.chain.from_iterable(images))
             clip_texts = ["Placeholder" for _ in range(len(clip_images))]
@@ -168,27 +159,13 @@ class Pipeline:
         )
         text_embeds = clip_outputs[2]
         image_embeds = clip_outputs[3]
+        return text_embeds, image_embeds
 
-        # Get columns and embeds
-        dict_embeds = {}
-        if text_columns:
-            for column in text_columns:
-                dict_embeds[column] = text_embeds[: len(table[column])]
-                text_embeds = text_embeds[len(table[column]) :]
-        if image_columns:
-            for column in image_columns:
-                dict_embeds[column] = image_embeds[: len(table[column])]
-                image_embeds = image_embeds[len(table[column]) :]
-
-        return dict_embeds
-
-    def get_embeds_graph(self, max_cluster_search, dict_embeds, dict_cont, dict_cat):
-        text_image_columns = list(dict_embeds.keys())
-
+    def get_embeds_graph(self, max_cluster_search, text_image_cols, text_image_embeds, dict_cont, dict_cat):
         # Conditionals for plotting
         one_cont_var_present = len(dict_cont) == 1
         two_cont_vars_present = len(dict_cont) == 2
-        two_or_more_text_image = len(text_image_columns) > 1
+        two_or_more_text_image = len(text_image_cols) > 1
 
         # Setting up figure
         fig = make_subplots()
@@ -211,7 +188,7 @@ class Pipeline:
         colors = list(itertools.chain.from_iterable(list_colors))
 
         # UMAP and K-Means clustering
-        for column, embeds, color in zip(text_image_columns, list(dict_embeds.values()), colors):
+        for column, embeds, color in zip(text_image_cols, text_image_embeds, colors):
             # Legend entries depending on whether there are multiple text/image columns
             prefix = ""
             if two_or_more_text_image:
@@ -458,9 +435,9 @@ class Pipeline:
         """
 
         # Titles
-        variables = text_image_columns + list(dict_cat.keys()) + list(dict_cont.keys())
+        variables = text_image_cols + list(dict_cat.keys()) + list(dict_cont.keys())
         variables = [
-            variable + " Embedding Clusters" if variable in dict_embeds.keys() else variable for variable in variables
+            variable + " Embedding Clusters" if variable in text_image_cols else variable for variable in variables
         ]
         variables = " vs. ".join(variables)
         legend_titles = ["Embedding Clusters", "Columns", "Categories"]
@@ -479,19 +456,19 @@ class Pipeline:
 
         return fig
 
-    def get_text_from_image(self, search_image, dict_embeds):
+    def get_text_from_image(self, image_embeds, text_image_embeds):
         raise InvalidRequest()
 
-    def get_image_from_text(self, search_text, dict_embeds):
+    def get_image_from_text(self, text_embeds, text_image_embeds):
         raise InvalidRequest()
 
-    def get_anomaly_rows(self, table, dict_embeds):
+    def get_anomaly_rows(self, text_image_embeds):
         raise InvalidRequest()
 
-    def get_diversity_measure(self, dict_embeds):
+    def get_diversity_measure(self, text_image_embeds):
         raise InvalidRequest()
 
-    def get_classification_label(self, dict_embeds, dict_cat):
+    def get_classification_label(self, text_image_embeds, dict_cat):
         raise InvalidRequest()
 
     def get_report(self, table, message):
@@ -542,29 +519,6 @@ class Pipeline:
                         column_data[column] = self.data_types[3]
                 else:  # For categorical data
                     column_data[column] = self.data_types[2]
-
-            # CLIP embeddings of text and/or image columns
-            text_columns = [k for k, v in column_data.items() if v == self.data_types[0]]
-            image_columns = [k for k, v in column_data.items() if v == self.data_types[1]]
-            dict_embeds = {}
-            if text_columns or image_columns:
-                dict_embeds = self.clip_encode(
-                    table,
-                    text_columns,
-                    image_columns,
-                )
-
-            # Get values of categorical/continuous columns
-            dict_cat = {}
-            dict_cont = {}
-            cat_columns = [k for k, v in column_data.items() if v == self.data_types[2]]
-            cont_columns = [k for k, v in column_data.items() if v == self.data_types[3]]
-            if cat_columns:
-                for column in cat_columns:
-                    dict_cat[column] = self.get_column_vals(table, column)
-            if cont_columns:
-                for column in cont_columns:
-                    dict_cont[column] = self.get_column_vals(table, column)
 
             # Introduction for every OpenAI prompt
             str_info = ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
@@ -623,28 +577,62 @@ class Pipeline:
                 # Add selected columns to the list of outputs
                 outputs[0] = str_cols
 
-                # Selecting the columns to use
-                dict_embeds = {k: v for k, v in dict_embeds.items() if k in columns}
-                dict_cont = {k: v for k, v in dict_cont.items() if k in columns}
-                dict_cat = {k: v for k, v in dict_cat.items() if k in columns}
+                # Lambda functions
+                def get_list(type):
+                    return [k for k, v in column_data.items() if k in columns and v == type]
+
+                def get_vals_as_list(cols, image_present=None):
+                    return [self.get_column_vals(table, column, image_present) for column in cols if cols]
+
+                def get_vals_as_dict(cols):
+                    return {column: self.get_column_vals(table, column) for column in cols if cols}
+
+                def to_list_of_lists(x):
+                    return [x[i : i + len(table)] for i in range(0, len(x), len(table))]
+
+                # CLIP embeddings of text and/or image columns
+                text_columns = get_list(self.data_types[0])
+                image_columns = get_list(self.data_types[1])
+                texts = get_vals_as_list(text_columns)
+                images = get_vals_as_list(image_columns, images_present=True)
+                if not texts and not images:
+                    raise ValueError()
+                text_image_cols = text_columns + image_columns
+                text_embeds, image_embeds = self.clip_encode(texts, images)
+                text_embeds = to_list_of_lists(text_embeds)
+                image_embeds = to_list_of_lists(image_embeds)
+                text_image_embeds = text_embeds + image_embeds
+
+                # Get values of categorical/continuous columns
+                dict_cat = {}
+                dict_cont = {}
+                cat_columns = get_list(self.data_types[2])
+                cont_columns = get_list(self.data_types[3])
+                dict_cat = get_vals_as_dict(cat_columns)
+                dict_cont = get_vals_as_dict(cont_columns)
 
                 if "cluster" in request_types:  # If USER wants to cluster
-                    outputs[3].append(self.get_embeds_graph(int(len(table) / 2), dict_embeds, dict_cont, dict_cat))
+                    outputs[3].append(
+                        self.get_embeds_graph(
+                            int(len(table) / 2),
+                            text_image_cols,
+                            text_image_embeds,
+                            dict_cont,
+                            dict_cat,
+                        )
+                    )
                 elif "text" in request_types:  # If USER wants to search for text
-                    raise NotImplementedError()
-                    # outputs[2].append(self.get_text_from_image(search_image, dict_embeds))
+                    _, image_embeds = self.clip_encode([], [request])
+                    outputs[2].append(self.get_text_from_image(image_embeds, text_image_embeds))
                 elif "image" in request_types:  # If USER wants to search for images
-                    raise NotImplementedError()
-                    # outputs[4].append(self.get_image_from_text(search_text, dict_embeds))
+                    text_embeds, _ = self.clip_encode([request], [])
+                    outputs[4].append(self.get_image_from_text(text_embeds, text_image_embeds))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
-                    raise NotImplementedError()
-                    # outputs[1].append(self.get_anomaly_rows(table, dict_embeds))
+                    outputs[1].append(self.get_anomaly_rows(text_image_embeds))
                 elif "diversity" in request_types:  # If USER wants to measure diversity
-                    raise NotImplementedError()
-                    # outputs[2].append(self.get_diversity_measure(dict_embeds))
+                    outputs[2].append(self.get_diversity_measure(text_image_embeds))
                 elif "class" in request_types:  # If USER wants to classify text/image
-                    raise NotImplementedError()
-                    # outputs[2].append(self.get_classification_label(dict_embeds, dict_cat))
+                    outputs[2].append(self.get_classification_label(text_image_embeds, dict_cat))
                 else:  # If USER wants to do something else
                     raise InvalidRequest()
             else:  # If not
