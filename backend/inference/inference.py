@@ -586,6 +586,9 @@ class Pipeline:
 
                     return columns
 
+                def parse_request(requests):  # When doing search + classification
+                    return [[requests[-1].split("\\")[1]]]
+
                 def get_list(type, columns=None):
                     if columns:
                         return [k for k, v in column_data.items() if k in columns and v == type]
@@ -601,7 +604,8 @@ class Pipeline:
                 def to_list_of_lists(x):
                     return [x[i : i + len(table)] for i in range(0, len(x), len(table))]
 
-                def get_all(columns=None):
+                def get_all():
+                    columns = select_columns()
                     # CLIP embeddings of text and/or image columns
                     text_columns = get_list(self.data_types[0], columns)
                     image_columns = get_list(self.data_types[1], columns)
@@ -624,9 +628,6 @@ class Pipeline:
                     return text_columns, image_columns, text_embeds, image_embeds, dict_cat, dict_cont
 
                 if "cluster" in request_types:  # If USER wants to cluster
-                    columns = select_columns()
-                    if columns:
-                        get_all = partial(get_all, columns)
                     text_cols, image_cols, text_embeds, image_embeds, dict_cat, dict_cont = get_all()
                     outputs[3].append(
                         self.get_embeds_graph(
@@ -638,12 +639,12 @@ class Pipeline:
                         )
                     )
                 elif "text_search" in request_types:  # If USER wants to search for text
-                    text_embed, _ = self.clip_encode(texts=[[requests[-1]]])
+                    text_embed, _ = self.clip_encode(texts=parse_request(requests))
                     text_cols, _, text_embeds, _, _, _ = get_all()
                     text = self.get_most_similar(table, text_cols, text_embed, text_embeds)
                     outputs[2].append(text)
                 elif "image_search" in request_types:  # If USER wants to search for images
-                    text_embed, _ = self.clip_encode(texts=[[requests[-1]]])
+                    text_embed, _ = self.clip_encode(texts=parse_request(requests))
                     _, image_cols, _, image_embeds, _, _ = get_all()
                     image = self.get_most_similar(table, image_cols, text_embed, image_embeds)
                     image = self.open_image(image)
@@ -664,14 +665,14 @@ class Pipeline:
                     columns = select_columns()
                     if columns:
                         get_all = partial(get_all, columns)
-                    text_embed, _ = self.clip_encode(texts=[[requests[-1]]])
+                    text_embed, _ = self.clip_encode(texts=parse_request(requests))
                     _, _, text_embeds, _, dict_cat, _ = get_all()
                     outputs[2].append(self.get_classification_label(text_embed, text_embeds, dict_cat))
                 elif "image_class" in request_types:  # If USER wants to classify images
                     columns = select_columns()
                     if columns:
                         get_all = partial(get_all, columns)
-                    _, image_embed = self.clip_encode(images=[[requests[-1]]])
+                    _, image_embed = self.clip_encode(images=parse_request(requests))
                     _, _, _, image_embeds, dict_cat, _ = get_all()
                     outputs[4].append(self.get_classification_label(image_embed, image_embeds, dict_cat))
                 else:  # If USER wants to do something else

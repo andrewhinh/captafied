@@ -56,7 +56,8 @@ Some notes about submitting inputs to the pipeline:
 
 - Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
 - Because multiple outputs are supported, you can submit multiple requests at one time.
-- Click which checkboxes you want to use before submitting your request.
+- Click which checkboxes you want to use (if any) before submitting your request.
+- When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to a query string, you could submit a request like "What is the most similar product description to \query?".
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
