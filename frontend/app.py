@@ -447,7 +447,7 @@ app.layout = html.Div(
                 dcc.Markdown(
                     [
                         """
-                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.)](https://git.io/typing-svg)
+                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.;Which+summary+is+most+like+\Transformers%3F;Which+icon+is+most+like+\Transformers%3F)](https://git.io/typing-svg)
                 """
                     ],
                     style=html_settings(),
@@ -509,6 +509,17 @@ app.layout = html.Div(
         ),
     ],
 )
+
+"""
+dcc.Upload(
+    id="before-image-file-uploaded",
+    children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+    style=html_settings(height="400%", lineHeight="400%", borderStyle="dashed"),
+    # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
+),
+html.Div(id='after-image-file-uploaded'),
+html.Br(),
+"""
 
 
 # Event functions
