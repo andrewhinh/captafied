@@ -638,9 +638,9 @@ class Pipeline:
                         )
                     )
                 elif "text_search" in request_types:  # If USER wants to search for text
-                    _, image_embed = self.clip_encode(images=[[requests[-1]]])
+                    text_embed, _ = self.clip_encode(texts=[[requests[-1]]])
                     text_cols, _, text_embeds, _, _, _ = get_all()
-                    text = self.get_most_similar(table, text_cols, image_embed, text_embeds)
+                    text = self.get_most_similar(table, text_cols, text_embed, text_embeds)
                     outputs[2].append(text)
                 elif "image_search" in request_types:  # If USER wants to search for images
                     text_embed, _ = self.clip_encode(texts=[[requests[-1]]])
