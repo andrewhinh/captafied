@@ -119,12 +119,17 @@ class Pipeline:
         img_str = base64.b64encode(buff.getvalue()).decode("utf-8")
         return "data:image/png;base64," + img_str
 
-    def exec_code(self, global_vars, code):
-        result = []
-        local_vars = {"result": result}
+    def exec_code(self, global_vars, code, vars_to_return):
+        local_vars = {}
         try:
             exec(code, global_vars, local_vars)
-            return local_vars["result"]
+            vars = []
+            for var in vars_to_return:
+                vars.append(local_vars[var])
+            if len(vars) == 1:
+                return vars[0]
+            else:
+                return vars
         except Exception:
             print(traceback.format_exc())
             return None
@@ -255,10 +260,12 @@ class Pipeline:
             cont_vals = []
             if cat_cols:
                 for column in cat_cols:
-                    cat_vals.append(list(table.loc[column, :]) * int(len(clusters) / len(table.loc[column, :])))
+                    vals = self.get_column_vals(table, column)
+                    cat_vals.append(vals * int(len(clusters) / len(vals)))
             if cont_cols:
                 for column in cont_cols:
-                    cont_vals.append(list(table.loc[column, :]) * int(len(clusters) / len(table.loc[column, :])))
+                    vals = self.get_column_vals(table, column)
+                    cont_vals.append(vals * int(len(clusters) / len(vals)))
 
             # Plotting clusters
             for cluster in range(n_clusters):
@@ -500,27 +507,16 @@ class Pipeline:
                     row_idxs.append([])
                     continue
 
-                # Reducing dimensionality of embeddings with UMAP
-                n_neighbors = 15
-                if (
-                    embeds.shape[0] < n_neighbors
-                ):  # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
-                    n_neighbors = embeds.shape[0] - 1
-                reducer = umap.UMAP(n_neighbors=n_neighbors)
-                embedding = reducer.fit_transform(embeds)
-                x = embedding[:, 0]
-                y = embedding[:, 1]
-
                 # Getting anomaly rows
                 rows = []
-                for row_idx in range(len(x)):  # or range(len(y)), since x and y are the same length
-                    if x[row_idx] not in clusters or y[row_idx] not in clusters:
-                        rows.append(row_idx)
+                for cluster in set(clusters):
+                    if list(clusters).count(cluster) == 1:
+                        rows.append(list(clusters).index(cluster))
                 row_idxs.append(rows)
 
         if cont_cols:
             for col in cont_cols:
-                vals = sorted(list(table.loc[:, col]))
+                vals = sorted(self.get_column_vals(table, col))
                 Q1, Q3 = np.percentile(vals, [25, 75])
                 IQR = Q3 - Q1
                 lower_range = Q1 - (1.5 * IQR)
@@ -625,13 +621,13 @@ class Pipeline:
                         prompt=intro
                         + "Write Python code that:\n"
                         + "1) imports any necessary libraries,\n"
-                        + "2) creates an empty list named result,\n"
+                        + "2) creates three empty lists named columns, rows, and result,\n"
                         + "3) checks if table can be used to answer USER's request; if not, appends"
                         + "to result a Python string that explains to USER why not. If so,\n"
-                        + "4) determines which rows and columns the USER explicitly references, if any,\n"
-                        + "5) creates a copy of table and slices it accordingly, if necessary,\n"
-                        + "6) appends to result the sliced or unsliced copy,\n"
-                        + "7) and NEVER returns result.\n"
+                        + "4) disregards result,\n"
+                        + "5) appends to columns all of table's columns that USER explicitly references, if any,\n"
+                        + "6) appends to rows all of table's row indexes as integers that USER explicitly references, if any,\n"
+                        + "7) and NEVER does anything more, regardless of your previous answers.\n"
                         + "Some notes about the code:\n"
                         + "- Never write plain text, only Python code.\n"
                         + "- Never reference variables created in previous answers, "
@@ -645,7 +641,6 @@ class Pipeline:
                         temperature=0.3,
                         max_tokens=self.max_code_tokens,
                     )
-                    print(code_to_exec + "\n\n\n\n\n")
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
@@ -653,18 +648,39 @@ class Pipeline:
                         "table": table,
                         "self": self,
                     }
-                    answer = self.exec_code(vars, code_to_exec)
+                    return_vars = ["columns", "rows", "result"]
+                    answers = self.exec_code(vars, code_to_exec, return_vars)
 
                     # Check the answer
-                    if answer:
-                        # Type check the answer
-                        output = answer[0]
-                        if type(output) == pd.DataFrame:
-                            table = output
-                        elif type(output) == str:
-                            outputs[1] = output
+                    if answers:
+                        columns = answers[0]
+                        rows = answers[1]
+                        result = answers[2]
+
+                        if result:
+                            if type(result) == str:
+                                outputs[1] = result
+                                return None, None
+                            else:
+                                raise ValueError()
                         else:
-                            raise ValueError()
+                            if columns and rows:
+                                if type(columns) == list and type(rows) == list:
+                                    return rows, columns
+                                else:
+                                    raise ValueError()
+                            elif columns:
+                                if type(columns) == list:
+                                    return None, columns
+                                else:
+                                    raise ValueError()
+                            elif rows:
+                                if type(rows) == list:
+                                    return rows, None
+                                else:
+                                    raise ValueError()
+                            else:
+                                pass
                     else:
                         raise ValueError()
 
@@ -685,12 +701,22 @@ class Pipeline:
                 def to_list_of_lists(x):  # Convert list to list of lists for embeddings
                     return [x[i : i + len(table)] for i in range(0, len(x), len(table))]
 
-                def get_all(only_cont=False):
-                    slice_table(table)
-                    invalid = False
-                    if table is None:
-                        invalid = True
-                    columns = table.columns
+                def get_all(table):
+                    rows, columns = slice_table(table)
+                    if columns:
+                        if type(columns[0]) == list:
+                            columns = list(itertools.chain.from_iterable(columns))
+                            outputs[0] += "\ncolumns = list(itertools.chain.from_iterable(columns))\n"
+                    else:
+                        columns = list(table.columns)
+                    if rows:
+                        if type(rows[0]) == list:
+                            rows = list(itertools.chain.from_iterable(rows))
+                            outputs[0] += "\nrows = list(itertools.chain.from_iterable(rows))\n"
+                        outputs[0] += "table = table.iloc[rows, :]\n"
+                        table = table.iloc[rows, :]
+                    else:
+                        pass
                     text_columns = None
                     image_columns = None
                     text_embeds = None
@@ -698,15 +724,21 @@ class Pipeline:
                     cat_columns = None
                     cont_columns = None
 
+                    # Get columns of each type
+                    text_columns = get_list(self.data_types[0], columns)
+                    image_columns = get_list(self.data_types[1], columns)
+                    cat_columns = get_list(self.data_types[2], columns)
+                    cont_columns = get_list(self.data_types[3], columns)
+
                     # If images/text are present, get CLIP embeddings
-                    if not only_cont:
-                        # CLIP embeddings of text and/or image columns
-                        text_columns = get_list(self.data_types[0], columns)
-                        image_columns = get_list(self.data_types[1], columns)
+                    only_cont = not text_columns and not image_columns and cont_columns
+                    if not (only_cont):
                         texts = get_vals_as_list(text_columns)
                         images = get_vals_as_list(image_columns, images_present=True)
-                        if not texts and not images:
-                            raise InvalidRequest()
+                        if texts and images:
+                            text_embeds, image_embeds = self.clip_encode(texts, images)
+                            text_embeds = to_list_of_lists(text_embeds)
+                            image_embeds = to_list_of_lists(image_embeds)
                         if not texts:
                             image_embeds = self.clip_encode(None, images)
                             image_embeds = to_list_of_lists(image_embeds)
@@ -714,108 +746,105 @@ class Pipeline:
                             text_embeds = self.clip_encode(texts, None)
                             text_embeds = to_list_of_lists(text_embeds)
                         else:
-                            text_embeds, image_embeds = self.clip_encode(texts, images)
-                            text_embeds = to_list_of_lists(text_embeds)
-                            image_embeds = to_list_of_lists(image_embeds)
-                    # Get values of categorical/continuous columns
-                    cat_columns = get_list(self.data_types[2], columns)
-                    cont_columns = get_list(self.data_types[3], columns)
-
-                    return text_columns, image_columns, text_embeds, image_embeds, cat_columns, cont_columns, invalid
-
-                text_cols, image_cols, text_embeds, image_embeds, cat_cols, cont_cols, invalid = get_all()
-                if not invalid:
-                    if "cluster" in request_types:  # If USER wants to cluster
-                        if len(cont_cols) > 2:  # If USER wants to cluster more than 2 continuous columns
-                            raise InvalidRequest()
-                        if text_cols and image_cols:
-                            columns = text_cols + image_cols
-                            embeds = text_embeds + image_embeds
-                        elif text_cols:
-                            columns = text_cols
-                            embeds = text_embeds
-                        elif image_cols:
-                            columns = image_cols
-                            embeds = image_embeds
-                        else:
                             pass
-                        outputs[3].append(
-                            self.get_embeds_graph(
-                                table,
-                                columns,
-                                embeds,
-                                cat_cols,
-                                cont_cols,
-                            )
+
+                    return text_columns, image_columns, text_embeds, image_embeds, cat_columns, cont_columns
+
+                text_cols, image_cols, text_embeds, image_embeds, cat_cols, cont_cols = get_all(table)
+                if "cluster" in request_types:  # If USER wants to cluster
+                    if len(cont_cols) > 2:  # If USER wants to cluster more than 2 continuous columns
+                        raise InvalidRequest()
+                    if text_cols and image_cols:
+                        columns = text_cols + image_cols
+                        embeds = text_embeds + image_embeds
+                    elif text_cols:
+                        columns = text_cols
+                        embeds = text_embeds
+                    elif image_cols:
+                        columns = image_cols
+                        embeds = image_embeds
+                    else:
+                        raise InvalidRequest()
+
+                    outputs[3].append(
+                        self.get_embeds_graph(
+                            table,
+                            columns,
+                            embeds,
+                            cat_cols,
+                            cont_cols,
                         )
-                    elif "text_search" in request_types:  # If USER wants to search for text
-                        text_embed = self.clip_encode(texts=parse_request(requests))
-                        text, code = self.get_most_similar(table, text_cols, text_embed, text_embeds)
-                        outputs[0].append(code)
-                        outputs[2].append(text)
-                    elif "image_search" in request_types:  # If USER wants to search for images
-                        text_embed = self.clip_encode(texts=parse_request(requests))
-                        image, code = self.get_most_similar(table, image_cols, text_embed, image_embeds)
-                        image = self.open_image(image)
-                        outputs[0].append(code)
-                        outputs[4].append(self.img_to_str(image))
-                    elif "anomaly" in request_types:  # If USER wants to detect anomalies
-                        if text_cols and image_cols:
-                            columns = text_cols + image_cols
-                            embeds = text_embeds + image_embeds
-                        elif text_cols:
-                            columns = text_cols
-                            embeds = text_embeds
-                        elif image_cols:
-                            columns = image_cols
-                            embeds = image_embeds
-                        else:
-                            pass
+                    )
+                elif "text_search" in request_types:  # If USER wants to search for text
+                    text_embed = self.clip_encode(texts=parse_request(requests))
+                    text, code = self.get_most_similar(table, text_cols, text_embed, text_embeds)
+                    outputs[0] += code
+                    outputs[2].append(text)
+                elif "image_search" in request_types:  # If USER wants to search for images
+                    text_embed = self.clip_encode(texts=parse_request(requests))
+                    image, code = self.get_most_similar(table, image_cols, text_embed, image_embeds)
+                    image = self.open_image(image)
+                    outputs[0] += code
+                    outputs[4].append(self.img_to_str(image))
+                elif "anomaly" in request_types:  # If USER wants to detect anomalies
+                    columns = []
+                    embeds = None
+                    if text_cols and image_cols:
+                        columns = text_cols + image_cols
+                        embeds = text_embeds + image_embeds
+                    elif text_cols:
+                        columns = text_cols
+                        embeds = text_embeds
+                    elif image_cols:
+                        columns = image_cols
+                        embeds = image_embeds
+                    else:
+                        pass
+                    columns += cont_cols
 
-                        columns += cont_cols
+                    tables, code = self.get_anomaly_rows(
+                        table,
+                        embeds,
+                        cont_cols,
+                    )
+                    if columns and tables:
+                        for col, tab in zip(columns, tables):
+                            if len(tab) > 0:
+                                outputs[0] += code
+                                outputs[1].extend(tables)
+                            else:
+                                columns.remove(col)
+                        outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
+                    else:
+                        outputs[2].append("No anomalies found.")
+                elif "diversity" in request_types:  # If USER wants to measure diversity
+                    embeds = None
+                    if text_cols and image_cols:
+                        embeds = text_embeds + image_embeds
+                    elif text_cols:
+                        embeds = text_embeds
+                    elif image_cols:
+                        embeds = image_embeds
+                    else:
+                        pass
 
-                        tables, code = self.get_anomaly_rows(
+                    outputs[2].append(
+                        self.get_diversity_measure(
                             table,
                             embeds,
                             cont_cols,
                         )
-                        if columns and tables:
-                            for col, tab in zip(columns, tables):
-                                if len(tab) > 0:
-                                    outputs[0].append(code)
-                                    outputs[1].extend(tables)
-                                else:
-                                    columns.remove(col)
-                            outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
-                        else:
-                            outputs[2].append("No anomalies found.")
-                    elif "diversity" in request_types:  # If USER wants to measure diversity
-                        if text_cols and image_cols:
-                            embeds = text_embeds + image_embeds
-                        elif text_cols:
-                            embeds = text_embeds
-                        elif image_cols:
-                            embeds = image_embeds
-                        else:
-                            pass
+                    )
+                elif "text_class" in request_types:  # If USER wants to classify text
+                    text_embed = self.clip_encode(texts=parse_request(requests))
+                    outputs[2].append(self.get_classification_label(text_embed, text_embeds, cat_cols))
+                elif "image_class" in request_types:  # If USER wants to classify images
+                    image_embed = self.clip_encode(images=parse_request(requests))
+                    outputs[4].append(self.get_classification_label(image_embed, image_embeds, cat_cols))
+                else:  # If USER wants to do something else
+                    raise InvalidRequest()
 
-                        outputs[2].append(
-                            self.get_diversity_measure(
-                                table,
-                                embeds,
-                                cont_cols,
-                            )
-                        )
-                    elif "text_class" in request_types:  # If USER wants to classify text
-                        text_embed = self.clip_encode(texts=parse_request(requests))
-                        outputs[2].append(self.get_classification_label(text_embed, text_embeds, cat_cols))
-                    elif "image_class" in request_types:  # If USER wants to classify images
-                        image_embed = self.clip_encode(images=parse_request(requests))
-                        outputs[4].append(self.get_classification_label(image_embed, image_embeds, cat_cols))
-                    else:  # If USER wants to do something else
-                        raise InvalidRequest()
-                else:
-                    pass
+                print(outputs[0] + "\n\n\n\n\n")
             else:  # If not
                 # Getting the code to execute
                 code_to_exec = self.openai_query(
@@ -850,7 +879,8 @@ class Pipeline:
                     "table": table,
                     "self": self,
                 }
-                answer = self.exec_code(vars, code_to_exec)
+                return_vars = ["result"]
+                answer = self.exec_code(vars, code_to_exec, return_vars)
 
                 # Check the answer
                 if answer:
