@@ -533,9 +533,6 @@ class Pipeline:
             code += "result.append(table.iloc[" + ", ".join(str_idxs) + "])\n"
         return tables, code
 
-    def get_diversity_measure(self, table, text_image_embeds, cont_cols):
-        raise InvalidRequest()
-
     def get_classification_label(self, embed, text_image_embeds, cat_cols):
         raise InvalidRequest()
 
@@ -817,24 +814,6 @@ class Pipeline:
                         outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
                     else:
                         outputs[2].append("No anomalies found.")
-                elif "diversity" in request_types:  # If USER wants to measure diversity
-                    embeds = None
-                    if text_cols and image_cols:
-                        embeds = text_embeds + image_embeds
-                    elif text_cols:
-                        embeds = text_embeds
-                    elif image_cols:
-                        embeds = image_embeds
-                    else:
-                        pass
-
-                    outputs[2].append(
-                        self.get_diversity_measure(
-                            table,
-                            embeds,
-                            cont_cols,
-                        )
-                    )
                 elif "text_class" in request_types:  # If USER wants to classify text
                     text_embed = self.clip_encode(texts=parse_request(requests))
                     outputs[2].append(self.get_classification_label(text_embed, text_embeds, cat_cols))
