@@ -61,6 +61,7 @@ Some notes about submitting inputs to the pipeline:
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
 - When submitting clustering requests, only clarifications for which columns and rows to use are accepted, since certain state variables cannot be stored due to memory limitations. In addition, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
 - When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to {query}, you could submit a request like "What is the most similar product description to \query?".
+- After receiving the results from a manually-implemented function, you can reference them in every other request type (besides clustering for reasons described above). 
 - Try to explain any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "What does {repo} look like?".
 
 Some examples of requests and questions that the pipeline can handle (with respect to the example table found in the repo and website):
