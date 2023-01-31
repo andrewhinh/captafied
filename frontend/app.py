@@ -460,7 +460,6 @@ app.layout = html.Div(
                         "text_search": "Text Search",
                         "image_search": "Image Search",
                         "anomaly": "Anomaly Detection",
-                        "diversity": "Diversity Measurement",
                         "text_class": "Text Classification",
                         "image_class": "Image Classification",
                     },
