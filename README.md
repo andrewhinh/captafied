@@ -38,7 +38,7 @@ To be implemented:
   
 Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
 
-If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary (it is assumed that for all cases besides anomaly detection, image and/or text is being submitted/referenced). Then, we call the corresponding manually-implemented function to perform the task.
+If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary (it is assumed that for all cases besides anomaly detection, images and/or text are being submitted/referenced). Then, we call the corresponding manually-implemented function to perform the task.
 
 Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
