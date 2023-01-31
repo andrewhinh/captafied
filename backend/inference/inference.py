@@ -620,54 +620,77 @@ class Pipeline:
             # Check if USER wants to use a manually-defined function
             if request_types:  # If so
                 # Helper functions
-                def select_columns():  # When USER wants to select columns
-                    # Get the column names to use
-                    str_cols = self.openai_query(
+                def slice_table(table):  # When USER wants to select certain rows and columns
+                    code_to_exec = self.openai_query(
                         prompt=intro
-                        + "Return a comma-separated list that contains the columns in table "
-                        + "that USER explicitly references. Some notes:\n"
-                        + "1) If USER references a past request or answer, be sure to include any past columns "
-                        + "that are necessary for the current request.\n"
-                        + "2) If you think a column is necessary but it is phrased in a way that suggests it posseses "
+                        + "Write Python code that:\n"
+                        + "1) imports any necessary libraries,\n"
+                        + "2) creates an empty list named result,\n"
+                        + "3) checks if table can be used to answer USER's request; if not, appends"
+                        + "to result a Python string that explains to USER why not. If so,\n"
+                        + "4) determines which rows and columns the USER explicitly references, if any,\n"
+                        + "5) creates a copy of table and slices it accordingly, if necessary,\n"
+                        + "6) appends to result the sliced or unsliced copy,\n"
+                        + "7) and NEVER returns result.\n"
+                        + "Some notes about the code:\n"
+                        + "- Never write plain text, only Python code.\n"
+                        + "- Never reference variables created in previous answers, "
+                        + "since they do not persist after an answer is made.\n"
+                        + "- Never create any functions or classes.\n"
+                        + "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
                         + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
                         + "description clusters.' regarding table, the column 'Repos' should be "
                         + "ignored because it posseses the column 'Description', and only the column 'Description' "
-                        + "should be used.\n"
-                        + "3) If USER is asking to graph more than two categorical and/or continuous columns, "
-                        + "return 'None'. ",
-                        temperature=0,
-                        max_tokens=self.max_manual_tokens,
+                        + "should be used. ",
+                        temperature=0.3,
+                        max_tokens=self.max_code_tokens,
                     )
-                    print(str_cols + "\n\n\n\n\n")
+                    print(code_to_exec + "\n\n\n\n\n")
 
-                    # Check if the columns are valid
-                    columns = []
-                    for col in table.columns:
-                        if col in str_cols:
-                            columns.append(col)
+                    # Add the code to execute to the list of outputs
+                    outputs[0] = code_to_exec
+                    vars = {
+                        "table": table,
+                        "self": self,
+                    }
+                    answer = self.exec_code(vars, code_to_exec)
 
-                    # Add selected columns to the list of outputs
-                    outputs[0] = str_cols
-
-                    return columns
+                    # Check the answer
+                    if answer:
+                        # Type check the answer
+                        output = answer[0]
+                        if type(output) == pd.DataFrame:
+                            table = output
+                        elif type(output) == str:
+                            outputs[1] = output
+                        else:
+                            raise ValueError()
+                    else:
+                        raise ValueError()
 
                 def parse_request(requests):  # When doing search + classification
-                    return [[requests[-1].split("\\")[1]]]
+                    return [
+                        [requests[-1].split("\\")[1]]
+                    ]  # Get last request, split by backslash, and get second element
 
-                def get_list(type, columns=None):
+                def get_list(type, columns=None):  # Get list of columns of a certain type
                     if columns:
                         return [k for k, v in column_data.items() if k in columns and v == type]
                     else:
                         return [k for k, v in column_data.items() if v == type]
 
-                def get_vals_as_list(cols, images_present=None):
+                def get_vals_as_list(cols, images_present=None):  # Get values of columns as a list
                     return [self.get_column_vals(table, column, images_present) for column in cols if cols]
 
-                def to_list_of_lists(x):
+                def to_list_of_lists(x):  # Convert list to list of lists for embeddings
                     return [x[i : i + len(table)] for i in range(0, len(x), len(table))]
 
                 def get_all(only_cont=False):
-                    columns = select_columns()
+                    slice_table(table)
+                    invalid = False
+                    if table is None:
+                        invalid = True
+                    columns = table.columns
                     text_columns = None
                     image_columns = None
                     text_embeds = None
@@ -698,102 +721,101 @@ class Pipeline:
                     cat_columns = get_list(self.data_types[2], columns)
                     cont_columns = get_list(self.data_types[3], columns)
 
-                    return text_columns, image_columns, text_embeds, image_embeds, cat_columns, cont_columns
+                    return text_columns, image_columns, text_embeds, image_embeds, cat_columns, cont_columns, invalid
 
-                if "cluster" in request_types:  # If USER wants to cluster
-                    text_cols, image_cols, text_embeds, image_embeds, cat_cols, cont_cols = get_all()
-                    if text_cols and image_cols:
-                        columns = text_cols + image_cols
-                        embeds = text_embeds + image_embeds
-                    elif text_cols:
-                        columns = text_cols
-                        embeds = text_embeds
-                    elif image_cols:
-                        columns = image_cols
-                        embeds = image_embeds
-                    else:
-                        pass
-                    outputs[3].append(
-                        self.get_embeds_graph(
-                            table,
-                            columns,
-                            embeds,
-                            cat_cols,
-                            cont_cols,
+                text_cols, image_cols, text_embeds, image_embeds, cat_cols, cont_cols, invalid = get_all()
+                if not invalid:
+                    if "cluster" in request_types:  # If USER wants to cluster
+                        if len(cont_cols) > 2:  # If USER wants to cluster more than 2 continuous columns
+                            raise InvalidRequest()
+                        if text_cols and image_cols:
+                            columns = text_cols + image_cols
+                            embeds = text_embeds + image_embeds
+                        elif text_cols:
+                            columns = text_cols
+                            embeds = text_embeds
+                        elif image_cols:
+                            columns = image_cols
+                            embeds = image_embeds
+                        else:
+                            pass
+                        outputs[3].append(
+                            self.get_embeds_graph(
+                                table,
+                                columns,
+                                embeds,
+                                cat_cols,
+                                cont_cols,
+                            )
                         )
-                    )
-                elif "text_search" in request_types:  # If USER wants to search for text
-                    text_embed = self.clip_encode(texts=parse_request(requests))
-                    text_cols, _, text_embeds, _, _, _ = get_all()
-                    text, code = self.get_most_similar(table, text_cols, text_embed, text_embeds)
-                    outputs[0].append(code)
-                    outputs[2].append(text)
-                elif "image_search" in request_types:  # If USER wants to search for images
-                    text_embed = self.clip_encode(texts=parse_request(requests))
-                    _, image_cols, _, image_embeds, _, _ = get_all()
-                    image, code = self.get_most_similar(table, image_cols, text_embed, image_embeds)
-                    image = self.open_image(image)
-                    outputs[0].append(code)
-                    outputs[4].append(self.img_to_str(image))
-                elif "anomaly" in request_types:  # If USER wants to detect anomalies
-                    text_cols, image_cols, text_embeds, image_embeds, _, cont_cols = get_all()
-                    if text_cols and image_cols:
-                        columns = text_cols + image_cols
-                        embeds = text_embeds + image_embeds
-                    elif text_cols:
-                        columns = text_cols
-                        embeds = text_embeds
-                    elif image_cols:
-                        columns = image_cols
-                        embeds = image_embeds
-                    else:
-                        pass
+                    elif "text_search" in request_types:  # If USER wants to search for text
+                        text_embed = self.clip_encode(texts=parse_request(requests))
+                        text, code = self.get_most_similar(table, text_cols, text_embed, text_embeds)
+                        outputs[0].append(code)
+                        outputs[2].append(text)
+                    elif "image_search" in request_types:  # If USER wants to search for images
+                        text_embed = self.clip_encode(texts=parse_request(requests))
+                        image, code = self.get_most_similar(table, image_cols, text_embed, image_embeds)
+                        image = self.open_image(image)
+                        outputs[0].append(code)
+                        outputs[4].append(self.img_to_str(image))
+                    elif "anomaly" in request_types:  # If USER wants to detect anomalies
+                        if text_cols and image_cols:
+                            columns = text_cols + image_cols
+                            embeds = text_embeds + image_embeds
+                        elif text_cols:
+                            columns = text_cols
+                            embeds = text_embeds
+                        elif image_cols:
+                            columns = image_cols
+                            embeds = image_embeds
+                        else:
+                            pass
 
-                    columns += cont_cols
+                        columns += cont_cols
 
-                    tables, code = self.get_anomaly_rows(
-                        table,
-                        embeds,
-                        cont_cols,
-                    )
-                    if columns and tables:
-                        for col, table in zip(columns, tables):
-                            if len(table) > 0:
-                                outputs[0].append(code)
-                                outputs[1].extend(tables)
-                            else:
-                                columns.remove(col)
-                        outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
-                    else:
-                        outputs[2].append("No anomalies found.")
-                elif "diversity" in request_types:  # If USER wants to measure diversity
-                    _, _, text_embeds, image_embeds, _, cont_cols = get_all()
-                    if text_cols and image_cols:
-                        embeds = text_embeds + image_embeds
-                    elif text_cols:
-                        embeds = text_embeds
-                    elif image_cols:
-                        embeds = image_embeds
-                    else:
-                        pass
-
-                    outputs[2].append(
-                        self.get_diversity_measure(
+                        tables, code = self.get_anomaly_rows(
                             table,
                             embeds,
                             cont_cols,
                         )
-                    )
-                elif "text_class" in request_types:  # If USER wants to classify text
-                    text_embed = self.clip_encode(texts=parse_request(requests))
-                    _, _, text_embeds, _, cat_cols, _ = get_all()
-                    outputs[2].append(self.get_classification_label(text_embed, text_embeds, cat_cols))
-                elif "image_class" in request_types:  # If USER wants to classify images
-                    image_embed = self.clip_encode(images=parse_request(requests))
-                    _, _, _, image_embeds, cat_cols, _ = get_all()
-                    outputs[4].append(self.get_classification_label(image_embed, image_embeds, cat_cols))
-                else:  # If USER wants to do something else
-                    raise InvalidRequest()
+                        if columns and tables:
+                            for col, tab in zip(columns, tables):
+                                if len(tab) > 0:
+                                    outputs[0].append(code)
+                                    outputs[1].extend(tables)
+                                else:
+                                    columns.remove(col)
+                            outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
+                        else:
+                            outputs[2].append("No anomalies found.")
+                    elif "diversity" in request_types:  # If USER wants to measure diversity
+                        if text_cols and image_cols:
+                            embeds = text_embeds + image_embeds
+                        elif text_cols:
+                            embeds = text_embeds
+                        elif image_cols:
+                            embeds = image_embeds
+                        else:
+                            pass
+
+                        outputs[2].append(
+                            self.get_diversity_measure(
+                                table,
+                                embeds,
+                                cont_cols,
+                            )
+                        )
+                    elif "text_class" in request_types:  # If USER wants to classify text
+                        text_embed = self.clip_encode(texts=parse_request(requests))
+                        outputs[2].append(self.get_classification_label(text_embed, text_embeds, cat_cols))
+                    elif "image_class" in request_types:  # If USER wants to classify images
+                        image_embed = self.clip_encode(images=parse_request(requests))
+                        outputs[4].append(self.get_classification_label(image_embed, image_embeds, cat_cols))
+                    else:  # If USER wants to do something else
+                        raise InvalidRequest()
+                else:
+                    pass
             else:  # If not
                 # Getting the code to execute
                 code_to_exec = self.openai_query(
