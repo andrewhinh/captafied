@@ -21,6 +21,7 @@ import validators
 # Global variables for downloading table and for backend
 output_tables = []
 requests = []
+requests_types = []
 answers = []
 
 # Port for Dash app
@@ -118,11 +119,11 @@ def html_text(text, fontSize=font["size"], fontWeight="normal"):
 
 
 # Return stylized HTML input box
-def html_input(id, type):
+def html_input(id, type, debounce=True):
     return dcc.Input(
         id=id,
         type=type,
-        debounce=True,
+        debounce=debounce,
         style=html_settings(),
     )
 
@@ -249,6 +250,17 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
         global answers
         answers.append(code)
 
+    if texts:
+        elements = []
+        for text in texts:
+            elements.append(html_text(text))
+            elements.append(html.Br())
+        outputs.extend(
+            [
+                html.Center(elements),
+            ]
+        )
+
     if tables:
         elements = [
             dcc.Download(id="download-table-csv"),
@@ -263,17 +275,6 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
         for table in tables:
             output_tables.append(table)
             elements.append(show_table(table_answer=table))
-            elements.append(html.Br())
-        outputs.extend(
-            [
-                html.Center(elements),
-            ]
-        )
-
-    if texts:
-        elements = []
-        for text in texts:
-            elements.append(html_text(text))
             elements.append(html.Br())
         outputs.extend(
             [
@@ -447,7 +448,7 @@ app.layout = html.Div(
                 dcc.Markdown(
                     [
                         """
-                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.)](https://git.io/typing-svg)
+                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.;Which+summary+is+most+like+\Transformers%3F;Which+icon+is+most+like+\Transformers%3F)](https://git.io/typing-svg)
                 """
                     ],
                     style=html_settings(),
@@ -467,7 +468,15 @@ app.layout = html.Div(
                     inline=True,
                 ),
                 html.Br(),
-                html_input(id="request-uploaded", type="text"),
+                html_input(id="request", type="text", debounce=False),
+                html.Br(),
+                html.Br(),
+                html.Button(
+                    "submit",
+                    id="request-uploaded",
+                    n_clicks=0,
+                    style=html_settings(width="50%"),
+                ),
                 html.Br(),
                 html.Br(),
                 # Output: table, text, graph, report, and/or error
@@ -510,6 +519,17 @@ app.layout = html.Div(
     ],
 )
 
+"""
+dcc.Upload(
+    id="before-image-file-uploaded",
+    children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+    style=html_settings(height="400%", lineHeight="400%", borderStyle="dashed"),
+    # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
+),
+html.Div(id='after-image-file-uploaded'),
+html.Br(),
+"""
+
 
 # Event functions
 # When only table file is uploaded
@@ -547,36 +567,41 @@ def show_uploaded_table_url(url, example_clicked):
     Output("pred_output", "children"),
     State("after-table-file-uploaded", "children"),
     State("after-table-url-uploaded", "children"),
-    Input("request-uploaded", "value"),
+    Input("request-uploaded", "n_clicks"),
+    Input("request", "value"),
     Input("request-type-uploaded", "value"),
     Input("before-table-file-uploaded", "contents"),
     State("before-table-file-uploaded", "filename"),
     Input("before-table-url-uploaded", "value"),
 )
-def get_prediction(show_file, show_url, request, request_types, contents, filename, url):
-    df, error = None, None
-    checks = [
-        contents and filename and request,
-        url and request,
-        show_file and request,
-        show_url and request,
-    ]
-    if checks[0]:
-        df, error = convert_to_pd(contents[0], filename[0], None)
-    if checks[1]:
-        df, error = convert_to_pd(None, None, url)
-    if (not checks[0] and not checks[1]) and checks[2]:
-        df, error = convert_to_pd(None, str(table_example), None)
-    if (not checks[0] and not checks[1]) and checks[3]:
-        df, error = convert_to_pd(None, None, str(url_example))
-    if df is not None and not error:
-        global output_tables
-        output_tables = []
-        df = set_max_rows_cols(df)
-        global requests
-        requests.append(request)
-        code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers, request_types)
-        return manage_output(code, tables, texts, graphs, images, report)
+def get_prediction(show_file, show_url, submit, request, request_types, contents, filename, url):
+    if "request-uploaded" in total_clicked_buttons():
+        df, error = None, None
+        checks = [
+            contents and filename and request,
+            url and request,
+            show_file and request,
+            show_url and request,
+        ]
+        if checks[0]:
+            df, error = convert_to_pd(contents[0], filename[0], None)
+        if checks[1]:
+            df, error = convert_to_pd(None, None, url)
+        if (not checks[0] and not checks[1]) and checks[2]:
+            df, error = convert_to_pd(None, str(table_example), None)
+        if (not checks[0] and not checks[1]) and checks[3]:
+            df, error = convert_to_pd(None, None, str(url_example))
+        if df is not None and not error:
+            global output_tables
+            global requests
+            global requests_types
+            if (len(requests) < 2) or ((request != requests[-1]) or (request_types != requests_types[-1])):
+                output_tables = []
+                requests.append(request)
+                requests_types.append(request_types)
+                df = set_max_rows_cols(df)
+                code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers, request_types)
+                return manage_output(code, tables, texts, graphs, images, report)
 
 
 # When download button is clicked
