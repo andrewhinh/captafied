@@ -29,10 +29,10 @@ We provide the user with check-boxes to indicate if they want to use manually-im
 - Clustering (where text and/or images are grouped by similarity)
 - Text search (where results are ranked by relevance to a query string)
 - Image search (where results are ranked by relevance to a query string)
+- Anomaly detection (where rows that have outliers are identified)
 
 To be implemented:
 
-- *Anomaly detection (where rows that have outliers with little relatedness are identified)*
 - *Diversity measurement (where similarity distributions are analyzed)*
 - *Text classification (where text is classified by their most similar label)*
 - *Image classification (where images are classified by their most similar label)*
@@ -56,12 +56,12 @@ Some notes about submitting inputs to the pipeline:
 
 - Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
 - Because multiple outputs are supported, you can submit multiple requests at one time.
-- When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to a query string, you could submit a request like "What is the most similar product description to \query?".
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
-- When graphing text and image embeddings, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
-- Explain in your request any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "What does {repo} look like?".
+- When submitting clustering requests, only clarifications for which columns and rows to use are accepted, since certain state variables cannot be stored due to memory limitations. In addition, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
+- When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to {query}, you could submit a request like "What is the most similar product description to \query?".
+- Try to explain any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "What does {repo} look like?".
 
 Some examples of requests and questions that the pipeline can handle (with respect to the example table found in the repo and website):
 
