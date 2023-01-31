@@ -56,7 +56,6 @@ Some notes about submitting inputs to the pipeline:
 
 - Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
 - Because multiple outputs are supported, you can submit multiple requests at one time.
-- Click which checkboxes you want to use (if any) before submitting your request.
 - When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to a query string, you could submit a request like "What is the most similar product description to \query?".
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
@@ -74,12 +73,14 @@ Some examples of requests and questions that the pipeline can handle (with respe
   - What about the least?
 - What does the distribution of the stars look like?
   - Center the title.
-- How do the description clusters change with release year?
-  - Plot this graph vs. the number of stars.
 - What does the Transformers icon look like?
   - Make it half as tall.
 - How much memory does the dataset use?
   - What's this number in MB?
+- How do the description clusters change with release year?
+  - Plot this graph vs. the number of stars.
+- Which rows have anomalies in the summary column?
+  - What about every column?
 
 ## Production
 

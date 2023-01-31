@@ -160,17 +160,43 @@ class Pipeline:
         )
         text_embeds = clip_outputs[2]
         image_embeds = clip_outputs[3]
-        return text_embeds, image_embeds
 
-    def get_embeds_graph(self, max_cluster_search, text_image_cols, text_image_embeds, dict_cont, dict_cat):
+        if not texts:
+            return image_embeds
+        elif not images:
+            return text_embeds
+        else:
+            return text_embeds, image_embeds
+
+    def get_clusters(self, table_length, embeds):
+        range_n_clusters = list(
+            range(2, int(table_length / 2))
+        )  # For performance reasons, we don't want to cluster more than half the data
+        silhouette_scores = []
+        for num_clusters in range_n_clusters:
+            # initialise kmeans
+            kmeans = KMeans(n_clusters=num_clusters)
+            kmeans.fit(embeds)
+            labels = kmeans.labels_
+            if max(labels) < 1:  # If there's only one cluster, return 1 cluster
+                return 1, labels
+            # silhouette score
+            silhouette_scores.append(silhouette_score(embeds, labels))
+        n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
+        kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
+        kmeans.fit(embeds)
+        clusters = kmeans.labels_
+        return n_clusters, clusters
+
+    def get_embeds_graph(self, table, text_image_cols, text_image_embeds, cat_cols, cont_cols):
         # Conditionals for plotting
-        one_cont_var_present = len(dict_cont) == 1
-        two_cont_vars_present = len(dict_cont) == 2
+        one_cont_var_present = len(cont_cols) == 1
+        two_cont_vars_present = len(cont_cols) == 2
         two_or_more_text_image = len(text_image_cols) > 1
 
         # Setting up figure
         fig = make_subplots()
-        if dict_cont:  # If there are continuous columns, prepare for 3D plot
+        if cont_cols:  # If there are continuous columns, prepare for 3D plot
             list_markers = ["circle", "circle-open", "cross", "diamond", "diamond-open", "square", "square-open", "x"]
         else:
             list_markers = (
@@ -195,31 +221,6 @@ class Pipeline:
             if two_or_more_text_image:
                 prefix = column + ", "
 
-            # Getting # of clusters and K-Means clustering
-            range_n_clusters = list(
-                range(2, max_cluster_search)
-            )  # For performance reasons, we don't want to cluster more than half the data
-            silhouette_scores = []
-            for num_clusters in range_n_clusters:
-                # initialise kmeans
-                kmeans = KMeans(n_clusters=num_clusters)
-                kmeans.fit(embeds)
-                labels = kmeans.labels_
-                # silhouette score
-                silhouette_scores.append(silhouette_score(embeds, labels))
-            n_clusters = range_n_clusters[silhouette_scores.index(max(silhouette_scores))]
-            kmeans = KMeans(n_clusters=n_clusters, init="k-means++")
-            kmeans.fit(embeds)
-            clusters = kmeans.labels_
-
-            # Extending added variables to match the number of data points
-            if dict_cat:
-                for item in dict_cat.items():
-                    dict_cat[item[0]] = item[1] * int(len(clusters) / len(item[1]))
-            if dict_cont:
-                for item in dict_cont.items():
-                    dict_cont[item[0]] = item[1] * int(len(clusters) / len(item[1]))
-
             # Collecting min/max values of continuous variables for axis ranges
             min_x = []
             max_x = []
@@ -231,7 +232,9 @@ class Pipeline:
             # Reducing dimensionality of embeddings with UMAP
             n_neighbors = 15
             n_components = 2
-            if embeds.shape[0] < 15:  # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
+            if (
+                embeds.shape[0] < n_neighbors
+            ):  # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
                 n_neighbors = embeds.shape[0] - 1
             if two_cont_vars_present:  # Reduce UMAP n_components to accomodate for 2 cont variables
                 n_components = 1
@@ -243,6 +246,19 @@ class Pipeline:
             else:
                 x = embedding[:, 0]
                 y = embedding[:, 1]
+
+            # Getting # of clusters and K-Means clustering
+            n_clusters, clusters = self.get_clusters(len(table), embeds)
+
+            # Extending added variables to match the number of data points
+            cat_vals = []
+            cont_vals = []
+            if cat_cols:
+                for column in cat_cols:
+                    cat_vals.append(list(table.loc[column, :]) * int(len(clusters) / len(table.loc[column, :])))
+            if cont_cols:
+                for column in cont_cols:
+                    cont_vals.append(list(table.loc[column, :]) * int(len(clusters) / len(table.loc[column, :])))
 
             # Plotting clusters
             for cluster in range(n_clusters):
@@ -256,26 +272,24 @@ class Pipeline:
                 min_x.append(min(xs))
                 max_x.append(max(xs))
 
-                if dict_cat and (
-                    not dict_cont or one_cont_var_present
+                if cat_cols and (
+                    not cont_cols or one_cont_var_present
                 ):  # Only categorical variables or (1 continuous variable and 1+ categorical variables)
                     ys = np.array(y)[clusters == cluster]  # text/image data
                     min_y.append(min(ys))
                     max_y.append(max(ys))
                     if one_cont_var_present:
-                        zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
+                        zs = np.array(cont_vals[0])[clusters == cluster]
                         min_z.append(min(zs))
                         max_z.append(max(zs))
-                    total_cats = [list(np.array(cats)[clusters == cluster]) for cats in list(dict_cat.values())]
+                    total_cats = [list(np.array(cats)[clusters == cluster]) for cats in cat_vals]
                     unique_cats = [np.unique(cats) for cats in total_cats]
                     cat_combinations = list(itertools.product(*unique_cats))
                     total_cats = np.array(total_cats[0])
                     for cat_combination in cat_combinations:
                         name = (
                             prefix
-                            + ", ".join(
-                                [list(dict_cat.keys())[i] + ": " + str(cat) for i, cat in enumerate(cat_combination)]
-                            )
+                            + ", ".join([cat_cols[i] + ": " + str(cat) for i, cat in enumerate(cat_combination)])
                             + ", "
                             + "Cluster: "
                             + str(cluster)
@@ -307,7 +321,7 @@ class Pipeline:
 
                 elif one_cont_var_present:  # Only 1 continuous variable
                     ys = np.array(y)[clusters == cluster]
-                    zs = np.array(list(dict_cont.values())[0])[clusters == cluster]
+                    zs = np.array(cont_vals[0])[clusters == cluster]
                     min_y.append(min(ys))
                     max_y.append(max(ys))
                     min_z.append(min(zs))
@@ -316,8 +330,8 @@ class Pipeline:
                     fig.add_trace(scatter_3d(x=xs, y=ys, z=zs, name=name))
 
                 elif two_cont_vars_present:  # Only 2 continuous variables
-                    ys = np.array(list(dict_cont.values())[0])[clusters == cluster]
-                    zs = np.array(list(dict_cont.values())[1])[clusters == cluster]
+                    ys = np.array(cont_vals[0])[clusters == cluster]
+                    zs = np.array(cont_vals[1])[clusters == cluster]
                     min_y.append(min(ys))
                     max_y.append(max(ys))
                     min_z.append(min(zs))
@@ -333,7 +347,7 @@ class Pipeline:
                     fig.add_trace(scatter(x=xs, y=ys, name=name))
 
             # Labelling + setting axis ranges
-            if dict_cont:
+            if cont_cols:
                 # Getting ranges for axis
                 x_min = min(min_x)
                 x_max = max(max_x)
@@ -356,7 +370,7 @@ class Pipeline:
                                 range=[y_min, y_max],
                             ),
                             zaxis=dict(
-                                title=list(dict_cont.keys())[0],
+                                title=cont_cols[0],
                                 range=[z_min, z_max],
                             ),
                         )
@@ -368,11 +382,11 @@ class Pipeline:
                                 range=[x_min, x_max],
                             ),
                             yaxis=dict(
-                                title=list(dict_cont.keys())[0],
+                                title=cont_cols[0],
                                 range=[y_min, y_max],
                             ),
                             zaxis=dict(
-                                title=list(dict_cont.keys())[1],
+                                title=cont_cols[1],
                                 range=[z_min, z_max],
                             ),
                         )
@@ -436,17 +450,17 @@ class Pipeline:
         """
 
         # Titles
-        variables = text_image_cols + list(dict_cat.keys()) + list(dict_cont.keys())
+        variables = text_image_cols + cat_cols + cont_cols
         variables = [
             variable + " Embedding Clusters" if variable in text_image_cols else variable for variable in variables
         ]
         variables = " vs. ".join(variables)
         legend_titles = ["Embedding Clusters", "Columns", "Categories"]
-        if two_or_more_text_image and dict_cat:  # 2 or more text/image columns and 1 or more categorical columns
+        if two_or_more_text_image and cat_cols:  # 2 or more text/image columns and 1 or more categorical columns
             legend_title = ", ".join(legend_titles)
         elif two_or_more_text_image:  # 2 or more text/image columns
             legend_title = " and ".join(legend_titles[:2])
-        elif dict_cat:  # 1 or more categorical columns
+        elif cat_cols:  # 1 or more categorical columns
             legend_title = " and ".join([legend_titles[0], legend_titles[2]])
         else:  # No categorical columns and 1 text/image column
             legend_title = legend_titles[0]
@@ -469,13 +483,59 @@ class Pipeline:
                     text = table.loc[row_idx, text_col]
         return text
 
-    def get_anomaly_rows(self, text_image_embeds):
+    def get_anomaly_rows(self, table, text_image_embeds, cont_cols):
+        row_idxs = []
+        tables = []
+
+        if text_image_embeds:
+            for embeds in text_image_embeds:
+                # Getting # of clusters and K-Means clustering
+                n_clusters, clusters = self.get_clusters(len(table), embeds)
+
+                # If there is only 1 cluster, then there are no anomalies
+                if n_clusters == 1:
+                    row_idxs.append([])
+                    continue
+
+                # Reducing dimensionality of embeddings with UMAP
+                n_neighbors = 15
+                if (
+                    embeds.shape[0] < n_neighbors
+                ):  # UMAP's default n_neighbors=15, reduce if # of data points is less than 15
+                    n_neighbors = embeds.shape[0] - 1
+                reducer = umap.UMAP(n_neighbors=n_neighbors)
+                embedding = reducer.fit_transform(embeds)
+                x = embedding[:, 0]
+                y = embedding[:, 1]
+
+                # Getting anomaly rows
+                rows = []
+                for row_idx in range(len(x)):  # or range(len(y)), since x and y are the same length
+                    if x[row_idx] not in clusters or y[row_idx] not in clusters:
+                        rows.append(row_idx)
+                row_idxs.append(rows)
+
+        if cont_cols:
+            for col in cont_cols:
+                vals = sorted(list(table.loc[:, col]))
+                Q1, Q3 = np.percentile(vals, [25, 75])
+                IQR = Q3 - Q1
+                lower_range = Q1 - (1.5 * IQR)
+                upper_range = Q3 + (1.5 * IQR)
+                rows = []
+                for row_idx in range(len(table)):
+                    if table.loc[row_idx, col] < lower_range or table.loc[row_idx, col] > upper_range:
+                        rows.append(row_idx)
+                row_idxs.append(rows)
+
+        for idxs in row_idxs:
+            tables.append(table.iloc[idxs])
+        return tables
+
+    def get_diversity_measure(self, table, text_image_embeds, cont_cols):
         raise InvalidRequest()
 
-    def get_diversity_measure(self, text_image_embeds):
-        raise InvalidRequest()
-
-    def get_classification_label(self, embed, text_image_embeds, dict_cat):
+    def get_classification_label(self, embed, text_image_embeds, cat_cols):
         raise InvalidRequest()
 
     def get_report(self, table, message):
@@ -598,83 +658,131 @@ class Pipeline:
                 def get_vals_as_list(cols, images_present=None):
                     return [self.get_column_vals(table, column, images_present) for column in cols if cols]
 
-                def get_vals_as_dict(cols):
-                    return {column: self.get_column_vals(table, column) for column in cols if cols}
-
                 def to_list_of_lists(x):
                     return [x[i : i + len(table)] for i in range(0, len(x), len(table))]
 
-                def get_all():
+                def get_all(only_cont=False):
                     columns = select_columns()
-                    # CLIP embeddings of text and/or image columns
-                    text_columns = get_list(self.data_types[0], columns)
-                    image_columns = get_list(self.data_types[1], columns)
-                    texts = get_vals_as_list(text_columns)
-                    images = get_vals_as_list(image_columns, images_present=True)
-                    if not texts and not images:
-                        raise ValueError()
-                    text_embeds, image_embeds = self.clip_encode(texts, images)
-                    text_embeds = to_list_of_lists(text_embeds)
-                    image_embeds = to_list_of_lists(image_embeds)
+                    text_columns = None
+                    image_columns = None
+                    text_embeds = None
+                    image_embeds = None
+                    cat_columns = None
+                    cont_columns = None
 
+                    # If images/text are present, get CLIP embeddings
+                    if not only_cont:
+                        # CLIP embeddings of text and/or image columns
+                        text_columns = get_list(self.data_types[0], columns)
+                        image_columns = get_list(self.data_types[1], columns)
+                        texts = get_vals_as_list(text_columns)
+                        images = get_vals_as_list(image_columns, images_present=True)
+                        if not texts and not images:
+                            raise InvalidRequest()
+                        if not texts:
+                            image_embeds = self.clip_encode(None, images)
+                            image_embeds = to_list_of_lists(image_embeds)
+                        elif not images:
+                            text_embeds = self.clip_encode(texts, None)
+                            text_embeds = to_list_of_lists(text_embeds)
+                        else:
+                            text_embeds, image_embeds = self.clip_encode(texts, images)
+                            text_embeds = to_list_of_lists(text_embeds)
+                            image_embeds = to_list_of_lists(image_embeds)
                     # Get values of categorical/continuous columns
-                    dict_cat = {}
-                    dict_cont = {}
                     cat_columns = get_list(self.data_types[2], columns)
                     cont_columns = get_list(self.data_types[3], columns)
-                    dict_cat = get_vals_as_dict(cat_columns)
-                    dict_cont = get_vals_as_dict(cont_columns)
 
-                    return text_columns, image_columns, text_embeds, image_embeds, dict_cat, dict_cont
+                    return text_columns, image_columns, text_embeds, image_embeds, cat_columns, cont_columns
 
                 if "cluster" in request_types:  # If USER wants to cluster
-                    text_cols, image_cols, text_embeds, image_embeds, dict_cat, dict_cont = get_all()
+                    text_cols, image_cols, text_embeds, image_embeds, cat_cols, cont_cols = get_all()
+                    if text_cols and image_cols:
+                        columns = text_cols + image_cols
+                        embeds = text_embeds + image_embeds
+                    elif text_cols:
+                        columns = text_cols
+                        embeds = text_embeds
+                    elif image_cols:
+                        columns = image_cols
+                        embeds = image_embeds
+                    else:
+                        pass
                     outputs[3].append(
                         self.get_embeds_graph(
-                            int(len(table) / 2),
-                            text_cols + image_cols,
-                            text_embeds + image_embeds,
-                            dict_cont,
-                            dict_cat,
+                            table,
+                            columns,
+                            embeds,
+                            cat_cols,
+                            cont_cols,
                         )
                     )
                 elif "text_search" in request_types:  # If USER wants to search for text
-                    text_embed, _ = self.clip_encode(texts=parse_request(requests))
+                    text_embed = self.clip_encode(texts=parse_request(requests))
                     text_cols, _, text_embeds, _, _, _ = get_all()
                     text = self.get_most_similar(table, text_cols, text_embed, text_embeds)
                     outputs[2].append(text)
                 elif "image_search" in request_types:  # If USER wants to search for images
-                    text_embed, _ = self.clip_encode(texts=parse_request(requests))
+                    text_embed = self.clip_encode(texts=parse_request(requests))
                     _, image_cols, _, image_embeds, _, _ = get_all()
                     image = self.get_most_similar(table, image_cols, text_embed, image_embeds)
                     image = self.open_image(image)
                     outputs[4].append(self.img_to_str(image))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
-                    columns = select_columns()
-                    if columns:
-                        get_all = partial(get_all, columns)
-                    _, _, text_embeds, image_embeds, _, _ = get_all()
-                    outputs[1].append(self.get_anomaly_rows(text_embeds + image_embeds))
+                    text_cols, image_cols, text_embeds, image_embeds, _, cont_cols = get_all()
+                    if text_cols and image_cols:
+                        columns = text_cols + image_cols
+                        embeds = text_embeds + image_embeds
+                    elif text_cols:
+                        columns = text_cols
+                        embeds = text_embeds
+                    elif image_cols:
+                        columns = image_cols
+                        embeds = image_embeds
+                    else:
+                        pass
+
+                    tables = self.get_anomaly_rows(
+                        table,
+                        embeds,
+                        cont_cols,
+                    )
+                    columns += cont_cols
+                    if columns and tables:
+                        for col, table in zip(columns, tables):
+                            if len(table) > 0:
+                                outputs[1].extend(tables)
+                            else:
+                                columns.remove(col)
+                        outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
+                    else:
+                        outputs[2].append("No anomalies found.")
                 elif "diversity" in request_types:  # If USER wants to measure diversity
-                    columns = select_columns()
-                    if columns:
-                        get_all = partial(get_all, columns)
-                    _, _, text_embeds, image_embeds, _, _ = get_all()
-                    outputs[2].append(self.get_diversity_measure(text_embeds + image_embeds))
+                    _, _, text_embeds, image_embeds, _, cont_cols = get_all()
+                    if text_cols and image_cols:
+                        embeds = text_embeds + image_embeds
+                    elif text_cols:
+                        embeds = text_embeds
+                    elif image_cols:
+                        embeds = image_embeds
+                    else:
+                        pass
+
+                    outputs[2].append(
+                        self.get_diversity_measure(
+                            table,
+                            embeds,
+                            cont_cols,
+                        )
+                    )
                 elif "text_class" in request_types:  # If USER wants to classify text
-                    columns = select_columns()
-                    if columns:
-                        get_all = partial(get_all, columns)
-                    text_embed, _ = self.clip_encode(texts=parse_request(requests))
-                    _, _, text_embeds, _, dict_cat, _ = get_all()
-                    outputs[2].append(self.get_classification_label(text_embed, text_embeds, dict_cat))
+                    text_embed = self.clip_encode(texts=parse_request(requests))
+                    _, _, text_embeds, _, cat_cols, _ = get_all()
+                    outputs[2].append(self.get_classification_label(text_embed, text_embeds, cat_cols))
                 elif "image_class" in request_types:  # If USER wants to classify images
-                    columns = select_columns()
-                    if columns:
-                        get_all = partial(get_all, columns)
-                    _, image_embed = self.clip_encode(images=parse_request(requests))
-                    _, _, _, image_embeds, dict_cat, _ = get_all()
-                    outputs[4].append(self.get_classification_label(image_embed, image_embeds, dict_cat))
+                    image_embed = self.clip_encode(images=parse_request(requests))
+                    _, _, _, image_embeds, cat_cols, _ = get_all()
+                    outputs[4].append(self.get_classification_label(image_embed, image_embeds, cat_cols))
                 else:  # If USER wants to do something else
                     raise InvalidRequest()
             else:  # If not
@@ -719,6 +827,8 @@ class Pipeline:
                     for output in answer:
                         if type(output) == pd.DataFrame:
                             outputs[1].append(output)
+                        elif type(output) == pd.Series:
+                            outputs[2].append(output.to_frame())
                         elif type(output) == str:
                             outputs[2].append(output)
                         elif type(output) == plotly.graph_objects.Figure:
