@@ -475,17 +475,20 @@ class Pipeline:
         search_embed = np.squeeze(search_embed)
         highest_similarity = 0
         text = ""
+        code = ""
         for text_col, text_embed in zip(cols, embeds):
             for row_idx in range(len(text_embed)):
                 similarity = cosine_similarity(text_embed[row_idx], search_embed)
                 if similarity > highest_similarity:
                     highest_similarity = similarity
                     text = table.loc[row_idx, text_col]
-        return text
+                    code = "result = [table.loc[" + str(row_idx) + ", " + str(text_col) + "]]"
+        return text, code
 
     def get_anomaly_rows(self, table, text_image_embeds, cont_cols):
         row_idxs = []
         tables = []
+        code = "result = []\n"
 
         if text_image_embeds:
             for embeds in text_image_embeds:
@@ -530,7 +533,9 @@ class Pipeline:
 
         for idxs in row_idxs:
             tables.append(table.iloc[idxs])
-        return tables
+            str_idxs = [str(idx) for idx in idxs]
+            code += "result.append(table.iloc[" + ", ".join(str_idxs) + "])\n"
+        return tables, code
 
     def get_diversity_measure(self, table, text_image_embeds, cont_cols):
         raise InvalidRequest()
@@ -720,13 +725,15 @@ class Pipeline:
                 elif "text_search" in request_types:  # If USER wants to search for text
                     text_embed = self.clip_encode(texts=parse_request(requests))
                     text_cols, _, text_embeds, _, _, _ = get_all()
-                    text = self.get_most_similar(table, text_cols, text_embed, text_embeds)
+                    text, code = self.get_most_similar(table, text_cols, text_embed, text_embeds)
+                    outputs[0].append(code)
                     outputs[2].append(text)
                 elif "image_search" in request_types:  # If USER wants to search for images
                     text_embed = self.clip_encode(texts=parse_request(requests))
                     _, image_cols, _, image_embeds, _, _ = get_all()
-                    image = self.get_most_similar(table, image_cols, text_embed, image_embeds)
+                    image, code = self.get_most_similar(table, image_cols, text_embed, image_embeds)
                     image = self.open_image(image)
+                    outputs[0].append(code)
                     outputs[4].append(self.img_to_str(image))
                 elif "anomaly" in request_types:  # If USER wants to detect anomalies
                     text_cols, image_cols, text_embeds, image_embeds, _, cont_cols = get_all()
@@ -742,15 +749,17 @@ class Pipeline:
                     else:
                         pass
 
-                    tables = self.get_anomaly_rows(
+                    columns += cont_cols
+
+                    tables, code = self.get_anomaly_rows(
                         table,
                         embeds,
                         cont_cols,
                     )
-                    columns += cont_cols
                     if columns and tables:
                         for col, table in zip(columns, tables):
                             if len(table) > 0:
+                                outputs[0].append(code)
                                 outputs[1].extend(tables)
                             else:
                                 columns.remove(col)
