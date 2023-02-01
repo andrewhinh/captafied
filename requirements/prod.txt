@@ -469,6 +469,8 @@ validators==0.20.0
     # via -r requirements/prod.in
 visions[type_image_path]==0.7.5
     # via pandas-profiling
+waitress==2.1.2
+    # via -r requirements/prod.in
 wandb==0.12.17
     # via -r requirements/prod.in
 werkzeug==2.2.2

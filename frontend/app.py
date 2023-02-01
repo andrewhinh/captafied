@@ -15,6 +15,7 @@ import flask
 from flask import Flask
 import pandas as pd
 import validators
+from waitress import serve
 
 
 # Variables
@@ -701,4 +702,4 @@ def _make_parser():
 if __name__ == "__main__":
     parser = _make_parser()
     args = parser.parse_args()
-    app.run_server(debug=True, dev_tools_hot_reload=False, port=args.port)
+    serve(app.server, host="0.0.0.0", port=args.port)
