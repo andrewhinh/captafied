@@ -31,10 +31,7 @@ We provide the user with check-boxes to indicate if they want to use manually-im
 - Image search (where results are ranked by relevance to a query string)
 - Anomaly detection (where rows that have outliers are identified)
 - Text classification (where text is classified by their most similar label)
-
-To be implemented:
-
-- *Image classification (where images are classified by their most similar label)*
+- Image classification (where images are classified by their most similar label)
   
 Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
 
@@ -54,14 +51,14 @@ that can be used to answer the user's request. If something fails in this proces
 Some notes about submitting inputs to the pipeline:
 
 - Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
-- Because multiple outputs are supported, you can submit multiple requests at one time.
+- For non-manual functions, you can submit multiple requests at one time.
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
+- When submitting manual function requests, only submitted text/images can be referenced, not those found in the table. For subsequent requests, only clarifications for which columns and rows to use are accepted due to the limitations of [OpenAI's API](#credit) prompt size.
 - When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to {query}, you could submit a request like "What is the most similar product description to \query?".
 - When submitting text/image classification requests, explain which categorical column(s) in the data to use as labels.
-- When submitting clustering requests, only clarifications for which columns and rows to use are accepted, since json representations of figures do not fit in [OpenAI's API](#credit) prompt size. In addition, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
-- After receiving the results from a manually-implemented function, you can reference them in every other request type (besides clustering for reasons described above).
+- When submitting clustering requests, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
 - Try to explain any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "What does {repo} look like?".
 
 Some examples of requests and questions that the pipeline can handle (with respect to the example table found in the repo and website):
@@ -82,12 +79,18 @@ Some examples of requests and questions that the pipeline can handle (with respe
   - Plot this graph vs. the number of stars.
 - Which summary is most like \Transformers?
   - How many words are in this summary?
+- Which summary is most like this image?
+  - How many characters are in this summary?
 - Which icon is most like \Transformers?
   - How many pixels tall is this icon?
+- Which icon is most like this image?
+  - Make it half as wide.
 - Which rows have anomalies in the summary column?
   - Plot the stars using theses rows.
 - What release year is most likely for \Transformers?
-  - What about for every column?
+  - What about for every categorical column?
+- What release year is most likely for this image?
+  - What about for the first three categorical columns?
 
 ## Production
 

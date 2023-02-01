@@ -14,17 +14,12 @@ from dash.dependencies import Input, Output, State
 import flask
 from flask import Flask
 import pandas as pd
+from utils.util import checklist_options, encode_b64_image, open_image
 import validators
 from waitress import serve
 
 
 # Variables
-# Global variables for downloading table and for backend
-output_tables = []
-requests = []
-requests_types = []
-answers = []
-
 # Port for Dash app
 DEFAULT_PORT = 11700
 
@@ -40,6 +35,12 @@ colors = {
     "background": "#111111",
     "text": "#ffffff",
 }
+
+# Global variables for downloading table and for backend
+output_tables = []
+requests = []
+requests_types = []
+answers = []
 
 # Max of table to show when table is sent to backend (From AutoViz)
 max_pred_rows = 150000
@@ -66,9 +67,13 @@ button_id_end = "-button-state"
 # Examples
 parent_path = Path(__file__).parent / ".."
 table_path = parent_path / "backend" / "inference" / "tests" / "support" / "tables"
-table_example = table_path / "0.csv"
-url_example_path = table_path / "1.txt"
-url_example = open(url_example_path).readlines()[0]
+table_file_example = table_path / "0.csv"
+table_url_example = table_path / "1.txt"
+table_url_example = open(table_url_example).readlines()[0]
+image_path = parent_path / "backend" / "inference" / "tests" / "support" / "images"
+image_file_example = image_path / "0.png"
+image_url_example = image_path / "8.txt"
+image_url_example = open(image_url_example).readlines()[0]
 example_phrase = "use example"
 
 # Table download settings
@@ -156,7 +161,7 @@ def name_to_pd(name, csv_obj=None, rest_obj=None):
     return df
 
 
-# Convert an uploaded file/typed-in URL to a pd.DataFrame
+# Convert an uploaded table file/typed-in URL to a pd.DataFrame
 def convert_to_pd(contents=None, filename=None, url=None):
     empty_df, empty_error = None, None
     error_ending = "csv, tsv, xls(x), or ods file containing a table."
@@ -243,8 +248,81 @@ def show_table(contents=None, filename=None, url=None, table_answer=False):
         return error
 
 
+# Convert an uploaded image file/typed-in URL to a base64-encoded image
+def convert_to_b64(contents=None, filename=None, url=None):
+    empty_image, empty_error = None, None
+    error_ending = "image."
+    url_error = "Please enter a valid public URL to an " + error_ending
+    file_error = "Please upload a valid " + error_ending
+    if not contents and filename:
+        try:
+            image = open_image(filename)
+            image = encode_b64_image(image)
+        except BaseException:
+            return empty_image, html_text(file_error)
+        return image, empty_error
+    if contents and filename:
+        try:
+            image = contents
+        except BaseException:
+            return empty_image, html_text(file_error)
+        return image, empty_error
+    if url:
+        if validators.url(url):
+            try:
+                image = open_image(url)
+                image = encode_b64_image(image)
+            except BaseException:
+                return empty_image, html_text(url_error)
+            return image, empty_error
+        else:
+            return empty_image, html_text(url_error)
+
+
+# Show an image from an uploaded file/typed-in URL
+def show_image(contents=None, filename=None, url=None, image_answer=False):
+    heading = ""
+    image, error = None, None
+    if not contents and filename:
+        heading = str(filename).split("/")[-1]
+        image, error = convert_to_b64(None, str(filename), None)
+    if contents and filename:
+        heading = filename
+        image, error = convert_to_b64(contents, filename, None)
+    if url:
+        heading = url
+        image, error = convert_to_b64(None, None, url)
+    if image_answer is not None:
+        image = image_answer
+    if image is not None and not error:
+        items = []
+        if heading:
+            if validators.url(heading):
+                items.append(html.A(html_text("URL"), href=heading, target="_blank"))
+            else:
+                if len(heading) > max_char_length:
+                    heading = heading[:max_char_length] + "..."
+                items.append(html_text(heading))
+        items.append(
+            html.Img(
+                src=image,
+                style=html_settings(),
+            ),
+        )
+        return html.Div(items)
+    else:
+        return error
+
+
 # Manage/show output
-def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, report=None):
+def manage_output(
+    code=None,
+    tables=None,
+    texts=None,
+    graphs=None,
+    images=None,
+    report=None,
+):
     outputs = []
 
     if code:
@@ -302,12 +380,7 @@ def manage_output(code=None, tables=None, texts=None, graphs=None, images=None, 
     if images:
         elements = []
         for image in images:
-            elements.append(
-                html.Img(
-                    src=image,
-                    style=html_settings(),
-                ),
-            )
+            elements.append(show_image(image_answer=image))
             elements.append(html.Br())
         outputs.extend(
             [
@@ -407,7 +480,7 @@ app.layout = html.Div(
                 html_text("Upload your table as a csv, tsv, xls(x), or ods file:"),
                 html.Button(
                     example_phrase,
-                    id="file-upload-example",
+                    id="table-file-upload-example",
                     n_clicks=0,
                     style=html_settings(width="50%"),
                 ),
@@ -429,7 +502,7 @@ app.layout = html.Div(
                 html_text("Or paste a public URL to it:"),
                 html.Button(
                     example_phrase,
-                    id="url-upload-example",
+                    id="table-url-upload-example",
                     n_clicks=0,
                     style=html_settings(width="50%"),
                 ),
@@ -444,30 +517,29 @@ app.layout = html.Div(
                 ),
                 html.Br(),
                 # Input: text request
-                html_text("Type in a request:"),
+                html_text("Ask me anything:"),
                 # Width = 390px for Typing SVG for iphone devices
                 dcc.Markdown(
                     [
                         """
-                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.;Which+summary+is+most+like+\Transformers%3F;Which+icon+is+most+like+\Transformers%3F;Which+rows+have+anomalies%3F;What+release+year+is+\Transformers%3F)](https://git.io/typing-svg)
+                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.;Which+summary+is+most+like+\Transformers%3F;Which+summary+is+most+like+this+image%3F;Which+icon+is+most+like+\Transformers%3F;Which+icon+is+most+like+this+image%3F;Which+rows+have+anomalies%3F;What+release+year+is+\Transformers%3F;What+release+year+is+this+image%3F)](https://git.io/typing-svg)
                 """
                     ],
                     style=html_settings(),
                 ),
                 dcc.Checklist(
                     id="request-type-uploaded",
-                    options={
-                        "cluster": "Clustering",
-                        "text_search": "Text Search",
-                        "image_search": "Image Search",
-                        "anomaly": "Anomaly Detection",
-                        "text_class": "Text Classification",
-                        "image_class": "Image Classification",
-                    },
+                    options=checklist_options,
                     value=[],
                     inline=True,
                 ),
                 html.Br(),
+                dcc.Loading(
+                    type=spinner,
+                    children=html.Div(id="need-image-upload"),
+                ),
+                html.Br(),
+                html_text("Request:"),
                 html_input(id="request", type="text", debounce=False),
                 html.Br(),
                 html.Br(),
@@ -519,17 +591,6 @@ app.layout = html.Div(
     ],
 )
 
-"""
-dcc.Upload(
-    id="before-image-file-uploaded",
-    children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
-    style=html_settings(height="400%", lineHeight="400%", borderStyle="dashed"),
-    # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
-),
-html.Div(id='after-image-file-uploaded'),
-html.Br(),
-"""
-
 
 # Event functions
 # When only table file is uploaded
@@ -537,11 +598,11 @@ html.Br(),
     Output("after-table-file-uploaded", "children"),
     Input("before-table-file-uploaded", "contents"),
     State("before-table-file-uploaded", "filename"),
-    Input("file-upload-example", "n_clicks"),
+    Input("table-file-upload-example", "n_clicks"),
 )
 def show_uploaded_table_file(contents, filename, example_clicked):
-    if "file-upload-example" in total_clicked_buttons():
-        return show_table(None, table_example, None, None)
+    if "table-file-upload-example" in total_clicked_buttons():
+        return show_table(None, table_file_example, None, None)
     if contents and filename:
         if type(contents) == list and type(filename) == list:
             if len(contents) > 1 and len(filename) > 1:
@@ -553,13 +614,97 @@ def show_uploaded_table_file(contents, filename, example_clicked):
 @app.callback(
     Output("after-table-url-uploaded", "children"),
     Input("before-table-url-uploaded", "value"),
-    Input("url-upload-example", "n_clicks"),
+    Input("table-url-upload-example", "n_clicks"),
 )
 def show_uploaded_table_url(url, example_clicked):
-    if "url-upload-example" in total_clicked_buttons():
-        return show_table(None, None, url_example, None)
+    if "table-url-upload-example" in total_clicked_buttons():
+        return show_table(None, None, table_url_example, None)
     if url:
         return show_table(None, None, url, None)
+
+
+# Show upload component when text/image search/clasification is selected
+@app.callback(
+    Output("need-image-upload", "children"),
+    Input("request-type-uploaded", "value"),
+    prevent_initial_call=True,
+)
+def show_image_upload(request_types):
+    option_keys = list(checklist_options.keys())
+    select_options = [option_keys[1], option_keys[2], option_keys[4], option_keys[5]]
+    if len(list(set(request_types) & set(select_options))) > 0:
+        return html.Div(
+            html.Center(
+                [
+                    html_text("Upload your image file:"),
+                    html.Button(
+                        example_phrase,
+                        id="image-file-upload-example",
+                        n_clicks=0,
+                        style=html_settings(width="50%"),
+                    ),
+                    html.Br(),
+                    html.Br(),
+                    html.Center(
+                        [
+                            dcc.Upload(
+                                id="before-image-file-uploaded",
+                                children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+                                style=html_settings(height="400%", lineHeight="400%", borderStyle="dashed"),
+                                # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
+                            ),
+                        ]
+                    ),
+                    html.Br(),
+                    html.Div(id="after-image-file-uploaded"),
+                    html.Br(),
+                    html_text("Or paste a public URL to it:"),
+                    html.Button(
+                        example_phrase,
+                        id="image-url-upload-example",
+                        n_clicks=0,
+                        style=html_settings(width="50%"),
+                    ),
+                    html.Br(),
+                    html.Br(),
+                    html_input(id="before-image-url-uploaded", type="url"),
+                    html.Br(),
+                    html.Div(id="after-image-url-uploaded"),
+                ]
+            ),
+            style=html_settings(width="100%"),
+        )
+
+
+# Show example/uploaded image file
+@app.callback(
+    Output("after-image-file-uploaded", "children"),
+    Input("before-image-file-uploaded", "value"),
+    Input("image-file-upload-example", "n_clicks"),
+    prevent_initial_call=True,
+)
+def show_uploaded_image_file(contents, filename, example_clicked=None):
+    if "image-file-upload-example" in total_clicked_buttons():
+        return show_image(None, image_file_example, None, None)
+    if contents and filename:
+        if type(contents) == list and type(filename) == list:
+            if len(contents) > 1 and len(filename) > 1:
+                return html_text(multiple_files_error)
+        return show_image(contents, filename, None, None)
+
+
+# Show example/uploaded image file
+@app.callback(
+    Output("after-image-url-uploaded", "children"),
+    Input("before-image-url-uploaded", "value"),
+    Input("image-url-upload-example", "n_clicks"),
+    prevent_initial_call=True,
+)
+def show_uploaded_image_url(url, example_clicked):
+    if "image-url-upload-example" in total_clicked_buttons():
+        return show_image(None, None, image_url_example, None)
+    if url:
+        return show_image(None, None, url, None)
 
 
 # When both table file/url + request are uploaded
@@ -567,30 +712,55 @@ def show_uploaded_table_url(url, example_clicked):
     Output("pred_output", "children"),
     State("after-table-file-uploaded", "children"),
     State("after-table-url-uploaded", "children"),
+    State("after-image-file-uploaded", "children"),
+    State("after-image-url-uploaded", "children"),
     Input("request-uploaded", "n_clicks"),
     Input("request", "value"),
     Input("request-type-uploaded", "value"),
     Input("before-table-file-uploaded", "contents"),
     State("before-table-file-uploaded", "filename"),
     Input("before-table-url-uploaded", "value"),
+    Input("before-image-file-uploaded", "contents"),
+    State("before-image-file-uploaded", "filename"),
+    Input("before-image-url-uploaded", "value"),
 )
-def get_prediction(show_file, show_url, submit, request, request_types, contents, filename, url):
+def get_prediction(
+    show_table_file,
+    show_table_url,
+    show_image_file,
+    show_image_url,
+    submit,
+    request,
+    request_types,
+    table_contents,
+    table_filename,
+    table_url,
+    image_contents,
+    image_filename,
+    image_url,
+):
     if "request-uploaded" in total_clicked_buttons():
         df, error = None, None
-        checks = [
-            contents and filename and request,
-            url and request,
-            show_file and request,
-            show_url and request,
+        table_checks = [
+            table_contents and table_filename and request,
+            table_url and request,
+            show_table_file and request,
+            show_table_url and request,
         ]
-        if checks[0]:
-            df, error = convert_to_pd(contents[0], filename[0], None)
-        if checks[1]:
-            df, error = convert_to_pd(None, None, url)
-        if (not checks[0] and not checks[1]) and checks[2]:
-            df, error = convert_to_pd(None, str(table_example), None)
-        if (not checks[0] and not checks[1]) and checks[3]:
-            df, error = convert_to_pd(None, None, str(url_example))
+        image_checks = [
+            image_contents and image_filename,
+            image_url,
+            show_image_file,
+            show_image_url,
+        ]
+        if table_checks[0]:
+            df, error = convert_to_pd(table_contents[0], table_filename[0], None)
+        if table_checks[1]:
+            df, error = convert_to_pd(None, None, table_url)
+        if (not table_checks[0] and not table_checks[1]) and table_checks[2]:
+            df, error = convert_to_pd(None, str(table_file_example), None)
+        if (not table_checks[0] and not table_checks[1]) and table_checks[3]:
+            df, error = convert_to_pd(None, None, str(table_url_example))
         if df is not None and not error:
             global output_tables
             global requests
@@ -600,7 +770,18 @@ def get_prediction(show_file, show_url, submit, request, request_types, contents
                 requests.append(request)
                 requests_types.append(request_types)
                 df = set_max_rows_cols(df)
-                code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers, request_types)
+                image = None
+                if image_checks[0]:
+                    image, error = convert_to_b64(image_contents[0], image_filename[0], None)
+                if image_checks[1]:
+                    image, error = convert_to_b64(None, None, image_url)
+                if (not image_checks[0] and not image_checks[1]) and image_checks[2]:
+                    image, error = convert_to_b64(None, str(image_file_example), None)
+                if (not image_checks[0] and not image_checks[1]) and image_checks[3]:
+                    image, error = convert_to_b64(None, None, str(image_url_example))
+                code, tables, texts, graphs, images, report = pipeline.predict(
+                    df, requests, answers, request_types, image
+                )
                 return manage_output(code, tables, texts, graphs, images, report)
 
 
@@ -644,7 +825,8 @@ def flag_pred(show_file, show_url, request, pred, contents, filename, url, inc_c
             pred = [x["props"]["children"] for x in pred["props"]["children"]]
             pred = " ".join(pred)
         except BaseException:
-            pred = "Graph"
+            print(pred)
+            # pred = "Graph"
 
     changed_id = total_clicked_buttons()
     buttons_clicked = [
@@ -667,9 +849,9 @@ def flag_pred(show_file, show_url, request, pred, contents, filename, url, inc_c
     if checks[0] and checks[2]:
         df, error = convert_to_pd(None, None, url)
     if checks[0] and (not checks[1] and not checks[2]) and checks[3]:
-        df, error = convert_to_pd(None, str(table_example), None)
+        df, error = convert_to_pd(None, str(table_file_example), None)
     if checks[0] and (not checks[1] and not checks[2]) and checks[4]:
-        df, error = convert_to_pd(None, None, str(url_example))
+        df, error = convert_to_pd(None, None, str(table_url_example))
 
     check = (show_file or show_url) and df is not None and request and pred is not None and not error
     if check and buttons_clicked[0]:
