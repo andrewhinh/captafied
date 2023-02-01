@@ -51,6 +51,10 @@ onnx_path = artifact_path / "onnx"
 clip_processor = artifact_path / "clip-vit-base-patch16"
 clip_onnx = onnx_path / "clip.onnx"
 
+# File paths
+frontend_path = parent_path / ".." / ".." / "frontend"
+asset_path = Path("assets")
+
 
 # Classes
 class InvalidRequest(ValueError):
@@ -477,19 +481,26 @@ class Pipeline:
         )
 
         return fig
+        """ # When OpenAI increases the prompt limit
+        code = ""
+        fig_json = pio.to_json(fig)
+        code += "import plotly.graph_objects as go\n"
+        code += "fig = go.Figure(" + fig_json + ")"
+        return fig, code
+        """
 
     def get_most_similar(self, table, cols, search_embed, embeds):
         search_embed = np.squeeze(search_embed)
         highest_similarity = 0
         text = ""
         code = ""
-        for text_col, embed in zip(cols, embeds):
+        for col, embed in zip(cols, embeds):
             for row_idx in range(len(embed)):
                 similarity = cosine_similarity(embed[row_idx], search_embed)
                 if similarity > highest_similarity:
                     highest_similarity = similarity
-                    text = table.loc[row_idx, text_col]
-                    code = "result = [table.loc[" + str(row_idx) + ", " + str(text_col) + "]]"
+                    text = table.loc[row_idx, col]
+                    code = "result = [table.loc[" + str(row_idx) + ", " + str(col) + "]]"
         return text, code
 
     def get_anomaly_rows(self, table, text_image_embeds, cont_cols):
@@ -555,8 +566,8 @@ class Pipeline:
             report = ProfileReport(table, title="Pandas Profiling Report", explorative=True)
 
         # For Dash
-        report_path = Path("assets") / "report.html"
-        full_report_path = parent_path / ".." / ".." / "frontend" / report_path
+        report_path = asset_path / "report.html"
+        full_report_path = frontend_path / report_path
         report.to_file(full_report_path)
         return [message, "/" + str(report_path)]
 
@@ -713,16 +724,17 @@ class Pipeline:
 
                 def get_all(table):
                     rows, columns = slice_table(table)
+                    outputs[0] += "\n"
                     if columns:
                         if type(columns[0]) == list:
                             columns = list(itertools.chain.from_iterable(columns))
-                            outputs[0] += "\ncolumns = list(itertools.chain.from_iterable(columns))\n"
+                            outputs[0] += "columns = list(itertools.chain.from_iterable(columns))\n"
                     else:
                         columns = list(table.columns)
                     if rows:
                         if type(rows[0]) == list:
                             rows = list(itertools.chain.from_iterable(rows))
-                            outputs[0] += "\nrows = list(itertools.chain.from_iterable(rows))\n"
+                            outputs[0] += "rows = list(itertools.chain.from_iterable(rows))\n"
                         outputs[0] += "table = table.iloc[rows, :]\n"
                         table = table.iloc[rows, :]
                     else:
@@ -779,16 +791,8 @@ class Pipeline:
                         embeds = image_embeds
                     else:
                         raise InvalidRequest()
-
-                    outputs[3].append(
-                        self.get_embeds_graph(
-                            table,
-                            columns,
-                            embeds,
-                            cat_cols,
-                            cont_cols,
-                        )
-                    )
+                    graph = self.get_embeds_graph(table, columns, embeds, cat_cols, cont_cols)
+                    outputs[3].append(graph)
                 elif "text_search" in request_types:  # If USER wants to search for text
                     text_embed = self.clip_encode(texts=parse_request(requests))
                     text, code = self.get_most_similar(table, text_cols, text_embed, text_embeds)
@@ -815,7 +819,6 @@ class Pipeline:
                     else:
                         pass
                     columns += cont_cols
-
                     tables, code = self.get_anomaly_rows(
                         table,
                         embeds,
@@ -841,8 +844,8 @@ class Pipeline:
                     label, code = self.get_classification_label(table, cat_cols, image_embed, image_embeds)
                     outputs[0] += code
                     outputs[2].append(label)
-                else:  # If USER wants to do something else
-                    raise InvalidRequest()
+                else:
+                    raise ValueError()
 
                 print(outputs[0] + "\n\n\n\n\n")
             else:  # If not
