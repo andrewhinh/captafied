@@ -1,7 +1,5 @@
 # Imports
-import base64
 from functools import partial
-from io import BytesIO
 import itertools
 import os
 from os import path
@@ -16,7 +14,6 @@ import openai
 from openai.embeddings_utils import cosine_similarity
 import pandas as pd
 from pandas_profiling import ProfileReport
-from PIL import Image
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
@@ -28,6 +25,7 @@ from sklearn.metrics import silhouette_score
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from transformers import CLIPProcessor
 import umap
+from utils.util import checklist_options, encode_b64_image, open_image, read_b64_image
 import validators
 
 
@@ -110,19 +108,6 @@ class Pipeline:
         )
         return response["choices"][0]["text"].strip()
 
-    def open_image(self, image):
-        image_pil = Image.open(image)
-        if image_pil.mode != "RGB":
-            image_pil = image_pil.convert("RGB")
-        return np.array(image_pil)
-
-    def img_to_str(self, image):
-        pil_img = Image.fromarray(image)
-        buff = BytesIO()
-        pil_img.save(buff, format="PNG")
-        img_str = base64.b64encode(buff.getvalue()).decode("utf-8")
-        return "data:image/png;base64," + img_str
-
     def exec_code(self, global_vars, code, vars_to_return):
         local_vars = {}
         try:
@@ -140,7 +125,7 @@ class Pipeline:
 
     def get_column_vals(self, table, column, images_present=False):
         if images_present:
-            return [self.open_image(image) for image in table[column]]
+            return [open_image(image) for image in table[column]]
         else:
             return list(table[column])
 
@@ -577,6 +562,7 @@ class Pipeline:
         requests: List[str],
         prev_answers: Optional[List[str]] = None,
         request_types: Optional[List[str]] = None,
+        image: Optional[str] = None,
     ) -> str:  # Type handling is done by frontend
         try:
             # Initializing output variables
@@ -646,8 +632,9 @@ class Pipeline:
                         + "to result a Python string that explains to USER why not. If so,\n"
                         + "4) disregards result,\n"
                         + "5) appends to columns all of table's columns that USER explicitly references, if any,\n"
-                        + "6) appends to rows all of table's row indexes as integers that USER explicitly references, if any,\n"
-                        + "7) and NEVER does anything more, regardless of your previous answers.\n"
+                        + "6) appends to rows all of table's row indexes as integers/lists that "
+                        + "USER explicitly references; if there are none, leaves rows empty. Finally,\n"
+                        + "7) NEVER does anything more, regardless of your previous answers.\n"
                         + "Some notes about the code:\n"
                         + "- Never write plain text, only Python code.\n"
                         + "- Never reference variables created in previous answers, "
@@ -667,7 +654,6 @@ class Pipeline:
                     outputs[0] = code_to_exec
                     vars = {
                         "table": table,
-                        "self": self,
                     }
                     return_vars = ["columns", "rows", "result"]
                     answers = self.exec_code(vars, code_to_exec, return_vars)
@@ -726,17 +712,31 @@ class Pipeline:
                     rows, columns = slice_table(table)
                     outputs[0] += "\n"
                     if columns:
-                        if type(columns[0]) == list:
+                        if type(columns[0]) != str:
+                            if type(columns[0]) != list:
+                                try:
+                                    columns = [list(column) for column in columns]
+                                except Exception:
+                                    raise ValueError()
                             columns = list(itertools.chain.from_iterable(columns))
                             outputs[0] += "columns = list(itertools.chain.from_iterable(columns))\n"
+                        else:
+                            pass
                     else:
                         columns = list(table.columns)
                     if rows:
-                        if type(rows[0]) == list:
+                        if type(rows[0]) != int:
+                            if type(rows[0]) != list:
+                                try:
+                                    rows = [list(row) for row in rows]
+                                except Exception:
+                                    raise ValueError()
                             rows = list(itertools.chain.from_iterable(rows))
                             outputs[0] += "rows = list(itertools.chain.from_iterable(rows))\n"
-                        outputs[0] += "table = table.iloc[rows, :]\n"
+                        else:
+                            pass
                         table = table.iloc[rows, :]
+                        outputs[0] += "table = table.iloc[rows, :]\n"
                     else:
                         pass
                     text_columns = None
@@ -777,7 +777,8 @@ class Pipeline:
                     return text_columns, image_columns, text_embeds, image_embeds, cat_columns, cont_columns
 
                 text_cols, image_cols, text_embeds, image_embeds, cat_cols, cont_cols = get_all(table)
-                if "cluster" in request_types:  # If USER wants to cluster
+                feature_options = list(checklist_options.keys())
+                if feature_options[0] in request_types:  # If USER wants to cluster
                     if len(cont_cols) > 2:  # If USER wants to cluster more than 2 continuous columns
                         raise InvalidRequest()
                     if text_cols and image_cols:
@@ -793,18 +794,24 @@ class Pipeline:
                         raise InvalidRequest()
                     graph = self.get_embeds_graph(table, columns, embeds, cat_cols, cont_cols)
                     outputs[3].append(graph)
-                elif "text_search" in request_types:  # If USER wants to search for text
-                    text_embed = self.clip_encode(texts=parse_request(requests))
-                    text, code = self.get_most_similar(table, text_cols, text_embed, text_embeds)
+                elif feature_options[1] in request_types:  # If USER wants to search for text
+                    if image:
+                        embed = self.clip_encode(images=[read_b64_image(image)])
+                    else:
+                        embed = self.clip_encode(texts=parse_request(requests))
+                    text, code = self.get_most_similar(table, text_cols, embed, text_embeds)
                     outputs[0] += code
                     outputs[2].append(text)
-                elif "image_search" in request_types:  # If USER wants to search for images
-                    text_embed = self.clip_encode(texts=parse_request(requests))
-                    image, code = self.get_most_similar(table, image_cols, text_embed, image_embeds)
-                    image = self.open_image(image)
+                elif feature_options[2] in request_types:  # If USER wants to search for images
+                    if image:
+                        embed = self.clip_encode(images=[read_b64_image(image)])
+                    else:
+                        embed = self.clip_encode(texts=parse_request(requests))
+                    image, code = self.get_most_similar(table, image_cols, embed, image_embeds)
+                    image = open_image(image)
                     outputs[0] += code
-                    outputs[4].append(self.img_to_str(image))
-                elif "anomaly" in request_types:  # If USER wants to detect anomalies
+                    outputs[4].append(encode_b64_image(image))
+                elif feature_options[3] in request_types:  # If USER wants to detect anomalies
                     columns = []
                     embeds = None
                     if text_cols and image_cols:
@@ -834,13 +841,16 @@ class Pipeline:
                         outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
                     else:
                         outputs[2].append("No anomalies found.")
-                elif "text_class" in request_types:  # If USER wants to classify text
+                elif feature_options[4] in request_types:  # If USER wants to classify text
                     text_embed = self.clip_encode(texts=parse_request(requests))
                     label, code = self.get_classification_label(table, cat_cols, text_embed, text_embeds)
                     outputs[0] += code
                     outputs[2].append(label)
-                elif "image_class" in request_types:  # If USER wants to classify images
-                    image_embed = self.clip_encode(images=parse_request(requests))
+                elif feature_options[5] in request_types:  # If USER wants to classify images
+                    if image:
+                        image_embed = self.clip_encode(images=[read_b64_image(image)])
+                    else:
+                        raise InvalidRequest()
                     label, code = self.get_classification_label(table, cat_cols, image_embed, image_embeds)
                     outputs[0] += code
                     outputs[2].append(label)
@@ -869,7 +879,7 @@ class Pipeline:
                     + "- If asked to modify/lookup table, create a copy of table, write valid code to modify/lookup "
                     + "the copy instead while retaining as many rows and columns as possible, and return the copy.\n"
                     + "- Understand what happens when you call len() on a string or slice/call len() on a pandas object.\n"
-                    + "- If USER asks for an image, call 'self.open_image()', which takes a string path "
+                    + "- If USER asks for an image, call 'open_image()', which takes a string path "
                     + "to an image as input and returns the image as a Python numpy array, and append it to result. ",
                     temperature=0.3,
                     max_tokens=self.max_code_tokens,
@@ -880,7 +890,7 @@ class Pipeline:
                 outputs[0] = code_to_exec
                 vars = {
                     "table": table,
-                    "self": self,
+                    "open_image": open_image,
                 }
                 return_vars = ["result"]
                 answer = self.exec_code(vars, code_to_exec, return_vars)
@@ -898,7 +908,7 @@ class Pipeline:
                         elif type(output) == plotly.graph_objects.Figure:
                             outputs[3].append(output)
                         elif type(output) == np.ndarray:
-                            outputs[4].append(self.img_to_str(output))
+                            outputs[4].append(encode_b64_image(output))
                         else:
                             raise ValueError()
                 else:
