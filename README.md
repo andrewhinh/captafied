@@ -30,10 +30,10 @@ We provide the user with check-boxes to indicate if they want to use manually-im
 - Text search (where results are ranked by relevance to a query string)
 - Image search (where results are ranked by relevance to a query string)
 - Anomaly detection (where rows that have outliers are identified)
+- Text classification (where text is classified by their most similar label)
 
 To be implemented:
 
-- *Text classification (where text is classified by their most similar label)*
 - *Image classification (where images are classified by their most similar label)*
   
 Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
@@ -79,8 +79,14 @@ Some examples of requests and questions that the pipeline can handle (with respe
   - What's this number in MB?
 - How do the description clusters change with release year?
   - Plot this graph vs. the number of stars.
+- Which summary is most like \Transformers?
+  - How many words are in this summary?
+- Which icon is most like \Transformers?
+  - How many pixels tall is this icon?
 - Which rows have anomalies in the summary column?
-  - What about every column?
+  - Plot the stars using theses rows.
+- What release year is most likely for \Transformers?
+  - What about for every column?
 
 ## Production
 

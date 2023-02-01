@@ -483,9 +483,9 @@ class Pipeline:
         highest_similarity = 0
         text = ""
         code = ""
-        for text_col, text_embed in zip(cols, embeds):
-            for row_idx in range(len(text_embed)):
-                similarity = cosine_similarity(text_embed[row_idx], search_embed)
+        for text_col, embed in zip(cols, embeds):
+            for row_idx in range(len(embed)):
+                similarity = cosine_similarity(embed[row_idx], search_embed)
                 if similarity > highest_similarity:
                     highest_similarity = similarity
                     text = table.loc[row_idx, text_col]
@@ -533,8 +533,20 @@ class Pipeline:
             code += "result.append(table.iloc[" + ", ".join(str_idxs) + "])\n"
         return tables, code
 
-    def get_classification_label(self, embed, text_image_embeds, cat_cols):
-        raise InvalidRequest()
+    def get_classification_label(self, table, cat_cols, search_embed, embeds):
+        search_embed = np.squeeze(search_embed)
+        highest_similarity = 0
+        labels = []
+        code = ""
+        for embed in embeds:
+            for row_idx in range(len(embed)):
+                similarity = cosine_similarity(embed[row_idx], search_embed)
+                if similarity > highest_similarity:
+                    highest_similarity = similarity
+                    labels = list(table.loc[row_idx, cat_cols])
+                    code = "result = [table.loc[" + str(row_idx) + ", " + "[[" + ", ".join(cat_cols) + "]]]]"
+        labels = [str(label) for label in labels]
+        return ", ".join(labels), code
 
     def get_report(self, table, message):
         if len(table) > 1000:
@@ -638,6 +650,7 @@ class Pipeline:
                         temperature=0.3,
                         max_tokens=self.max_code_tokens,
                     )
+                    print(code_to_exec + "\n\n\n\n\n")
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
@@ -724,6 +737,10 @@ class Pipeline:
                     # Get columns of each type
                     text_columns = get_list(self.data_types[0], columns)
                     image_columns = get_list(self.data_types[1], columns)
+                    if "anomaly" not in request_types:
+                        if not text_columns and not image_columns:
+                            text_columns = get_list(self.data_types[0])
+                            image_columns = get_list(self.data_types[1])
                     cat_columns = get_list(self.data_types[2], columns)
                     cont_columns = get_list(self.data_types[3], columns)
 
@@ -736,10 +753,10 @@ class Pipeline:
                             text_embeds, image_embeds = self.clip_encode(texts, images)
                             text_embeds = to_list_of_lists(text_embeds)
                             image_embeds = to_list_of_lists(image_embeds)
-                        if not texts:
+                        if images and not texts:
                             image_embeds = self.clip_encode(None, images)
                             image_embeds = to_list_of_lists(image_embeds)
-                        elif not images:
+                        elif texts and not images:
                             text_embeds = self.clip_encode(texts, None)
                             text_embeds = to_list_of_lists(text_embeds)
                         else:
@@ -754,10 +771,10 @@ class Pipeline:
                     if text_cols and image_cols:
                         columns = text_cols + image_cols
                         embeds = text_embeds + image_embeds
-                    elif text_cols:
+                    elif text_cols and not image_cols:
                         columns = text_cols
                         embeds = text_embeds
-                    elif image_cols:
+                    elif image_cols and not text_cols:
                         columns = image_cols
                         embeds = image_embeds
                     else:
@@ -789,10 +806,10 @@ class Pipeline:
                     if text_cols and image_cols:
                         columns = text_cols + image_cols
                         embeds = text_embeds + image_embeds
-                    elif text_cols:
+                    elif text_cols and not image_cols:
                         columns = text_cols
                         embeds = text_embeds
-                    elif image_cols:
+                    elif image_cols and not text_cols:
                         columns = image_cols
                         embeds = image_embeds
                     else:
@@ -816,10 +833,14 @@ class Pipeline:
                         outputs[2].append("No anomalies found.")
                 elif "text_class" in request_types:  # If USER wants to classify text
                     text_embed = self.clip_encode(texts=parse_request(requests))
-                    outputs[2].append(self.get_classification_label(text_embed, text_embeds, cat_cols))
+                    label, code = self.get_classification_label(table, cat_cols, text_embed, text_embeds)
+                    outputs[0] += code
+                    outputs[2].append(label)
                 elif "image_class" in request_types:  # If USER wants to classify images
                     image_embed = self.clip_encode(images=parse_request(requests))
-                    outputs[4].append(self.get_classification_label(image_embed, image_embeds, cat_cols))
+                    label, code = self.get_classification_label(table, cat_cols, image_embed, image_embeds)
+                    outputs[0] += code
+                    outputs[2].append(label)
                 else:  # If USER wants to do something else
                     raise InvalidRequest()
 

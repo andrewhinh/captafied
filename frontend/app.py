@@ -448,7 +448,7 @@ app.layout = html.Div(
                 dcc.Markdown(
                     [
                         """
-                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.;Which+summary+is+most+like+\Transformers%3F;Which+icon+is+most+like+\Transformers%3F)](https://git.io/typing-svg)
+                [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.;Which+summary+is+most+like+\Transformers%3F;Which+icon+is+most+like+\Transformers%3F;Which+rows+have+anomalies%3F;What+release+year+is+\Transformers%3F)](https://git.io/typing-svg)
                 """
                     ],
                     style=html_settings(),
