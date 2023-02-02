@@ -31,8 +31,7 @@ def read_image_np_file(image_file, grayscale=False) -> Image:
         if grayscale:
             image = image.convert(mode="L")
         else:
-            if image.mode != "RGB":
-                image = image.convert("RGB")
+            image = image.convert("RGB")
         return np.array(image)
 
 
