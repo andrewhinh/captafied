@@ -466,13 +466,6 @@ class Pipeline:
         )
 
         return fig
-        """ # When OpenAI increases the prompt limit
-        code = ""
-        fig_json = pio.to_json(fig)
-        code += "import plotly.graph_objects as go\n"
-        code += "fig = go.Figure(" + fig_json + ")"
-        return fig, code
-        """
 
     def get_most_similar(self, table, cols, search_embed, embeds):
         search_embed = np.squeeze(search_embed)
@@ -691,10 +684,13 @@ class Pipeline:
                     else:
                         raise ValueError()
 
-                def parse_request(requests):  # When doing search + classification
+                def parse_text(requests):  # When doing search + classification
                     return [
                         [requests[-1].split("\\")[1]]
                     ]  # Get last request, split by backslash, and get second element
+
+                def parse_image(image):  # When doing search + classification
+                    return [[read_b64_image(image)]]
 
                 def get_list(type, columns=None):  # Get list of columns of a certain type
                     if columns:
@@ -796,17 +792,17 @@ class Pipeline:
                     outputs[3].append(graph)
                 elif feature_options[1] in request_types:  # If USER wants to search for text
                     if image:
-                        embed = self.clip_encode(images=[read_b64_image(image)])
+                        embed = self.clip_encode(images=parse_image(image))
                     else:
-                        embed = self.clip_encode(texts=parse_request(requests))
+                        embed = self.clip_encode(texts=parse_text(requests))
                     text, code = self.get_most_similar(table, text_cols, embed, text_embeds)
                     outputs[0] += code
                     outputs[2].append(text)
                 elif feature_options[2] in request_types:  # If USER wants to search for images
                     if image:
-                        embed = self.clip_encode(images=[read_b64_image(image)])
+                        embed = self.clip_encode(images=parse_image(image))
                     else:
-                        embed = self.clip_encode(texts=parse_request(requests))
+                        embed = self.clip_encode(texts=parse_text(requests))
                     image, code = self.get_most_similar(table, image_cols, embed, image_embeds)
                     image = open_image(image)
                     outputs[0] += code
@@ -842,13 +838,13 @@ class Pipeline:
                     else:
                         outputs[2].append("No anomalies found.")
                 elif feature_options[4] in request_types:  # If USER wants to classify text
-                    text_embed = self.clip_encode(texts=parse_request(requests))
+                    text_embed = self.clip_encode(texts=parse_text(requests))
                     label, code = self.get_classification_label(table, cat_cols, text_embed, text_embeds)
                     outputs[0] += code
                     outputs[2].append(label)
                 elif feature_options[5] in request_types:  # If USER wants to classify images
                     if image:
-                        image_embed = self.clip_encode(images=[read_b64_image(image)])
+                        image_embed = self.clip_encode(images=parse_image(image))
                     else:
                         raise InvalidRequest()
                     label, code = self.get_classification_label(table, cat_cols, image_embed, image_embeds)
@@ -867,10 +863,12 @@ class Pipeline:
                     + "2) creates an empty list named result,\n"
                     + "3) checks if table can be used to answer USER's request; if not, appends"
                     + "to result a Python string that explains to USER why not. If so,\n"
-                    + "4) creates only pandas DataFrames/Series, Python f-strings, and/or "
+                    + "4) checks if USER asks for an image; if so, calls 'open_image()', which takes a string path to an "
+                    + "image as input and returns the image as a Python numpy array, and appends it to result. If not,\n"
+                    + "5) creates only pandas DataFrames/Series, Python f-strings, and/or "
                     + "Plotly Graph Objects as necessary that answer USER,\n"
-                    + "5) appends to result the answer(s),\n"
-                    + "6) and NEVER returns result.\n"
+                    + "6) appends to result the answer(s),\n"
+                    + "7) and NEVER returns result.\n"
                     + "Some notes about the code:\n"
                     + "- Never write plain text, only Python code.\n"
                     + "- Never reference variables created in previous answers, "
@@ -878,9 +876,7 @@ class Pipeline:
                     + "- Never create any functions or classes.\n"
                     + "- If asked to modify/lookup table, create a copy of table, write valid code to modify/lookup "
                     + "the copy instead while retaining as many rows and columns as possible, and return the copy.\n"
-                    + "- Understand what happens when you call len() on a string or slice/call len() on a pandas object.\n"
-                    + "- If USER asks for an image, call 'open_image()', which takes a string path "
-                    + "to an image as input and returns the image as a Python numpy array, and append it to result. ",
+                    + "- Understand what happens when you call len() on a string or slice/call len() on a pandas object. ",
                     temperature=0.3,
                     max_tokens=self.max_code_tokens,
                 )

@@ -46,5 +46,5 @@ per-file-ignores =
   *backend/inference/inference.py:S102,C901
   *backend/load_test/locust_http_user.py:F841
   *backend/deploy/deploy.py:S404,S607,S602,S603
-  *frontend/app.py:W605,S104
+  *frontend/app.py:W605,S104,C901
   #ADDED###################################
