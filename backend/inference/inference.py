@@ -581,7 +581,7 @@ class Pipeline:
                                     column_data[column] = self.data_types[1]
                             else:  # For text
                                 column_data[column] = self.data_types[0]
-                                break  # Break out of the loop at the first text value
+                                break  # Break out of the loop at the first text value, since a column of URLs can't contain text
                     else:  # For continuous data
                         column_data[column] = self.data_types[3]
                 else:  # For categorical data
@@ -623,11 +623,11 @@ class Pipeline:
                         + "2) creates three empty lists named columns, rows, and result,\n"
                         + "3) checks if table can be used to answer USER's request; if not, appends"
                         + "to result a Python string that explains to USER why not. If so,\n"
-                        + "4) disregards result,\n"
+                        + "4) leaves result empty,\n"
                         + "5) appends to columns all of table's columns that USER explicitly references, if any,\n"
                         + "6) appends to rows all of table's row indexes as integers/lists that "
                         + "USER explicitly references; if there are none, leaves rows empty. Finally,\n"
-                        + "7) NEVER does anything more, regardless of your previous answers.\n"
+                        + "7) NEVER does anything more under any circumstances.\n"
                         + "Some notes about the code:\n"
                         + "- Never write plain text, only Python code.\n"
                         + "- Never reference variables created in previous answers, "
@@ -745,8 +745,8 @@ class Pipeline:
                     # Get columns of each type
                     text_columns = get_list(self.data_types[0], columns)
                     image_columns = get_list(self.data_types[1], columns)
-                    if "anomaly" not in request_types:
-                        if not text_columns and not image_columns:
+                    if feature_options[3] not in request_types:  # If not doing anomaly detection
+                        if not text_columns and not image_columns:  # Use all columns if no text or image columns
                             text_columns = get_list(self.data_types[0])
                             image_columns = get_list(self.data_types[1])
                     cat_columns = get_list(self.data_types[2], columns)
@@ -863,20 +863,23 @@ class Pipeline:
                     + "2) creates an empty list named result,\n"
                     + "3) checks if table can be used to answer USER's request; if not, appends"
                     + "to result a Python string that explains to USER why not. If so,\n"
-                    + "4) checks if USER asks for an image; if so, calls 'open_image()', which takes a string path to an "
-                    + "image as input and returns the image as a Python numpy array, and appends it to result. If not,\n"
-                    + "5) creates only pandas DataFrames/Series, Python f-strings, and/or "
+                    + "4) creates only pandas DataFrames/Series, Python f-strings, and/or "
                     + "Plotly Graph Objects as necessary that answer USER,\n"
-                    + "6) appends to result the answer(s),\n"
-                    + "7) and NEVER returns result.\n"
+                    + "5) appends to result the answer(s),\n"
+                    + "6) and NEVER returns result.\n"
                     + "Some notes about the code:\n"
                     + "- Never write plain text, only Python code.\n"
                     + "- Never reference variables created in previous answers, "
                     + "since they do not persist after an answer is made.\n"
                     + "- Never create any functions or classes.\n"
-                    + "- If asked to modify/lookup table, create a copy of table, write valid code to modify/lookup "
-                    + "the copy instead while retaining as many rows and columns as possible, and return the copy.\n"
-                    + "- Understand what happens when you call len() on a string or slice/call len() on a pandas object. ",
+                    + "- Understand what happens when you call len() on "
+                    + "a string or slice/call len() on a pandas object. "
+                    + "- if USER asks for an image, call 'open_image()', which "
+                    + "takes a string path to an image as input and returns the "
+                    + "image as a Python numpy array, and append it to result.\n"
+                    + "- if USER asks to modify/lookup table, create a copy of table, "
+                    + "modify/lookup the copy instead while retaining as many rows "
+                    + "and columns as possible, and append the copy to result. ",
                     temperature=0.3,
                     max_tokens=self.max_code_tokens,
                 )
