@@ -25,4 +25,6 @@ pytest-cov==3.0.0
 pytorch-lightning==1.6.3
 torchmetrics<0.8
 wandb==0.12.17
+
+# Added for Windows support
 wincertstore

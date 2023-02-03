@@ -22,7 +22,6 @@ dash
 odfpy
 onnxruntime==1.12.1
 openai==0.23.1
-# orjson
 pandas_profiling
 plotly
 python-dotenv
