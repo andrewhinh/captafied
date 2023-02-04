@@ -614,7 +614,9 @@ class Pipeline:
 
             # Check if USER wants to use a manually-defined function
             if request_types:  # If so
-                # Helper functions
+                # Helper variables/functions
+                feature_options = list(checklist_options.keys())
+
                 def slice_table(table):  # When USER wants to select certain rows and columns
                     code_to_exec = self.openai_query(
                         prompt=intro
