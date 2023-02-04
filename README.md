@@ -55,7 +55,7 @@ Some notes about submitting inputs to the pipeline:
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
-- When submitting manual function requests, only submitted text/images can be referenced, not those found in the table. For subsequent requests, only clarifications for which columns and rows to use are accepted due to the limitations of [OpenAI's API](#credit) prompt size.
+- When submitting manual function requests, only submitted text/images can be referenced, not those found in the table. In addition, only clarifications for which columns to use are accepted.
 - When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to {query}, you could submit a request like "What is the most similar product description to \query?".
 - When submitting text/image classification requests, explain which categorical column(s) in the data to use as labels.
 - When submitting clustering requests, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.

@@ -409,12 +409,11 @@ def manage_output(
 
 
 # Flag output
-def flag_output(request, pred, incorrect=None, offensive=None, other=None):
+def flag_output(request, incorrect=None, offensive=None, other=None):
     clicked = ["temp"]
     log = pd.DataFrame(
         {
             "Request": [request],
-            "Output": [pred],
             "Flag": clicked,
             "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
         }
@@ -756,8 +755,11 @@ def get_prediction(
                 image, error = convert_to_b64(None, str(image_file_example), None)
             if (not image_checks[0] and not image_checks[1]) and image_checks[3]:
                 image, error = convert_to_b64(None, None, str(image_url_example))
-            code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers, request_types, image)
-            return manage_output(code, tables, texts, graphs, images, report)
+            if not error:
+                code, tables, texts, graphs, images, report = pipeline.predict(
+                    df, requests, answers, request_types, image
+                )
+                return manage_output(code, tables, texts, graphs, images, report)
 
 
 # When download button is clicked
@@ -786,7 +788,6 @@ def download_table(n_clicks):
     State("after-table-file-uploaded", "children"),
     State("after-table-url-uploaded", "children"),
     State("request-uploaded", "value"),
-    State("pred_output", "children"),
     State("before-table-file-uploaded", "contents"),
     State("before-table-file-uploaded", "filename"),
     State("before-table-url-uploaded", "value"),
@@ -794,55 +795,39 @@ def download_table(n_clicks):
     Input("offensive-button-state", "n_clicks"),
     Input("other-button-state", "n_clicks"),
 )
-def flag_pred(show_file, show_url, request, pred, contents, filename, url, inc_clicked, off_clicked, oth_clicked):
-    if pred:
-        pred_dict = pred["props"]["children"]
-        pred_type_checks = [
-            pred_dict[0]["props"]["children"],
-            pred_dict[0]["props"]["figure"],
-            pred_dict[0]["props"]["src"],
-        ]
-        pred_dict = pred["props"]["children"]
-        if pred_type_checks[0]:  # For tables and texts
-            pred = [x["props"]["children"] for x in pred_dict]
-            pred = " ".join(pred)
-        elif pred_type_checks[1]:  # For graphs
-            pred = "Graph"
-        elif pred_type_checks[2]:  # For images
-            pred = "Image"
+def flag_pred(show_file, show_url, request, contents, filename, url, inc_clicked, off_clicked, oth_clicked):
+    changed_id = total_clicked_buttons()
+    buttons_clicked = [
+        flag_button_id(0) in changed_id,
+        flag_button_id(1) in changed_id,
+        flag_button_id(2) in changed_id,
+    ]
 
-        changed_id = total_clicked_buttons()
-        buttons_clicked = [
-            flag_button_id(0) in changed_id,
-            flag_button_id(1) in changed_id,
-            flag_button_id(2) in changed_id,
-        ]
+    table_checks = [
+        True in buttons_clicked,
+        contents and filename and request,
+        url and request,
+        show_file and request,
+        show_url and request,
+    ]
 
-        table_checks = [
-            True in buttons_clicked,
-            contents and filename and request,
-            url and request,
-            show_file and request,
-            show_url and request,
-        ]
+    df, error = None, None
+    if table_checks[0] and table_checks[1]:
+        df, error = convert_to_pd(contents[0], filename[0], None)
+    if table_checks[0] and table_checks[2]:
+        df, error = convert_to_pd(None, None, url)
+    if table_checks[0] and (not table_checks[1] and not table_checks[2]) and table_checks[3]:
+        df, error = convert_to_pd(None, str(table_file_example), None)
+    if table_checks[0] and (not table_checks[1] and not table_checks[2]) and table_checks[4]:
+        df, error = convert_to_pd(None, None, str(table_url_example))
 
-        df, error = None, None
-        if table_checks[0] and table_checks[1]:
-            df, error = convert_to_pd(contents[0], filename[0], None)
-        if table_checks[0] and table_checks[2]:
-            df, error = convert_to_pd(None, None, url)
-        if table_checks[0] and (not table_checks[1] and not table_checks[2]) and table_checks[3]:
-            df, error = convert_to_pd(None, str(table_file_example), None)
-        if table_checks[0] and (not table_checks[1] and not table_checks[2]) and table_checks[4]:
-            df, error = convert_to_pd(None, None, str(table_url_example))
-
-        check = (show_file or show_url) and df is not None and request and not error
-        if check and buttons_clicked[0]:
-            return flag_output(request, pred, True, None, None)
-        if check and buttons_clicked[1]:
-            return flag_output(request, pred, None, True, None)
-        if check and buttons_clicked[2]:
-            return flag_output(request, pred, None, None, True)
+    check = (show_file or show_url) and df is not None and request and not error
+    if check and buttons_clicked[0]:
+        return flag_output(request, True, None, None)
+    if check and buttons_clicked[1]:
+        return flag_output(request, None, True, None)
+    if check and buttons_clicked[2]:
+        return flag_output(request, None, None, True)
 
 
 # When report is generated and needs to be displayed

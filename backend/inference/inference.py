@@ -478,7 +478,7 @@ class Pipeline:
                 if similarity > highest_similarity:
                     highest_similarity = similarity
                     text = table.loc[row_idx, col]
-                    code = "result = [table.loc[" + str(row_idx) + ", " + str(col) + "]]"
+                    code = "result = [table.loc[" + str(row_idx) + ", '" + str(col) + "']]"
         return text, code
 
     def get_anomaly_rows(self, table, text_image_embeds, cont_cols):
@@ -520,6 +520,7 @@ class Pipeline:
             tables.append(table.iloc[idxs])
             str_idxs = [str(idx) for idx in idxs]
             code += "result.append(table.iloc[" + ", ".join(str_idxs) + "])\n"
+
         return tables, code
 
     def get_classification_label(self, table, cat_cols, search_embed, embeds):
@@ -533,7 +534,8 @@ class Pipeline:
                 if similarity > highest_similarity:
                     highest_similarity = similarity
                     labels = list(table.loc[row_idx, cat_cols])
-                    code = "result = [table.loc[" + str(row_idx) + ", " + "[[" + ", ".join(cat_cols) + "]]]]"
+                    str_cat_cols = ["'" + str(cat_col) + "'" for cat_col in cat_cols]
+                    code = "result = [table.loc[" + str(row_idx) + ", " + "[[" + ", ".join(str_cat_cols) + "]]]]"
         labels = [str(label) for label in labels]
         return ", ".join(labels), code
 
@@ -617,19 +619,17 @@ class Pipeline:
                 # Helper variables/functions
                 feature_options = list(checklist_options.keys())
 
-                def slice_table(table):  # When USER wants to select certain rows and columns
+                def slice_table(table):  # When USER wants to select certain columns
                     code_to_exec = self.openai_query(
                         prompt=intro
                         + "Write Python code that:\n"
                         + "1) imports any necessary libraries,\n"
-                        + "2) creates three empty lists named columns, rows, and result,\n"
+                        + "2) creates empty lists named columns and result,\n"
                         + "3) checks if table can be used to answer USER's request; if not, appends"
                         + "to result a Python string that explains to USER why not. If so,\n"
                         + "4) leaves result empty,\n"
-                        + "5) appends to columns all of table's columns that USER explicitly references, if any,\n"
-                        + "6) appends to rows all of table's row indexes as integers/lists that "
-                        + "USER explicitly references; if there are none, leaves rows empty. Finally,\n"
-                        + "7) NEVER does anything more under any circumstances.\n"
+                        + "5) appends to columns only table's columns that USER explicitly references, and\n"
+                        + "6) never does anything more under any circumstances.\n"
                         + "Some notes about the code:\n"
                         + "- Never write plain text, only Python code.\n"
                         + "- Never reference variables created in previous answers, "
@@ -643,42 +643,30 @@ class Pipeline:
                         temperature=0.3,
                         max_tokens=self.max_code_tokens,
                     )
-                    print(code_to_exec + "\n\n\n\n\n")
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
                     vars = {
                         "table": table,
                     }
-                    return_vars = ["columns", "rows", "result"]
+                    return_vars = ["columns", "result"]
                     answers = self.exec_code(vars, code_to_exec, return_vars)
 
                     # Check the answer
                     if answers:
                         columns = answers[0]
-                        rows = answers[1]
-                        result = answers[2]
+                        result = answers[1]
 
                         if result:
                             if type(result) == str:
                                 outputs[1] = result
-                                return None, None
+                                return None
                             else:
                                 raise ValueError()
                         else:
-                            if columns and rows:
-                                if type(columns) == list and type(rows) == list:
-                                    return rows, columns
-                                else:
-                                    raise ValueError()
-                            elif columns:
+                            if columns:
                                 if type(columns) == list:
-                                    return None, columns
-                                else:
-                                    raise ValueError()
-                            elif rows:
-                                if type(rows) == list:
-                                    return rows, None
+                                    return columns
                                 else:
                                     raise ValueError()
                             else:
@@ -707,7 +695,7 @@ class Pipeline:
                     return [x[i : i + len(table)] for i in range(0, len(x), len(table))]
 
                 def get_all(table):
-                    rows, columns = slice_table(table)
+                    columns = slice_table(table)
                     outputs[0] += "\n"
                     if columns:
                         if type(columns[0]) != str:
@@ -717,26 +705,12 @@ class Pipeline:
                                 except Exception:
                                     raise ValueError()
                             columns = list(itertools.chain.from_iterable(columns))
+                            outputs[0] += "import itertools\n"
                             outputs[0] += "columns = list(itertools.chain.from_iterable(columns))\n"
                         else:
                             pass
                     else:
                         columns = list(table.columns)
-                    if rows:
-                        if type(rows[0]) != int:
-                            if type(rows[0]) != list:
-                                try:
-                                    rows = [list(row) for row in rows]
-                                except Exception:
-                                    raise ValueError()
-                            rows = list(itertools.chain.from_iterable(rows))
-                            outputs[0] += "rows = list(itertools.chain.from_iterable(rows))\n"
-                        else:
-                            pass
-                        table = table.iloc[rows, :]
-                        outputs[0] += "table = table.iloc[rows, :]\n"
-                    else:
-                        pass
                     text_columns = None
                     image_columns = None
                     text_embeds = None
@@ -821,22 +795,22 @@ class Pipeline:
                     elif image_cols and not text_cols:
                         columns = image_cols
                         embeds = image_embeds
+                    elif cont_cols:
+                        columns = cont_cols
                     else:
                         pass
-                    columns += cont_cols
                     tables, code = self.get_anomaly_rows(
                         table,
                         embeds,
                         cont_cols,
                     )
                     if columns and tables:
+                        print_cols = []
                         for col, tab in zip(columns, tables):
                             if len(tab) > 0:
-                                outputs[0] += code
-                                outputs[1].extend(tables)
-                            else:
-                                columns.remove(col)
-                        outputs[2].append("The columns with anomalies are: " + ", ".join(columns) + ".")
+                                print_cols.append(col)
+                                outputs[1].append(tab)
+                        outputs[2].append("The columns with anomalies are: " + ", ".join(print_cols) + ".")
                     else:
                         outputs[2].append("No anomalies found.")
                 elif feature_options[4] in request_types:  # If USER wants to classify text
