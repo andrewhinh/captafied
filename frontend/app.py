@@ -742,25 +742,22 @@ def get_prediction(
             global output_tables
             global requests
             global requests_types
-            if (len(requests) < 2) or ((request != requests[-1])):
-                if (not requests_types) or (not request_types) or (request_types != requests_types[-1]):
-                    output_tables = []
-                    requests.append(request)
-                    requests_types.append(request_types)
-                    df = set_max_rows_cols(df)
-                    image = None
-                    if image_checks[0]:
-                        image, error = convert_to_b64(image_contents[0], image_filename[0], None)
-                    if image_checks[1]:
-                        image, error = convert_to_b64(None, None, image_url)
-                    if (not image_checks[0] and not image_checks[1]) and image_checks[2]:
-                        image, error = convert_to_b64(None, str(image_file_example), None)
-                    if (not image_checks[0] and not image_checks[1]) and image_checks[3]:
-                        image, error = convert_to_b64(None, None, str(image_url_example))
-                    code, tables, texts, graphs, images, report = pipeline.predict(
-                        df, requests, answers, request_types, image
-                    )
-                    return manage_output(code, tables, texts, graphs, images, report)
+            output_tables = []
+            requests.append(request)
+            if request_types:
+                requests_types.append(request_types)
+            df = set_max_rows_cols(df)
+            image = None
+            if image_checks[0]:
+                image, error = convert_to_b64(image_contents[0], image_filename[0], None)
+            if image_checks[1]:
+                image, error = convert_to_b64(None, None, image_url)
+            if (not image_checks[0] and not image_checks[1]) and image_checks[2]:
+                image, error = convert_to_b64(None, str(image_file_example), None)
+            if (not image_checks[0] and not image_checks[1]) and image_checks[3]:
+                image, error = convert_to_b64(None, None, str(image_url_example))
+            code, tables, texts, graphs, images, report = pipeline.predict(df, requests, answers, request_types, image)
+            return manage_output(code, tables, texts, graphs, images, report)
 
 
 # When download button is clicked
