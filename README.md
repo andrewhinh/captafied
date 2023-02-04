@@ -35,7 +35,7 @@ We provide the user with check-boxes to indicate if they want to use manually-im
   
 Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
 
-If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary (it is assumed that for all cases besides anomaly detection, images and/or text are being submitted/referenced). Then, we call the corresponding manually-implemented function to perform the task.
+If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task.
 
 Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
@@ -55,7 +55,7 @@ Some notes about submitting inputs to the pipeline:
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
-- When submitting manual function requests, only submitted text/images can be referenced, not those found in the table. In addition, only clarifications for which columns to use are accepted.
+- When submitting manual function requests, only submitted text/images can be referenced, not those found in the table. In addition, only clarifications for which columns to use are accepted. Lastly, for all functions besides anomaly detection, images and/or text must be submitted.
 - When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to {query}, you could submit a request like "What is the most similar product description to \query?".
 - When submitting text/image classification requests, explain which categorical column(s) in the data to use as labels.
 - When submitting clustering requests, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
