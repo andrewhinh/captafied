@@ -18,6 +18,7 @@ ENV PYTHONPATH ".:"
 COPY backend/inference/ ./backend/inference
 COPY frontend/ ./frontend
 COPY utils/ ./utils
+COPY .env .env
 COPY ./.aws/config ./.aws/config
 
 # Use docker run -it --rm -p$PORT:11700 to run the web server and listen on host $PORT
