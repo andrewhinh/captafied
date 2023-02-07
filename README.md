@@ -99,13 +99,13 @@ To setup the production server for the website, we:
 1. Create a Docker image for the frontend and push to AWS ECR:
 
     ```bash
-    python utils/build_docker.py --dockerfile_path frontend/Dockerfile
+    python3 utils/build_docker.py --dockerfile_path frontend/Dockerfile
     ```
 
 2. Pull the frontend Docker image on an AWS EC2 instance:
 
     ```bash
-    python utils/build_docker.py --pull_image
+    python3 utils/build_docker.py --pull_image
     ```
 
 3. Run the Docker image:
@@ -185,7 +185,7 @@ The repo is separated into main folders that each describe a part of the ML-proj
 - To start the app locally:
 
 ```bash
-python frontend/app.py
+python3 frontend/app.py
 ```
 
 ### Linting
