@@ -15,8 +15,7 @@ def _make_parser():
     )
     parser.add_argument(
         "--pull_image",
-        type=bool,
-        default=False,
+        action="store_true",
         help="Whether to pull the image from the AWS ECR repo",
     )
     parser.add_argument(
@@ -27,8 +26,7 @@ def _make_parser():
     )
     parser.add_argument(
         "--update_lambda_func",
-        type=bool,
-        default=False,
+        action="store_true",
         help="Whether to update the AWS Lambda function",
     )
     return parser
