@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for investing your time in contributing to my project! Any contribution you make will be reflected on [docs.github.com](https://docs.github.com/en) :sparkles:. 
+Thank you for investing your time in contributing to my project! Any contribution you make will be reflected on [docs.github.com](https://docs.github.com/en) :sparkles:.
 
 In this guide you will get an overview of the contribution workflow from opening an issue, creating a PR, reviewing, and merging the PR.
 
@@ -13,18 +13,17 @@ To get an overview of the project, read the [README](README.md). Here are some r
 - [GitHub flow](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Collaborating with pull requests](https://docs.github.com/en/github/collaborating-with-pull-requests)
 
-
 ## Getting started
 
 ### Notion
 
-Head [here](https://sleet-clipper-232.notion.site/Team-Home-57764392a5a54aacb2edad609892c20b) to see the current set of features being worked on. To gain edit access, contact Andrew Hinh @ ajhinh@gmail.com. 
+Head [here](https://sleet-clipper-232.notion.site/Team-Home-57764392a5a54aacb2edad609892c20b) to see the current set of features being worked on. To gain edit access, contact Andrew Hinh @ ajhinh@gmail.com.
 
 ### Issues
 
 #### Create a new issue
 
-If you spot a problem with the docs, [search if an issue already exists](https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-issues-and-pull-requests#search-by-the-title-body-or-comments). If a related issue doesn't exist, you can open a new issue using a relevant [issue form](https://github.com/andrewhinh/captafied/issues/new). 
+If you spot a problem with the docs, [search if an issue already exists](https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-issues-and-pull-requests#search-by-the-title-body-or-comments). If a related issue doesn't exist, you can open a new issue using a relevant [issue form](https://github.com/andrewhinh/captafied/issues/new).
 
 #### Solve an issue
 
@@ -34,7 +33,7 @@ Scan through our [existing issues](https://github.com/andrewhinh/captafied/issue
 
 #### Make changes in the UI
 
-Click **Make a contribution** at the bottom of any docs page to make small changes such as a typo, sentence fix, or a broken link. This takes you to the `.md` file where you can make your changes and [create a pull request](#pull-request) for a review. 
+Click **Make a contribution** at the bottom of any docs page to make small changes such as a typo, sentence fix, or a broken link. This takes you to the `.md` file where you can make your changes and [create a pull request](#pull-request) for a review.
 
 #### Make changes in a codespace
 
@@ -43,12 +42,13 @@ For more information about using a codespace for working on GitHub documentation
 #### Make changes locally
 
 1. Fork the repository.
-- Using GitHub Desktop:
-  - [Getting started with GitHub Desktop](https://docs.github.com/en/desktop/installing-and-configuring-github-desktop/getting-started-with-github-desktop) will guide you through setting up Desktop.
-  - Once Desktop is set up, you can use it to [fork the repo](https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/cloning-and-forking-repositories-from-github-desktop)!
 
-- Using the command line:
-  - [Fork the repo](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo#fork-an-example-repository) so that you can make your changes without affecting the original project until you're ready to merge them.
+    - Using GitHub Desktop:
+      - [Getting started with GitHub Desktop](https://docs.github.com/en/desktop/installing-and-configuring-github-desktop/getting-started-with-github-desktop) will guide you through setting up Desktop.
+      - Once Desktop is set up, you can use it to [fork the repo](https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/cloning-and-forking-repositories-from-github-desktop)!
+
+    - Using the command line:
+      - [Fork the repo](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo#fork-an-example-repository) so that you can make your changes without affecting the original project until you're ready to merge them.
 
 2. Create a working branch and start with your changes!
 
@@ -59,7 +59,8 @@ Commit the changes once you are happy with them. Don't forget to self-review to 
 ### Pull Request
 
 When you're finished with the changes, create a pull request, also known as a PR.
-- Fill the "Ready for review" template so that we can review your PR. This template helps reviewers understand your changes as well as the purpose of your pull request. 
+
+- Fill the "Ready for review" template so that we can review your PR. This template helps reviewers understand your changes as well as the purpose of your pull request.
 - Don't forget to [link PR to issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) if you are solving one.
 - Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge.
 Once you submit your PR, a Docs team member will review your proposal. We may ask questions or request additional information.
@@ -67,6 +68,6 @@ Once you submit your PR, a Docs team member will review your proposal. We may as
 - As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
 - If you run into any merge issues, checkout this [git tutorial](https://github.com/skills/resolve-merge-conflicts) to help you resolve merge conflicts and other issues.
 
-### Your PR is merged!
+### Your PR is merged
 
-Congratulations :tada::tada: Once your PR is merged, your contributions will be publicly visible on the [GitHub docs](https://docs.github.com/en). 
+Congratulations :tada::tada: Once your PR is merged, your contributions will be publicly visible on the [GitHub docs](https://docs.github.com/en).
