@@ -94,19 +94,31 @@ Some examples of requests and questions that the pipeline can handle (with respe
 
 ## Production
 
-To setup the production server for the website, we simply:
+To setup the production server for the website, we:
 
-1. Setup the app with an AWS Lambda backend on our localhost:
+1. Create a Docker image for the frontend and push to AWS ECR:
 
-```bash
-python3 frontend/app.py --model_url=AWS_LAMBDA_URL
-```
+    ```bash
+    python utils/build_docker.py --dockerfile_path frontend/Dockerfile
+    ```
 
-2. Serve the localhost app over a permanent localtunnel link:
+2. Pull the frontend Docker image on an AWS EC2 instance:
 
-```bash
-. ./frontend/lt.sh
-```
+    ```bash
+    python utils/build_docker.py --pull_image
+    ```
+
+3. Run the Docker image:
+
+    ```bash
+    . ./frontend/run_app.sh
+    ```
+
+4. Serve the app over a permanent ngrok tunnel:
+
+    ```bash
+    . ./frontend/serve_ngrok.sh
+    ```
 
 ## Development
 
@@ -118,35 +130,36 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
 
 1. Set up the conda environment locally, referring to the instructions of the commented links as needed:
 
-```bash
-cd captafied
-# Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
-    # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
-    # choco install make
-make conda-update 
-conda activate captafied
-make pip-tools
-export PYTHONPATH=.
-echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
-# If you're using a newer NVIDIA RTX GPU: 
-    # pip3 uninstall torch torchvision torchaudio -y
-    # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
-```
+    ```bash
+    cd captafied
+    # Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
+        # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
+        # choco install make
+    make conda-update 
+    conda activate captafied
+    make pip-tools
+    export PYTHONPATH=.
+    echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
+    # If you're using a newer NVIDIA RTX GPU: 
+        # pip3 uninstall torch torchvision torchaudio -y
+        # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
+    ```
 
 2. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
-3. Populate a `.env` file with your OpenAI API key in the format of `.env.template`, and reactivate the environment.
-4. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+3. Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
+4. Populate a `.env` file with your OpenAI API key and ngrok authtoken in the format of `.env.template`, and reactivate the environment.
+5. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 
-```bash
-aws configure
-```
+    ```bash
+    aws configure
+    ```
 
-5. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
+6. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
 
-```bash
-wandb login
-python ./backend/inference/artifacts/stage_model.py --fetch
-```
+    ```bash
+    wandb login
+    python ./backend/inference/artifacts/stage_model.py --fetch
+    ```
 
 If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
 
