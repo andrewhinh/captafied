@@ -199,17 +199,24 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 - To start the app locally:
 
-```bash
-python3 frontend/app.py
-```
+    ```bash
+    python3 frontend/app.py
+    ```
 
-### Linting
+
+### Code Style
+
+- To run pre-commit hooks:
+
+    ```bash
+    pre-commit run --all-files
+    ```
 
 - To lint the code (after staging your changes):
 
-```bash
-make lint
-```
+    ```bash
+    make lint
+    ```
 
 ## Credit
 
