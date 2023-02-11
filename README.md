@@ -146,9 +146,9 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
     ```
 
 2. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
-3. Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
-4. Populate a `.env` file with your OpenAI API key and ngrok authtoken in the format of `.env.template`, and reactivate the environment.
-5. Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+3. (Optional) Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
+4. Populate a `.env` file with your keys/authtokens in the format of `.env.template`, and reactivate the environment.
+5. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 
     ```bash
     aws configure
