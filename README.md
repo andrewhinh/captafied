@@ -128,33 +128,48 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
 
 ### Setup
 
-1. Set up the conda environment locally, referring to the instructions of the commented links as needed:
+1. Install conda if necessary:
+
+    ```bash
+    # Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
+    # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
+    # choco install make
+    ```
+
+2. Create the conda environment locally:
 
     ```bash
     cd captafied
-    # Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
-        # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
-        # choco install make
-    make conda-update 
+    make conda-update
     conda activate captafied
     make pip-tools
     export PYTHONPATH=.
     echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
-    # If you're using a newer NVIDIA RTX GPU: 
-        # pip3 uninstall torch torchvision torchaudio -y
-        # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
     ```
 
-2. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
-3. (Optional) Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
-4. Populate a `.env` file with your keys/authtokens in the format of `.env.template`, and reactivate the environment.
-5. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+3. Reinstall PyTorch if using a newer NVIDIA RTX GPU: 
+
+    ```bash
+    pip3 uninstall torch torchvision torchaudio -y
+    # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
+    ```
+    
+4. Install pre-commit:
+
+    ```bash
+    pre-commit install
+    ```
+
+5. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
+6. (Optional) Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
+7. Populate a `.env` file with your keys/authtokens in the format of `.env.template`, and reactivate the environment.
+8. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 
     ```bash
     aws configure
     ```
 
-6. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
+9. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
 
     ```bash
     wandb login
