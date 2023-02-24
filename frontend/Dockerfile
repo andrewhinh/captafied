@@ -23,4 +23,4 @@ COPY ./.aws/config ./.aws/config
 
 # Use docker run -it --rm -p$PORT:11700 to run the web server and listen on host $PORT
 #   add --help top see help for the Python script
-ENTRYPOINT ["python3", "frontend/app.py", "--port", "11701"]
+ENTRYPOINT ["python3", "frontend/app.py"]
