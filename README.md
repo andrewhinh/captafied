@@ -15,7 +15,7 @@
     - [Setup](#setup)
     - [Repository Structure](#repository-structure)
     - [Testing](#testing)
-    - [Linting](#linting)
+    - [Code Style](#code-style)
   - [Credit](#credit)
 
 ## Description
@@ -32,7 +32,7 @@ We provide the user with check-boxes to indicate if they want to use manually-im
 - Anomaly detection (where rows that have outliers are identified)
 - Text classification (where text is classified by their most similar label)
 - Image classification (where images are classified by their most similar label)
-  
+
 Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
 
 If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task.
@@ -147,13 +147,13 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
     echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
     ```
 
-3. Reinstall PyTorch if using a newer NVIDIA RTX GPU: 
+3. Reinstall PyTorch if using a newer NVIDIA RTX GPU:
 
     ```bash
     pip3 uninstall torch torchvision torchaudio -y
     # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
     ```
-    
+
 4. Install pre-commit:
 
     ```bash
@@ -184,7 +184,7 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 ```bash
 .
-├── backend   
+├── backend
     ├── deploy      # the AWS Lambda backend setup and continuous deployment code.
         ├── api_serverless  # the backend handler code using AWS Lambda.
     ├── inference   # the inference code.
@@ -202,7 +202,6 @@ The repo is separated into main folders that each describe a part of the ML-proj
     ```bash
     python3 frontend/app.py
     ```
-
 
 ### Code Style
 
