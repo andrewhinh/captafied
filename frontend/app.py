@@ -16,6 +16,7 @@ from dash.dependencies import Input, Output, State
 import flask
 from flask import Flask
 import pandas as pd
+import requests as req
 from utils.util import checklist_options, encode_b64_image, open_image
 import validators
 from waitress import serve
@@ -872,7 +873,7 @@ class PredictorBackend:
             }
         )
 
-        response = requests.post(self.url, data=payload, headers=headers)
+        response = req.post(self.url, data=payload, headers=headers)
         pred = response.json()["pred"]
 
         return pred
