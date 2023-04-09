@@ -16,7 +16,6 @@ from onnxruntime import InferenceSession
 import openai
 from openai.embeddings_utils import cosine_similarity
 import pandas as pd
-from pandas_profiling import ProfileReport
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
@@ -30,6 +29,7 @@ from transformers import CLIPProcessor
 import umap
 from utils.util import checklist_options, encode_b64_image, open_image, read_b64_image
 import validators
+from ydata_profiling import ProfileReport
 
 
 # Setup
@@ -554,8 +554,11 @@ class Pipeline:
 
         # For Dash
         report_path = asset_path / "report.html"
-        full_path = os.path.join(os.path.dirname(__file__), str(write_path / report_path))
-        report.to_file(full_path)
+        full_path = write_path / report_path
+        # report.to_file(full_path) doesn't work in AWS Lambda
+        with open(full_path, "w") as output_file:
+            data = report.to_html()
+            output_file.write(data, encoding="utf-8")
         s3.upload_file(full_path, write_bucket)
         return [message, "/" + str(report_path)]  # Dash needs a relative path
 
