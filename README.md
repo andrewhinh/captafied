@@ -96,25 +96,31 @@ Some examples of requests and questions that the pipeline can handle (with respe
 
 To setup the production server for the website, we:
 
-1. Create a Docker image for the frontend and push to AWS ECR:
+1. Create an AWS Lambda function for the backend:
+
+    ```bash
+    python3 utils/build_docker.py --ecr_repo_name captafied-backend --update_lambda_func
+    ```
+    
+2. Create a Docker image for the frontend and push to AWS ECR:
 
     ```bash
     python3 utils/build_docker.py --dockerfile_path frontend/Dockerfile
     ```
 
-2. Pull the frontend Docker image on an AWS EC2 instance:
+3. Pull the frontend Docker image on an AWS EC2 instance:
 
     ```bash
     python3 utils/build_docker.py --pull_image
     ```
 
-3. Run the Docker image:
+4. Run the Docker image:
 
     ```bash
     . ./frontend/run_app.sh
     ```
 
-4. Serve the app over a permanent ngrok tunnel:
+5. Serve the app over a permanent ngrok tunnel:
 
     ```bash
     . ./frontend/serve_ngrok.sh
