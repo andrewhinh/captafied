@@ -13,6 +13,7 @@ RUN pip install -r requirements.txt
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 COPY backend/inference/ ./inference
 COPY backend/deploy/api_serverless/api.py ./api.py
+COPY utils/ ./utils
 COPY .env .env
 
 CMD ["api.handler"]
