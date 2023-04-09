@@ -101,7 +101,7 @@ To setup the production server for the website, we:
     ```bash
     python3 utils/build_docker.py --ecr_repo_name captafied-backend --update_lambda_func
     ```
-    
+
 2. Create a Docker image for the frontend and push to AWS ECR:
 
     ```bash
