@@ -554,7 +554,7 @@ class Pipeline:
 
         # For Dash
         report_path = asset_path / "report.html"
-        full_path = write_path / report_path
+        full_path = os.path.join(os.path.dirname(__file__), str(write_path / report_path))
         report.to_file(full_path)
         s3.upload_file(full_path, write_bucket)
         return [message, "/" + str(report_path)]  # Dash needs a relative path
