@@ -9,6 +9,8 @@ RUN pip install -r requirements.txt
 
 # Copy only the relevant directories and files
 #   note that we use a .dockerignore file to avoid copying logs etc.
+#   and UMAP cache files are stored in /tmp/numba_cache
+ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 COPY backend/inference/ ./inference
 COPY backend/deploy/api_serverless/api.py ./api.py
 COPY .env .env
