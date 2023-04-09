@@ -864,7 +864,7 @@ class PredictorBackend:
         headers = {"Content-type": "application/json"}
         payload = json.dumps(
             {
-                "table": df,
+                "table": df.to_dict(),
                 "requests": requests,
                 "prev_answers": answers,
                 "request_types": request_types,
