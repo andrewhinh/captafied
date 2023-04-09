@@ -1,7 +1,7 @@
 """AWS Lambda function serving inference predictions."""
 import json
 
-from PIL import ImageStat
+import pandas as pd
 
 from ..inference.inference import Pipeline
 
@@ -22,11 +22,7 @@ def handler(event, _context):
     image = _load_image(event)
     print("INFO input loaded")
     print("INFO starting inference")
-    pred = model.predict(table, 
-                         requests,
-                         prev_answers,
-                         request_types,
-                         image)
+    pred = model.predict(table, requests, prev_answers, request_types, image)
     print("INFO inference complete")
     print("METRIC num_pred_answers {}".format(sum(output is not None for output in pred)))
     print("INFO pred {}".format(pred))
@@ -38,8 +34,8 @@ def _from_string(event):
         return json.loads(event)
     else:
         return event
-    
-    
+
+
 def get_event(event):
     event = _from_string(event)
     return _from_string(event.get("body", event))
@@ -49,42 +45,42 @@ def _load_table(event):
     event = get_event(event)
     table = event.get("table")
     if table is not None:
-        print("INFO reading table from event"))
-        return table
+        print("INFO reading table from event")
+        return pd.DataFrame(table)
     else:
         return None
-        
-    
+
+
 def _load_requests(event):
     event = get_event(event)
     requests = event.get("requests")
     if requests is not None:
-        print("INFO reading requests from event"))
+        print("INFO reading requests from event")
         return requests
     else:
         return None
-    
+
 
 def _load_prev_answers(event):
     event = get_event(event)
     prev_answers = event.get("prev_answers")
     if prev_answers is not None:
-        print("INFO reading prev_answers from event"))
+        print("INFO reading prev_answers from event")
         return prev_answers
     else:
         return None
-    
-    
+
+
 def _load_request_types(event):
     event = get_event(event)
     request_types = event.get("request_types")
     if request_types is not None:
-        print("INFO reading request_types from event"))
+        print("INFO reading request_types from event")
         return request_types
     else:
         return None
-    
-    
+
+
 def _load_image(event):
     event = get_event(event)
     image = event.get("image")
