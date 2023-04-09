@@ -23,7 +23,7 @@ odfpy
 onnxruntime==1.12.1
 openai==0.23.1
 pandas
-pandas_profiling
+ydata-profiling
 plotly
 python-dotenv
 scikit-learn
