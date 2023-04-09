@@ -10,6 +10,9 @@ from pathlib import Path
 import shutil
 
 from backend.inference.inference import Pipeline
+import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
@@ -86,6 +89,12 @@ download_path = asset_path / "tables"
 if not os.path.exists(download_path):
     os.makedirs(download_path)
 zip_name = "temp"
+
+# S3 Setup
+write_bucket = "captafied-ydata-report"
+report_name = "report.html"
+s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+s3.download_file(write_bucket, report_name, asset_path / report_name)
 
 # Flagging csv file
 flag_csv_path = parent_path / "flagged" / "log.csv"

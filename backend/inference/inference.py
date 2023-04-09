@@ -7,6 +7,9 @@ from pathlib import Path
 import traceback
 from typing import List, Optional
 
+import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 from dotenv import load_dotenv
 import numpy as np
 from onnxruntime import InferenceSession
@@ -50,8 +53,12 @@ clip_processor = artifact_path / "clip-vit-base-patch16"
 clip_onnx = onnx_path / "clip.onnx"
 
 # File paths
-frontend_path = parent_path / ".." / ".." / "frontend"
+write_bucket = "captafied-ydata-report"
+write_path = Path("/tmp")
 asset_path = Path("assets")
+
+# S3 setup
+s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
 
 # Classes
@@ -547,9 +554,10 @@ class Pipeline:
 
         # For Dash
         report_path = asset_path / "report.html"
-        full_report_path = frontend_path / report_path
-        report.to_file(full_report_path)
-        return [message, "/" + str(report_path)]
+        full_path = write_path / report_path
+        report.to_file(full_path)
+        s3.upload_file(full_path, write_bucket)
+        return [message, "/" + str(report_path)]  # Dash needs a relative path
 
     def predict(
         self,
