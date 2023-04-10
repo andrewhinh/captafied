@@ -558,7 +558,7 @@ class Pipeline:
         with tempfile.NamedTemporaryFile() as tmp:
             local_file_path = tmp.name
             data = report.to_html()
-            tmp.write(data, encoding="utf-8")
+            tmp.write(data)
         s3.upload_file(local_file_path, write_bucket)
         return [message, "/" + str(report_path)]  # Dash needs a relative path
 
