@@ -554,11 +554,10 @@ class Pipeline:
             report = ProfileReport(table, title="Pandas Profiling Report", explorative=True)
 
         # For Dash
-        with tempfile.NamedTemporaryFile(mode="wt") as tmp:
-            local_file_path = tmp.name
+        with tempfile.NamedTemporaryFile(mode="wt", suffix=".html") as tmp:
             data = report.to_html()
             tmp.write(data)
-        s3.upload_file(local_file_path, write_bucket, report_name)
+            s3.upload_file(tmp.name, write_bucket, report_name)
         return [message, "/" + str(asset_path / report_name)]  # Dash needs a relative path
 
     def predict(
