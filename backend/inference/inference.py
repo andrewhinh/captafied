@@ -555,10 +555,10 @@ class Pipeline:
         # For Dash
         report_path = asset_path / "report.html"
         # report.to_file(full_path) doesn't work in AWS Lambda
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(mode="wt") as tmp:
             local_file_path = tmp.name
             data = report.to_html()
-            tmp.write_text(data)
+            tmp.write(data)
         s3.upload_file(local_file_path, write_bucket)
         return [message, "/" + str(report_path)]  # Dash needs a relative path
 
