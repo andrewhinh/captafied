@@ -24,7 +24,7 @@ def handler(event, _context):
     print("INFO starting inference")
     pred = model.predict(table, requests, prev_answers, request_types, image)
     print("INFO inference complete")
-    print("METRIC num_pred_answers {}".format(sum(output is not None for output in pred)))
+    print("METRIC num_pred_answers {}".format(sum(len(output) > 0 for output in pred)))
     print("INFO pred {}".format(pred))
     return {"pred": pred}
 
