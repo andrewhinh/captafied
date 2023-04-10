@@ -4,6 +4,7 @@ import itertools
 import os
 from os import path
 from pathlib import Path
+import tempfile
 import traceback
 from typing import List, Optional
 
@@ -54,7 +55,6 @@ clip_onnx = onnx_path / "clip.onnx"
 
 # File paths
 write_bucket = "captafied-ydata-report"
-write_path = Path("/tmp")
 asset_path = Path("assets")
 
 # S3 setup
@@ -554,12 +554,12 @@ class Pipeline:
 
         # For Dash
         report_path = asset_path / "report.html"
-        full_path = write_path / report_path
         # report.to_file(full_path) doesn't work in AWS Lambda
-        with open(full_path, "w") as output_file:
+        with tempfile.NamedTemporaryFile() as tmp:
+            local_file_path = tmp.name
             data = report.to_html()
-            output_file.write(data, encoding="utf-8")
-        s3.upload_file(full_path, write_bucket)
+            tmp.write(data)
+        s3.upload_file(local_file_path, write_bucket)
         return [message, "/" + str(report_path)]  # Dash needs a relative path
 
     def predict(
