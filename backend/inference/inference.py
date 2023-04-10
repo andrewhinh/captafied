@@ -56,6 +56,7 @@ clip_onnx = onnx_path / "clip.onnx"
 # File paths
 write_bucket = "captafied-ydata-report"
 asset_path = Path("assets")
+report_name = "report.html"
 
 # S3 setup
 s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
@@ -553,14 +554,12 @@ class Pipeline:
             report = ProfileReport(table, title="Pandas Profiling Report", explorative=True)
 
         # For Dash
-        report_path = asset_path / "report.html"
-        # report.to_file(full_path) doesn't work in AWS Lambda
         with tempfile.NamedTemporaryFile(mode="wt") as tmp:
             local_file_path = tmp.name
             data = report.to_html()
             tmp.write(data)
-        s3.upload_file(local_file_path, write_bucket)
-        return [message, "/" + str(report_path)]  # Dash needs a relative path
+        s3.upload_file(local_file_path, write_bucket, report_name)
+        return [message, "/" + str(asset_path / report_name)]  # Dash needs a relative path
 
     def predict(
         self,
