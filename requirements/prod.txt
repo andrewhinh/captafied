@@ -28,9 +28,11 @@ backoff==1.10.0
     # via analytics-python
 bcrypt==3.2.2
     # via paramiko
-boto3==1.24.40
-    # via smart-open
-botocore==1.27.40
+boto3==1.26.118
+    # via
+    #   -r requirements/prod.in
+    #   smart-open
+botocore==1.29.118
     # via
     #   boto3
     #   s3transfer
