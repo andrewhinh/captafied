@@ -26,6 +26,7 @@ import requests as rq
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from tenacity import retry, stop_after_attempt, wait_random_exponential
+import tiktoken
 from transformers import CLIPProcessor
 import umap
 from utils.util import checklist_options, encode_b64_image, open_image, read_b64_image
@@ -39,6 +40,11 @@ pio.templates.default = "plotly_dark"
 
 # Loading env variables
 load_dotenv()
+
+# Get number of tokens in text
+tokenizer = tiktoken.get_encoding(
+    "cl100k_base"
+)  # Load the cl100k_base tokenizer which is designed to work with the ada-002 model (engine)
 
 # OpenAI API setup
 openai.organization = "org-SenjN6vfnkIealcfn6t9JOJj"
@@ -77,12 +83,10 @@ class Pipeline:
         self.clip_session = InferenceSession(str(clip_onnx))
         self.clip_processor = CLIPProcessor.from_pretrained(clip_processor)
 
-        # OpenAI Engine
-        self.engine = "text-davinci-003"
-        self.max_prompt_tokens = 4000
-        self.max_manual_tokens = 50
-        self.max_code_tokens = 350
-        self.max_prev = int(self.max_prompt_tokens / (self.max_code_tokens + self.max_manual_tokens)) - 2  # buffer
+        # OpenAI params
+        self.model = "gpt-3.5-turbo"
+        self.temperature = 0.3
+        self.max_tokens = 4096 * 0.25  # 1/4 of max tokens
 
         # OpenAI Context
         self.data_types = ["text string", "image path/URL", "categorical", "continuous"]
@@ -108,10 +112,15 @@ class Pipeline:
         else:
             return False
 
+    def get_num_tokens(self, text):
+        return len(tokenizer.encode(text, disallowed_special=()))  # disallowed_special=() removes the special tokens
+
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(5))
     def openai_query(self, **kwargs):
-        response = openai.Completion.create(
-            engine=self.engine,
+        response = openai.ChatCompletion.create(
+            model=self.model,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
             **kwargs,
         )
         return response["choices"][0]["text"].strip()
@@ -598,59 +607,88 @@ class Pipeline:
                 else:  # For categorical data
                     column_data[column] = self.data_types[2]
 
-            # Introduction for every OpenAI prompt
-            str_info = ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
-            intro = str(
-                "You are given a Python pandas DataFrame named table. "
-                + "You are also given a comma-separated list that contains "
-                + "pairs of table's columns and corresponding data types: "
-                + str_info
-                + "\n"
-                + "Regarding table, a user named USER "
-            )
+            # OpenAI prompt construction
+            intro_message = {
+                "role": "system",
+                "content": str(
+                    "You are given a Python pandas DataFrame named table. "
+                    + "You are also given a comma-separated list that contains "
+                    + "pairs of table's columns and corresponding data types: "
+                    + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
+                ),
+            }
             if prev_answers:  # If there are previous requests
-                if len(prev_answers) > self.max_prev:  # If there are too many previous requests for OpenAI
+                if len(prev_answers) > self.max_prev:  # Check if there are too many previous requests for OpenAI
                     requests = requests[-self.max_prev :]
                     prev_answers = prev_answers[-self.max_prev :]
-                intro += "previously asked: " + requests[0] + "\n"
-                for idx, (request, prev_answer) in enumerate(zip(requests[1:], prev_answers)):
-                    intro += "You answered: " + prev_answer + "\nThen, USER "
-                    if idx < len(requests) - 1:  # If there are more requests
-                        intro += "asked: " + request + "\n"
-                    else:  # If this is the most recent one
-                        intro += "now asks: " + request + "\n"
-                intro += "For future instructions, consider every request and answer given.\n"
-            else:  # If there are no previous requests
-                intro += "asks: " + requests[0] + "\n"
+            user_messages = [{"role": "user", "content": request} for request in requests]
+            assistant_messages = [{"role": "assistant", "content": prev_answer} for prev_answer in prev_answers]
+            instruction_message = {"role": "system", "content": None}
+            if request_types:  # If manually-defined function selected
+                instruction_message["content"] = str(
+                    "Write Python code that:\n"
+                    + "1) imports any necessary libraries,\n"
+                    + "2) creates empty lists named columns and result,\n"
+                    + "3) checks if table can be used to answer USER's request; if not, appends"
+                    + "to result a Python string that explains to USER why not. If so,\n"
+                    + "4) leaves result empty,\n"
+                    + "5) appends to columns only table's columns that USER explicitly references, and\n"
+                    + "6) never does anything more under any circumstances.\n"
+                    + "Some notes about the code:\n"
+                    + "- Never write plain text, only Python code.\n"
+                    + "- Never reference variables created in previous answers, "
+                    + "since they do not persist after an answer is made.\n"
+                    + "- Never create any functions or classes.\n"
+                    + "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
+                    + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
+                    + "description clusters.' regarding table, the column 'Repos' should be "
+                    + "ignored because it posseses the column 'Description', and only the column 'Description' "
+                    + "should be used. "
+                )
+            else:
+                instruction_message["content"] = str(
+                    "Write Python code that:\n"
+                    + "1) imports any necessary libraries,\n"
+                    + "2) creates an empty list named result,\n"
+                    + "3) checks if table can be used to answer USER's request; if not, appends"
+                    + "to result a Python string that explains to USER why not. If so,\n"
+                    + "4) creates only pandas DataFrames/Series, Python f-strings, and/or "
+                    + "Plotly Graph Objects as necessary that answer USER,\n"
+                    + "5) appends to result the answer(s),\n"
+                    + "6) and NEVER returns result.\n"
+                    + "Some notes about the code:\n"
+                    + "- Never write plain text, only Python code.\n"
+                    + "- Never reference variables created in previous answers, "
+                    + "since they do not persist after an answer is made.\n"
+                    + "- Never create any functions or classes.\n"
+                    + "- Understand what happens when you call len() on "
+                    + "a string or slice/call len() on a pandas object. "
+                    + "- if USER asks for an image, call 'open_image()', which "
+                    + "takes a string path to an image as input and returns the "
+                    + "image as a Python numpy array, and append it to result.\n"
+                    + "- if USER asks to modify/lookup table, create a copy of table, "
+                    + "modify/lookup the copy instead while retaining as many rows "
+                    + "and columns as possible, and append the copy to result. "
+                )
+            messages = [intro_message, user_messages[0]]
+            if len(user_messages) > 1:
+                messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
+            messages.extend(instruction_message)
+            oldest_user_message_idx, oldest_assistant_message_idx = 2  # Indices of oldest user and assistant messages
+            while (
+                self.get_num_tokens([message["content"] for message in messages]) > self.max_tokens
+            ):  # Check if prompt is too long
+                messages.pop(oldest_user_message_idx)
+                messages.pop(oldest_assistant_message_idx)
 
-            # Check if USER wants to use a manually-defined function
-            if request_types:  # If so
+            # Main logic
+            if request_types:  # If manually-defined function selected
                 # Helper variables/functions
                 feature_options = list(checklist_options.keys())
 
                 def slice_table(table):  # When USER wants to select certain columns
                     code_to_exec = self.openai_query(
-                        prompt=intro
-                        + "Write Python code that:\n"
-                        + "1) imports any necessary libraries,\n"
-                        + "2) creates empty lists named columns and result,\n"
-                        + "3) checks if table can be used to answer USER's request; if not, appends"
-                        + "to result a Python string that explains to USER why not. If so,\n"
-                        + "4) leaves result empty,\n"
-                        + "5) appends to columns only table's columns that USER explicitly references, and\n"
-                        + "6) never does anything more under any circumstances.\n"
-                        + "Some notes about the code:\n"
-                        + "- Never write plain text, only Python code.\n"
-                        + "- Never reference variables created in previous answers, "
-                        + "since they do not persist after an answer is made.\n"
-                        + "- Never create any functions or classes.\n"
-                        + "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
-                        + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
-                        + "description clusters.' regarding table, the column 'Repos' should be "
-                        + "ignored because it posseses the column 'Description', and only the column 'Description' "
-                        + "should be used. ",
-                        temperature=0.3,
-                        max_tokens=self.max_code_tokens,
+                        messages=messages,
                     )
 
                     # Add the code to execute to the list of outputs
@@ -839,34 +877,10 @@ class Pipeline:
                     raise ValueError()
 
                 print(outputs[0] + "\n\n\n\n\n")
-            else:  # If not
+            else:
                 # Getting the code to execute
                 code_to_exec = self.openai_query(
-                    prompt=intro
-                    + "Write Python code that:\n"
-                    + "1) imports any necessary libraries,\n"
-                    + "2) creates an empty list named result,\n"
-                    + "3) checks if table can be used to answer USER's request; if not, appends"
-                    + "to result a Python string that explains to USER why not. If so,\n"
-                    + "4) creates only pandas DataFrames/Series, Python f-strings, and/or "
-                    + "Plotly Graph Objects as necessary that answer USER,\n"
-                    + "5) appends to result the answer(s),\n"
-                    + "6) and NEVER returns result.\n"
-                    + "Some notes about the code:\n"
-                    + "- Never write plain text, only Python code.\n"
-                    + "- Never reference variables created in previous answers, "
-                    + "since they do not persist after an answer is made.\n"
-                    + "- Never create any functions or classes.\n"
-                    + "- Understand what happens when you call len() on "
-                    + "a string or slice/call len() on a pandas object. "
-                    + "- if USER asks for an image, call 'open_image()', which "
-                    + "takes a string path to an image as input and returns the "
-                    + "image as a Python numpy array, and append it to result.\n"
-                    + "- if USER asks to modify/lookup table, create a copy of table, "
-                    + "modify/lookup the copy instead while retaining as many rows "
-                    + "and columns as possible, and append the copy to result. ",
-                    temperature=0.3,
-                    max_tokens=self.max_code_tokens,
+                    messages=messages,
                 )
                 print(code_to_exec + "\n\n\n\n\n")
 
