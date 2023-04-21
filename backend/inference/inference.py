@@ -673,7 +673,7 @@ class Pipeline:
             messages = [intro_message, user_messages[0]]
             if len(user_messages) > 1:
                 messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
-            messages.extend(instruction_message)
+            messages.append(instruction_message)
             oldest_user_message_idx, oldest_assistant_message_idx = 2  # Indices of oldest user and assistant messages
             while (
                 self.get_num_tokens("\n".join([message["content"] for message in messages])) > self.max_tokens
