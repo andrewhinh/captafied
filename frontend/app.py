@@ -94,8 +94,6 @@ zip_name = "temp"
 write_bucket = "captafied-ydata-report"
 report_name = "report.html"
 s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-s3.download_file(Bucket=write_bucket, Key=report_name, Filename=str(asset_path / report_name))
-s3.delete_object(Bucket=write_bucket, Key=report_name)
 
 # Flagging csv file
 flag_csv_path = parent_path / "flagged" / "log.csv"
@@ -410,6 +408,8 @@ def manage_output(
         )
 
     if report:
+        s3.download_file(Bucket=write_bucket, Key=report_name, Filename=str(asset_path / report_name))
+        s3.delete_object(Bucket=write_bucket, Key=report_name)
         message, report_path = report[0], report[1]
         outputs.extend(
             [

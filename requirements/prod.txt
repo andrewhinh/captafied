@@ -29,9 +29,7 @@ backoff==1.10.0
 bcrypt==3.2.2
     # via paramiko
 boto3==1.26.118
-    # via
-    #   -r requirements/prod.in
-    #   smart-open
+    # via smart-open
 botocore==1.29.118
     # via
     #   boto3

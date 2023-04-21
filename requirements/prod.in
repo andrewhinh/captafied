@@ -18,7 +18,6 @@ torchvision>=0.13.0
 # markupsafe<2.1
 
 # added for this project
-boto3==1.26.118
 dash
 odfpy
 onnxruntime==1.12.1
