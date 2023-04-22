@@ -1,5 +1,4 @@
 # Imports
-import copy
 from functools import partial
 import itertools
 import os
@@ -27,13 +26,11 @@ import requests as rq
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from tenacity import retry, stop_after_attempt, wait_random_exponential
-import tiktoken
 from transformers import CLIPProcessor
 import umap
 from utils.util import checklist_options, encode_b64_image, open_image, read_b64_image
 import validators
 from ydata_profiling import ProfileReport
-from ydata_profiling.report.presentation.flavours import HTMLReport
 
 
 # Setup
@@ -42,11 +39,6 @@ pio.templates.default = "plotly_dark"
 
 # Loading env variables
 load_dotenv()
-
-# Get number of tokens in text
-tokenizer = tiktoken.get_encoding(
-    "cl100k_base"
-)  # Load the cl100k_base tokenizer which is designed to work with the ada-002 model (engine)
 
 # OpenAI API setup
 openai.organization = "org-SenjN6vfnkIealcfn6t9JOJj"
@@ -88,7 +80,9 @@ class Pipeline:
         # OpenAI params
         self.model = "gpt-3.5-turbo"
         self.temperature = 0.3
-        self.max_tokens = int(4096 * 0.25)  # 1/4 of max tokens
+        self.max_chars = int(
+            4096 * 3.75
+        )  # https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
 
         # OpenAI Context
         self.data_types = ["text string", "image path/URL", "categorical", "continuous"]
@@ -113,9 +107,6 @@ class Pipeline:
             return all((v is None) or isinstance(v, str) for v in s)
         else:
             return False
-
-    def get_num_tokens(self, text):
-        return len(tokenizer.encode(text, disallowed_special=()))  # disallowed_special=() removes the special tokens
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(5))
     def openai_query(self, **kwargs):
@@ -566,23 +557,8 @@ class Pipeline:
 
         # For Dash
         with tempfile.NamedTemporaryFile(mode="wt", suffix=".html") as tmp:
-            html = HTMLReport(copy.deepcopy(report.report)).render(
-                nav=report.config.html.navbar_show,
-                offline=report.config.html.use_local_assets,
-                inline=report.config.html.inline,
-                assets_prefix=report.config.html.assets_prefix,
-                primary_color=report.config.html.style.primary_colors[0],
-                logo=report.config.html.style.logo,
-                theme=report.config.html.style.theme,
-                title=report.description_set["analysis"]["title"],
-                date=report.description_set["analysis"]["date_start"],
-                version=report.description_set["package"]["ydata_profiling_version"],
-            )
-            if report.config.html.minify_html:
-                from htmlmin.main import minify
-
-                html = minify(html, remove_all_empty_space=True, remove_comments=True)
-            tmp.write(html)
+            data = report.to_html()
+            tmp.write(data)
             s3.upload_file(tmp.name, write_bucket, report_name)
         return [message, "/" + str(asset_path / report_name)]  # Dash needs a relative path
 
@@ -634,10 +610,6 @@ class Pipeline:
                     + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
                 ),
             }
-            if prev_answers:  # If there are previous requests
-                if len(prev_answers) > self.max_prev:  # Check if there are too many previous requests for OpenAI
-                    requests = requests[-self.max_prev :]
-                    prev_answers = prev_answers[-self.max_prev :]
             user_messages = [{"role": "user", "content": request} for request in requests]
             assistant_messages = [{"role": "assistant", "content": prev_answer} for prev_answer in prev_answers]
             instruction_message = {"role": "system", "content": None}
@@ -687,19 +659,20 @@ class Pipeline:
                     + "modify/lookup the copy instead while retaining as many rows "
                     + "and columns as possible, and append the copy to result. "
                 )
+
             messages = [intro_message, user_messages[0]]
-            if len(user_messages) > 1:
+            if len(user_messages) > 1 and assistant_messages:
                 messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
             messages.append(instruction_message)
-            oldest_user_message_idx, oldest_assistant_message_idx = (
-                1,
-                2,
-            )  # Indices of oldest user and assistant messages
-            while (
-                self.get_num_tokens("\n".join([message["content"] for message in messages])) > self.max_tokens
-            ):  # Check if prompt is too long
-                messages.pop(oldest_user_message_idx)
-                messages.pop(oldest_assistant_message_idx)
+
+            prompt = "\n".join([message["content"] for message in messages])
+            if len(prompt) > self.max_chars:
+                while len(prompt) > self.max_chars and len(messages) > 3:
+                    messages.pop(1)  # Remove the user's message
+                    messages.pop(2)  # Remove the assistant's message
+                    prompt = "\n".join([message["content"] for message in messages])
+                if len(prompt) > self.max_chars and len(messages) == 3:  # If this is the first question
+                    messages[1]["content"] = messages[1]["content"][: self.max_chars]  # Truncate the user's message
 
             # Main logic
             if request_types:  # If manually-defined function selected

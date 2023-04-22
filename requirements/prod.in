@@ -30,7 +30,6 @@ scikit-learn
 tabula-py
 tenacity
 timm
-tiktoken
 transformers
 umap-learn
 validators
