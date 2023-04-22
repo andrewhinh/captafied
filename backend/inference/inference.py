@@ -83,8 +83,8 @@ class Pipeline:
         self.max_chars = int(
             4096 * 4
         )  # https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
-        self.max_answer_chars = int(self.max_chars / 8)
-        self.max_prompt_chars = int(self.max_chars - self.max_answer_chars)
+        self.max_answer_chars = int(self.max_chars / 8)  # 512 tokens/2048 chars
+        self.max_prompt_chars = int(self.max_chars - self.max_answer_chars)  # Remaining chars
 
         # OpenAI Context
         self.data_types = ["text string", "image path/URL", "categorical", "continuous"]
@@ -603,77 +603,82 @@ class Pipeline:
                     column_data[column] = self.data_types[2]
 
             # OpenAI prompt construction
-            intro_message = {
+            intro_system_message = {  # To set the behavior of the assistant
                 "role": "system",
                 "content": str(
-                    "You are the world's best Python coder. "
-                    + "You are given a Python pandas DataFrame named table. "
-                    + "You are also given a comma-separated list that contains "
-                    + "pairs of table's columns and corresponding data types: "
-                    + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
+                    "You are the world's best Python code generator and can only "
+                    + "respond in Python code preceded by ```python and ending with ```. "
+                    + "You must follow USER's instructions as closely as possible. "
                 ),
             }
-            user_messages = [{"role": "user", "content": request} for request in requests]
-            assistant_messages = [{"role": "assistant", "content": prev_answer} for prev_answer in prev_answers]
-            instruction_message = {"role": "system", "content": None}
-            if request_types:  # If manually-defined function selected
-                instruction_message["content"] = str(
-                    "Write Python code that:\n"
+            intro_user_message = {  # To give the assistant context for the conversation
+                "role": "user",
+                "content": str(
+                    "You are given (and can access) a pre-defined pandas DataFrame named table. "
+                    + "Again, table is already defined; never reinitialize/redefine/modify table in any way."
+                    + "Here are table's columns and data types: "
+                    + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
+                    + "\n"
+                    + "Write Python code that does the following:\n"
                     + "1) imports any necessary libraries,\n"
-                    + "2) creates empty lists named columns and result,\n"
+                    + "2) initializes two empty lists named columns and result,\n"
                     + "3) checks if table can be used to answer USER's request; if not, appends"
                     + "to result a Python string that explains to USER why not. If so,\n"
-                    + "4) leaves result empty,\n"
-                    + "5) appends to columns only table's columns that USER explicitly references, and\n"
-                    + "6) never does anything more under any circumstances.\n"
-                    + "Some notes about the code:\n"
-                    + "- Only respond in code, never in plain text.\n"
-                    + "- Never reference variables created in any previous answers, "
-                    + "since they do not persist after an answer is made.\n"
-                    + "- Never create any functions or classes.\n"
-                    + "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
+                ),
+            }
+            if request_types:  # If manually-defined function selected
+                intro_user_message["content"] += str(
+                    "4) leaves result empty,\n"
+                    + "5) appends to columns only table's columns that USER explicitly references,\n"
+                    + "6) and never does anything more under any circumstances.\n"
+                )
+            else:
+                intro_user_message["content"] += str(
+                    "4) creates only pandas DataFrames/Series, Python f-strings, "
+                    + "and/or Plotly Graph Objects as necessary that answer USER,\n"
+                    + "5) appends to result the answer(s),\n"
+                    + "6) and never returns result.\n"
+                )
+            intro_user_message["content"] += str(
+                "Some notes about the code:\n"
+                + "- Never make any assumptions about the data in table.\n"
+                + "- Never reference variables created in any previous answers, "
+                + "since they do not persist after an answer is made.\n"
+                + "- Never create any functions or classes.\n"
+            )
+            if request_types:
+                intro_user_message["content"] += str(
+                    "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
                     + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
                     + "description clusters.' regarding table, the column 'Repos' should be "
                     + "ignored because it posseses the column 'Description', and only the column 'Description' "
                     + "should be used. "
                 )
             else:
-                instruction_message["content"] = str(
-                    "Write Python code that:\n"
-                    + "1) imports any necessary libraries,\n"
-                    + "2) creates an empty list named result,\n"
-                    + "3) checks if table can be used to answer USER's request; if not, appends"
-                    + "to result a Python string that explains to USER why not. If so,\n"
-                    + "4) creates only pandas DataFrames/Series, Python f-strings, and/or "
-                    + "Plotly Graph Objects as necessary that answer USER,\n"
-                    + "5) appends to result the answer(s),\n"
-                    + "6) and NEVER returns result.\n"
-                    + "Some notes about the code:\n"
-                    + "- Only respond in code, never in plain text.\n"
-                    + "- Never reference variables created in any previous answers, "
-                    + "since they do not persist after an answer is made.\n"
-                    + "- Never create any functions or classes.\n"
-                    + "- Understand what happens when you call len() on "
-                    + "a string or slice/call len() on a pandas object. "
-                    + "- if USER asks for an image, call 'open_image()', which "
-                    + "takes a string path to an image as input and returns the "
-                    + "image as a Python numpy array, and append it to result.\n"
-                    + "- if USER asks to modify/lookup table, create a copy of table, "
+                intro_user_message["content"] += str(
+                    "- Understand what happens when you call len() on "
+                    + "a string or slice/call len() on a pandas object.\n"
+                    + "- If USER asks to modify/inspect/see an image, append to result the output "
+                    + "of the pre-defined function 'open_image()', which takes a string path "
+                    + "to an image as input and returns the image as a Python numpy array.\n"
+                    + "- If USER asks to modify/lookup table, create a copy of table, "
                     + "modify/lookup the copy instead while retaining as many rows "
                     + "and columns as possible, and append the copy to result. "
                 )
-            messages = [intro_message, user_messages[0]]
+
+            user_messages = [{"role": "user", "content": request} for request in requests]
+            assistant_messages = [{"role": "assistant", "content": prev_answer} for prev_answer in prev_answers]
+            messages = [intro_system_message, intro_user_message, user_messages[0]]
             if len(user_messages) > 1 and assistant_messages:
                 messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
-            messages.append(instruction_message)
             prompt = "\n".join([message["content"] for message in messages])
             if len(prompt) > self.max_prompt_chars:
                 while len(prompt) > self.max_prompt_chars and len(messages) > 3:
-                    messages.pop(1)  # Remove the user's message
-                    messages.pop(2)  # Remove the assistant's message
+                    messages.pop(2)  # Remove the user's message
+                    messages.pop(3)  # Remove the assistant's message
                     prompt = "\n".join([message["content"] for message in messages])
                 if len(prompt) > self.max_prompt_chars and len(messages) == 3:  # If this is the first question
-                    messages[1]["content"] = messages[1]["content"][
+                    messages[2]["content"] = messages[2]["content"][
                         : self.max_prompt_chars
                     ]  # Truncate the user's message
 
@@ -686,7 +691,7 @@ class Pipeline:
                     code_to_exec = self.openai_query(
                         messages=messages,
                     )
-                    code_to_exec = code_to_exec.split("```")[1]  # Get only the code
+                    code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
@@ -879,7 +884,7 @@ class Pipeline:
                 code_to_exec = self.openai_query(
                     messages=messages,
                 )
-                code_to_exec = code_to_exec.split("```")[1]  # Get only the code
+                code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
                 print(code_to_exec + "\n\n\n\n\n")
 
                 # Add the code to execute to the list of outputs
