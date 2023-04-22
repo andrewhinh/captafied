@@ -21,7 +21,7 @@ torchvision>=0.13.0
 dash
 odfpy
 onnxruntime==1.12.1
-openai==0.23.1
+openai==0.27.4
 pandas
 ydata-profiling
 plotly
