@@ -84,7 +84,8 @@ class Pipeline:
         self.max_chars = int(
             4096 * 4
         )  # https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
-        self.max_answer_chars = int(self.max_chars / 8)  # 512 tokens/2048 chars
+        self.max_answer_chars = int(self.max_chars / 8)  # 2048 chars
+        self.max_answer_tokens = int(self.max_answer_chars / 4)  # 512 tokens
         self.max_prompt_chars = int(self.max_chars - self.max_answer_chars)  # Remaining chars
 
         # OpenAI Context
@@ -116,7 +117,7 @@ class Pipeline:
         response = openai.ChatCompletion.create(
             model=self.model,
             temperature=self.temperature,
-            max_tokens=self.max_answer_chars,
+            max_tokens=self.max_answer_tokens,
             **kwargs,
         )
         return response["choices"][0]["message"]["content"].strip()
