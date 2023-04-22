@@ -19,6 +19,7 @@ from dash.dependencies import Input, Output, State
 import flask
 from flask import Flask
 import pandas as pd
+import plotly.io as pio
 import requests as req
 from utils.util import checklist_options, encode_b64_image, open_image
 import validators
@@ -774,6 +775,8 @@ def make_frontend(predict):
                     image, error = convert_to_b64(None, None, str(image_url_example))
                 if not error:
                     code, tables, texts, graphs, images, report = predict(df, requests, answers, request_types, image)
+                    tables = [pd.DataFrame.from_dict(table) for table in tables]
+                    graphs = [pio.from_json(graph) for graph in graphs]
                     return manage_output(code, tables, texts, graphs, images, report)
 
     # When download button is clicked
