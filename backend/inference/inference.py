@@ -1,4 +1,5 @@
 # Imports
+import copy
 from functools import partial
 import itertools
 import os
@@ -32,6 +33,7 @@ import umap
 from utils.util import checklist_options, encode_b64_image, open_image, read_b64_image
 import validators
 from ydata_profiling import ProfileReport
+from ydata_profiling.report.presentation.flavours import HTMLReport
 
 
 # Setup
@@ -564,8 +566,23 @@ class Pipeline:
 
         # For Dash
         with tempfile.NamedTemporaryFile(mode="wt", suffix=".html") as tmp:
-            data = report.html()
-            tmp.write(data)
+            html = HTMLReport(copy.deepcopy(report.report)).render(
+                nav=report.config.html.navbar_show,
+                offline=report.config.html.use_local_assets,
+                inline=report.config.html.inline,
+                assets_prefix=report.config.html.assets_prefix,
+                primary_color=report.config.html.style.primary_colors[0],
+                logo=report.config.html.style.logo,
+                theme=report.config.html.style.theme,
+                title=report.description_set["analysis"]["title"],
+                date=report.description_set["analysis"]["date_start"],
+                version=report.description_set["package"]["ydata_profiling_version"],
+            )
+            if report.config.html.minify_html:
+                from htmlmin.main import minify
+
+                html = minify(html, remove_all_empty_space=True, remove_comments=True)
+            tmp.write(html)
             s3.upload_file(tmp.name, write_bucket, report_name)
         return [message, "/" + str(asset_path / report_name)]  # Dash needs a relative path
 
