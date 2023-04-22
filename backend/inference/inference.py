@@ -606,7 +606,8 @@ class Pipeline:
             intro_message = {
                 "role": "system",
                 "content": str(
-                    "You are given a Python pandas DataFrame named table. "
+                    "You are the world's best Python coder. "
+                    + "You are given a Python pandas DataFrame named table. "
                     + "You are also given a comma-separated list that contains "
                     + "pairs of table's columns and corresponding data types: "
                     + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
@@ -626,8 +627,7 @@ class Pipeline:
                     + "5) appends to columns only table's columns that USER explicitly references, and\n"
                     + "6) never does anything more under any circumstances.\n"
                     + "Some notes about the code:\n"
-                    + "- Never write plain text, only Python code.\n"
-                    + "- Never reference variables created in previous answers, "
+                    + "- Never reference variables created in any previous answers, "
                     + "since they do not persist after an answer is made.\n"
                     + "- Never create any functions or classes.\n"
                     + "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
@@ -648,8 +648,7 @@ class Pipeline:
                     + "5) appends to result the answer(s),\n"
                     + "6) and NEVER returns result.\n"
                     + "Some notes about the code:\n"
-                    + "- Never write plain text, only Python code.\n"
-                    + "- Never reference variables created in previous answers, "
+                    + "- Never reference variables created in any previous answers, "
                     + "since they do not persist after an answer is made.\n"
                     + "- Never create any functions or classes.\n"
                     + "- Understand what happens when you call len() on "
@@ -685,6 +684,7 @@ class Pipeline:
                     code_to_exec = self.openai_query(
                         messages=messages,
                     )
+                    code_to_exec = code_to_exec.split("```")[1]  # Get only the code
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
@@ -877,6 +877,7 @@ class Pipeline:
                 code_to_exec = self.openai_query(
                     messages=messages,
                 )
+                code_to_exec = code_to_exec.split("```")[1]  # Get only the code
                 print(code_to_exec + "\n\n\n\n\n")
 
                 # Add the code to execute to the list of outputs
