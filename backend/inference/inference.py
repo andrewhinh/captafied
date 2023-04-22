@@ -807,7 +807,7 @@ class Pipeline:
                     else:
                         raise InvalidRequest()
                     graph = self.get_embeds_graph(table, columns, embeds, cat_cols, cont_cols)
-                    outputs[3].append(graph)
+                    outputs[3].append(graph.to_plotly_json())
                 elif feature_options[1] in request_types:  # If USER wants to search for text
                     if image:
                         embed = self.clip_encode(images=parse_image(image))
@@ -851,7 +851,7 @@ class Pipeline:
                         for col, tab in zip(columns, tables):
                             if len(tab) > 0:
                                 print_cols.append(col)
-                                outputs[1].append(tab)
+                                outputs[1].append(tab.to_dict())
                         outputs[2].append("The columns with anomalies are: " + ", ".join(print_cols) + ".")
                     else:
                         outputs[2].append("No anomalies found.")
@@ -894,13 +894,13 @@ class Pipeline:
                     # Type check the answer
                     for output in answer:
                         if type(output) == pd.DataFrame:
-                            outputs[1].append(output)
+                            outputs[1].append(output.to_dict())
                         elif type(output) == pd.Series:
-                            outputs[2].append(output.to_frame())
+                            outputs[1].append(output.to_frame().to_dict())
                         elif type(output) == str:
                             outputs[2].append(output)
                         elif type(output) == plotly.graph_objects.Figure:
-                            outputs[3].append(output)
+                            outputs[3].append(output.to_plotly_json())
                         elif type(output) == np.ndarray:
                             outputs[4].append(encode_b64_image(output))
                         else:
