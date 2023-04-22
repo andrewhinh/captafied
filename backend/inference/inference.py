@@ -1,6 +1,7 @@
 # Imports
 from functools import partial
 import itertools
+import json
 import os
 from os import path
 from pathlib import Path
@@ -606,20 +607,27 @@ class Pipeline:
             intro_system_message = {  # To set the behavior of the assistant
                 "role": "system",
                 "content": str(
-                    "You are the world's best Python code generator and can only "
-                    + "respond in Python code preceded by ```python and ending with ```. "
-                    + "You must follow USER's instructions as closely as possible. "
+                    "You are the world's best Python code generator and can only respond in Python code preceded "
+                    + "by what's in the parentheses (```python) and ending with what's in the parentheses (```). "
+                    + "Follow USER's instructions as closely as possible. "
                 ),
             }
             intro_user_message = {  # To give the assistant context for the conversation
                 "role": "user",
                 "content": str(
                     "You are given (and can access) a pre-defined pandas DataFrame named table. "
-                    + "Again, table is already defined; never reinitialize/redefine/modify table in any way."
+                    + "Take note that table is already defined; never reinitialize/redefine/modify table in any way."
                     + "Here are table's columns and data types: "
                     + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
                     + "\n"
-                    + "Write Python code that does the following:\n"
+                ),
+            }
+            user_messages = [{"role": "user", "content": request} for request in requests]
+            assistant_messages = [{"role": "assistant", "content": prev_answer} for prev_answer in prev_answers]
+            instruction_user_message = {  # To give the assistant context for the conversation
+                "role": "user",
+                "content": str(
+                    "You may only answer my question by writing Python code that:\n"
                     + "1) imports any necessary libraries,\n"
                     + "2) initializes two empty lists named columns and result,\n"
                     + "3) checks if table can be used to answer USER's request; if not, appends"
@@ -627,27 +635,24 @@ class Pipeline:
                 ),
             }
             if request_types:  # If manually-defined function selected
-                intro_user_message["content"] += str(
-                    "4) leaves result empty,\n"
-                    + "5) appends to columns only table's columns that USER explicitly references,\n"
-                    + "6) and never does anything more under any circumstances.\n"
+                instruction_user_message["content"] += str(
+                    "4) appends to only columns strictly table's columns that USER explicitly references,\n"
                 )
             else:
-                intro_user_message["content"] += str(
-                    "4) creates only pandas DataFrames/Series, Python f-strings, "
-                    + "and/or Plotly Graph Objects as necessary that answer USER,\n"
-                    + "5) appends to result the answer(s),\n"
-                    + "6) and never returns result.\n"
+                instruction_user_message["content"] += str(
+                    "4) appends to only result strictly generated pandas DataFrames/Series, Python "
+                    + "f-strings, and/or Plotly Graph Objects as necessary that answer USER,\n"
                 )
-            intro_user_message["content"] += str(
-                "Some notes about the code:\n"
+            instruction_user_message["content"] += str(
+                "5) and never does anything more under any circumstances.\n"
+                + "Some notes about the code:\n"
                 + "- Never make any assumptions about the data in table.\n"
                 + "- Never reference variables created in any previous answers, "
                 + "since they do not persist after an answer is made.\n"
                 + "- Never create any functions or classes.\n"
             )
             if request_types:
-                intro_user_message["content"] += str(
+                instruction_user_message["content"] += str(
                     "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
                     + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
                     + "description clusters.' regarding table, the column 'Repos' should be "
@@ -655,7 +660,7 @@ class Pipeline:
                     + "should be used. "
                 )
             else:
-                intro_user_message["content"] += str(
+                instruction_user_message["content"] += str(
                     "- Understand what happens when you call len() on "
                     + "a string or slice/call len() on a pandas object.\n"
                     + "- If USER asks to modify/inspect/see an image, append to result the output "
@@ -666,11 +671,10 @@ class Pipeline:
                     + "and columns as possible, and append the copy to result. "
                 )
 
-            user_messages = [{"role": "user", "content": request} for request in requests]
-            assistant_messages = [{"role": "assistant", "content": prev_answer} for prev_answer in prev_answers]
             messages = [intro_system_message, intro_user_message, user_messages[0]]
             if len(user_messages) > 1 and assistant_messages:
                 messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
+            messages.append(instruction_user_message)
             prompt = "\n".join([message["content"] for message in messages])
             if len(prompt) > self.max_prompt_chars:
                 while len(prompt) > self.max_prompt_chars and len(messages) > 3:
@@ -691,7 +695,10 @@ class Pipeline:
                     code_to_exec = self.openai_query(
                         messages=messages,
                     )
-                    code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
+                    if "```" not in code_to_exec:
+                        code_to_exec = "columns = []\nresult = []"
+                    else:
+                        code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
@@ -884,7 +891,10 @@ class Pipeline:
                 code_to_exec = self.openai_query(
                     messages=messages,
                 )
-                code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
+                if "```" not in code_to_exec:
+                    code_to_exec = "result = []\nresult.append(" + json.dumps(code_to_exec) + ")"
+                else:
+                    code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
                 print(code_to_exec + "\n\n\n\n\n")
 
                 # Add the code to execute to the list of outputs
