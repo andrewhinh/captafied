@@ -123,7 +123,7 @@ class Pipeline:
             max_tokens=self.max_tokens,
             **kwargs,
         )
-        return response["choices"][0]["text"].strip()
+        return response["choices"][0]["message"]["content"].strip()
 
     def exec_code(self, global_vars, code, vars_to_return):
         local_vars = {}
