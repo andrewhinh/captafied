@@ -627,6 +627,7 @@ class Pipeline:
                     + "5) appends to columns only table's columns that USER explicitly references, and\n"
                     + "6) never does anything more under any circumstances.\n"
                     + "Some notes about the code:\n"
+                    + "- Only respond in code, never in plain text.\n"
                     + "- Never reference variables created in any previous answers, "
                     + "since they do not persist after an answer is made.\n"
                     + "- Never create any functions or classes.\n"
@@ -648,6 +649,7 @@ class Pipeline:
                     + "5) appends to result the answer(s),\n"
                     + "6) and NEVER returns result.\n"
                     + "Some notes about the code:\n"
+                    + "- Only respond in code, never in plain text.\n"
                     + "- Never reference variables created in any previous answers, "
                     + "since they do not persist after an answer is made.\n"
                     + "- Never create any functions or classes.\n"
@@ -684,7 +686,7 @@ class Pipeline:
                     code_to_exec = self.openai_query(
                         messages=messages,
                     )
-                    code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
+                    code_to_exec = code_to_exec.split("```")[1]  # Get only the code
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
@@ -877,7 +879,7 @@ class Pipeline:
                 code_to_exec = self.openai_query(
                     messages=messages,
                 )
-                code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
+                code_to_exec = code_to_exec.split("```")[1]  # Get only the code
                 print(code_to_exec + "\n\n\n\n\n")
 
                 # Add the code to execute to the list of outputs
