@@ -81,8 +81,10 @@ class Pipeline:
         self.model = "gpt-3.5-turbo"
         self.temperature = 0.3
         self.max_chars = int(
-            4096 * 3.75
+            4096 * 4
         )  # https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
+        self.max_answer_chars = int(self.max_chars / 8)
+        self.max_prompt_chars = int(self.max_chars - self.max_answer_chars)
 
         # OpenAI Context
         self.data_types = ["text string", "image path/URL", "categorical", "continuous"]
@@ -113,7 +115,7 @@ class Pipeline:
         response = openai.ChatCompletion.create(
             model=self.model,
             temperature=self.temperature,
-            max_tokens=self.max_tokens,
+            max_tokens=self.max_answer_chars,
             **kwargs,
         )
         return response["choices"][0]["message"]["content"].strip()
@@ -659,20 +661,20 @@ class Pipeline:
                     + "modify/lookup the copy instead while retaining as many rows "
                     + "and columns as possible, and append the copy to result. "
                 )
-
             messages = [intro_message, user_messages[0]]
             if len(user_messages) > 1 and assistant_messages:
                 messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
             messages.append(instruction_message)
-
             prompt = "\n".join([message["content"] for message in messages])
-            if len(prompt) > self.max_chars:
-                while len(prompt) > self.max_chars and len(messages) > 3:
+            if len(prompt) > self.max_prompt_chars:
+                while len(prompt) > self.max_prompt_chars and len(messages) > 3:
                     messages.pop(1)  # Remove the user's message
                     messages.pop(2)  # Remove the assistant's message
                     prompt = "\n".join([message["content"] for message in messages])
-                if len(prompt) > self.max_chars and len(messages) == 3:  # If this is the first question
-                    messages[1]["content"] = messages[1]["content"][: self.max_chars]  # Truncate the user's message
+                if len(prompt) > self.max_prompt_chars and len(messages) == 3:  # If this is the first question
+                    messages[1]["content"] = messages[1]["content"][
+                        : self.max_prompt_chars
+                    ]  # Truncate the user's message
 
             # Main logic
             if request_types:  # If manually-defined function selected
