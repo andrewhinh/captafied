@@ -684,7 +684,7 @@ class Pipeline:
                     code_to_exec = self.openai_query(
                         messages=messages,
                     )
-                    code_to_exec = code_to_exec.split("```")[1]  # Get only the code
+                    code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
 
                     # Add the code to execute to the list of outputs
                     outputs[0] = code_to_exec
@@ -877,7 +877,7 @@ class Pipeline:
                 code_to_exec = self.openai_query(
                     messages=messages,
                 )
-                code_to_exec = code_to_exec.split("```")[1]  # Get only the code
+                code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
                 print(code_to_exec + "\n\n\n\n\n")
 
                 # Add the code to execute to the list of outputs
