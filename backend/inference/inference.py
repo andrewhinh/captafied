@@ -86,7 +86,7 @@ class Pipeline:
         # OpenAI params
         self.model = "gpt-3.5-turbo"
         self.temperature = 0.3
-        self.max_tokens = 4096 * 0.25  # 1/4 of max tokens
+        self.max_tokens = int(4096 * 0.25)  # 1/4 of max tokens
 
         # OpenAI Context
         self.data_types = ["text string", "image path/URL", "categorical", "continuous"]
@@ -564,7 +564,7 @@ class Pipeline:
 
         # For Dash
         with tempfile.NamedTemporaryFile(mode="wt", suffix=".html") as tmp:
-            data = report.to_html()
+            data = report.html()
             tmp.write(data)
             s3.upload_file(tmp.name, write_bucket, report_name)
         return [message, "/" + str(asset_path / report_name)]  # Dash needs a relative path
