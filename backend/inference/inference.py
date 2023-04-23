@@ -1,7 +1,6 @@
 # Imports
 from functools import partial
 import itertools
-import json
 import os
 from os import path
 from pathlib import Path
@@ -80,7 +79,7 @@ class Pipeline:
 
         # OpenAI params
         self.model = "gpt-3.5-turbo"
-        self.temperature = 0.3
+        self.temperature = 0.0
         self.max_chars = int(
             4096 * 4
         )  # https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
@@ -92,7 +91,7 @@ class Pipeline:
         self.data_types = ["text string", "image path/URL", "categorical", "continuous"]
 
         # Number of output types
-        self.outputs = ["code", "table", "text", "plot", "image", "report"]
+        self.outputs = ["table", "text", "plot", "image", "report"]
         self.num_outputs = len(self.outputs)
 
         # Error messages
@@ -576,7 +575,7 @@ class Pipeline:
     ) -> str:  # Type handling is done by frontend
         try:
             # Initializing output variables
-            outputs = [[] for _ in range(self.num_outputs)]
+            outputs = [""] + [[] for _ in range(self.num_outputs)]
 
             # Getting data types of columns for all tables
             column_data = {}
@@ -608,9 +607,9 @@ class Pipeline:
             intro_system_message = {  # To set the behavior of the assistant
                 "role": "system",
                 "content": str(
-                    "You are the world's best Python code generator and can only respond in Python code preceded "
-                    + "by what's in the parentheses (```python) and ending with what's in the parentheses (```). "
-                    + "Follow USER's instructions as closely as possible. "
+                    "You are the world's best Python code generator and can only respond to USER in Python code "
+                    + "preceded by what's in the parentheses (```python) and ending with what's in the parentheses (```). "
+                    + "Take note that you MUST follow the above stated guidelines at ALL times throughout the conversation.\n"
                 ),
             }
             intro_user_message = {  # To give the assistant context for the conversation
@@ -622,58 +621,55 @@ class Pipeline:
                     + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
                     + "\n"
                 ),
+                "name": "USER",
             }
-            user_messages = [{"role": "user", "content": request} for request in requests]
-            assistant_messages = [{"role": "assistant", "content": prev_answer} for prev_answer in prev_answers]
+            user_messages = [{"role": "user", "content": "USER: " + request, "name": "USER"} for request in requests]
+            assistant_messages = [
+                {"role": "assistant", "content": "ASSISTANT: " + prev_answer, "name": "ASSISTANT"}
+                for prev_answer in prev_answers
+            ]
             instruction_user_message = {  # To give the assistant context for the conversation
                 "role": "user",
                 "content": str(
-                    "You may only answer my question by writing Python code that:\n"
+                    "Use any previous interactions for context. Answer my "
+                    + "most recent question by writing Python code that:\n"
                     + "1) imports any necessary libraries,\n"
                     + "2) initializes two empty lists named columns and result,\n"
-                    + "3) checks if table can be used to answer USER's request; if not, appends"
-                    + "to result a Python string that explains to USER why not. If so,\n"
+                    + "3) checks if table can be used to answer my request; if not, appends"
+                    + "to result a Python string that explains to me why not. If so,\n"
                 ),
+                "name": "USER",
             }
             if request_types:  # If manually-defined function selected
                 instruction_user_message["content"] += str(
-                    "4) appends to only columns strictly table's columns that USER explicitly references,\n"
+                    "4) appends to only columns strictly table's columns that I explicitly reference,\n"
                 )
             else:
                 instruction_user_message["content"] += str(
-                    "4) appends to only result strictly generated pandas DataFrames/Series, Python "
-                    + "f-strings, and/or Plotly Graph Objects as necessary that answer USER,\n"
+                    "4) appends to only result strictly generated pandas DataFrames/Series, "
+                    + "f-strings, and/or Plotly Graph Objects as necessary to answer me,\n"
                 )
             instruction_user_message["content"] += str(
-                "5) and never does anything more under any circumstances.\n"
-                + "Some notes about the code:\n"
-                + "- Never make any assumptions about the data in table.\n"
-                + "- Never reference variables created in any previous answers, "
-                + "since they do not persist after an answer is made.\n"
+                "5) and never returns result or columns.\n"
+                + "Take note the following about your code:\n"
+                + "- Always use pd.query() to filter/slice table.\n"
+                + "- Never reference variables created in any previous answers.\n"
                 + "- Never create any functions or classes.\n"
+                + "- Remember that calling len() on a string returns the number of characters in the string.\n"
+                + "- If necessary to modify/display an image, use pre-defined function open_image(), which converts "
+                + "a string path to an image to a numpy array, and append to result the output to display it.\n"
             )
             if request_types:
                 instruction_user_message["content"] += str(
                     "- If you think a column is necessary but it is phrased in a way that suggests it posseses "
-                    + "another column, it should be ignored. For example, if USER asks 'Show the repo's "
-                    + "description clusters.' regarding table, the column 'Repos' should be "
-                    + "ignored because it posseses the column 'Description', and only the column 'Description' "
-                    + "should be used. "
+                    + "another column, it should be ignored. For example, if I ask 'Show the repo's description "
+                    + "clusters' regarding table, the column 'Repos' should be ignored because it posseses "
+                    + "the column 'Description', and only the column 'Description' should be used.\n"
                 )
-            else:
-                instruction_user_message["content"] += str(
-                    "- Understand what happens when you call len() on "
-                    + "a string or slice/call len() on a pandas object.\n"
-                    + "- If USER asks to modify/inspect/see an image, append to result the output "
-                    + "of the pre-defined function 'open_image()', which takes a string path "
-                    + "to an image as input and returns the image as a Python numpy array.\n"
-                    + "- If USER asks to modify/lookup table, create a copy of table, "
-                    + "modify/lookup the copy instead while retaining as many rows "
-                    + "and columns as possible, and append the copy to result. "
-                )
+            instruction_user_message["content"] += "ASSISTANT: "
 
             messages = [intro_system_message, intro_user_message, user_messages[0]]
-            if len(user_messages) > 1 and assistant_messages:
+            if len(user_messages) > 1 and assistant_messages:  # If there are prior interactions
                 messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
             messages.append(instruction_user_message)
             prompt = "\n".join([message["content"] for message in messages])
@@ -696,9 +692,7 @@ class Pipeline:
                     code_to_exec = self.openai_query(
                         messages=messages,
                     )
-                    if "```" not in code_to_exec:
-                        code_to_exec = "columns = []\nresult = []"
-                    else:
+                    if "```" in code_to_exec:
                         code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
 
                     # Add the code to execute to the list of outputs
@@ -716,7 +710,7 @@ class Pipeline:
 
                         if result:
                             if type(result) == str:
-                                outputs[1] = result
+                                outputs[1] += result
                                 return None
                             else:
                                 raise ValueError()
@@ -822,15 +816,15 @@ class Pipeline:
                     else:
                         raise InvalidRequest()
                     graph = self.get_embeds_graph(table, columns, embeds, cat_cols, cont_cols)
-                    outputs[3].append(graph.to_plotly_json())
+                    outputs[3] += graph.to_plotly_json()
                 elif feature_options[1] in request_types:  # If USER wants to search for text
                     if image:
                         embed = self.clip_encode(images=parse_image(image))
                     else:
                         embed = self.clip_encode(texts=parse_text(requests))
                     text, code = self.get_most_similar(table, text_cols, embed, text_embeds)
-                    outputs[0] += code
-                    outputs[2].append(text)
+                    outputs[0] = code
+                    outputs[2] += text
                 elif feature_options[2] in request_types:  # If USER wants to search for images
                     if image:
                         embed = self.clip_encode(images=parse_image(image))
@@ -838,8 +832,8 @@ class Pipeline:
                         embed = self.clip_encode(texts=parse_text(requests))
                     image, code = self.get_most_similar(table, image_cols, embed, image_embeds)
                     image = open_image(image)
-                    outputs[0] += code
-                    outputs[4].append(encode_b64_image(image))
+                    outputs[0] = code
+                    outputs[4] += encode_b64_image(image)
                 elif feature_options[3] in request_types:  # If USER wants to detect anomalies
                     columns = []
                     embeds = None
@@ -866,37 +860,32 @@ class Pipeline:
                         for col, tab in zip(columns, tables):
                             if len(tab) > 0:
                                 print_cols.append(col)
-                                outputs[1].append(tab.to_dict())
-                        outputs[2].append("The columns with anomalies are: " + ", ".join(print_cols) + ".")
+                                outputs[1] += tab.to_dict()
+                        outputs[2] += "The columns with anomalies are: " + ", ".join(print_cols) + "."
                     else:
-                        outputs[2].append("No anomalies found.")
+                        outputs[2] += "No anomalies found."
                 elif feature_options[4] in request_types:  # If USER wants to classify text
                     text_embed = self.clip_encode(texts=parse_text(requests))
                     label, code = self.get_classification_label(table, cat_cols, text_embed, text_embeds)
-                    outputs[0] += code
-                    outputs[2].append(label)
+                    outputs[0] = code
+                    outputs[2] += label
                 elif feature_options[5] in request_types:  # If USER wants to classify images
                     if image:
                         image_embed = self.clip_encode(images=parse_image(image))
                     else:
                         raise InvalidRequest()
                     label, code = self.get_classification_label(table, cat_cols, image_embed, image_embeds)
-                    outputs[0] += code
-                    outputs[2].append(label)
+                    outputs[0] = code
+                    outputs[2] += label
                 else:
                     raise ValueError()
-
-                print(outputs[0] + "\n\n\n\n\n")
             else:
                 # Getting the code to execute
                 code_to_exec = self.openai_query(
                     messages=messages,
                 )
-                if "```" not in code_to_exec:
-                    code_to_exec = "result = []\nresult.append(" + json.dumps(code_to_exec) + ")"
-                else:
+                if "```" in code_to_exec:
                     code_to_exec = code_to_exec.split("```")[1].split("python")[1]  # Get only the code
-                print(code_to_exec + "\n\n\n\n\n")
 
                 # Add the code to execute to the list of outputs
                 outputs[0] = code_to_exec
@@ -927,7 +916,7 @@ class Pipeline:
                     raise ValueError()
 
             # Check if anything besides None in output
-            if any(outputs):
+            if any(outputs[1:]):
                 return outputs
             else:
                 raise InvalidRequest()
