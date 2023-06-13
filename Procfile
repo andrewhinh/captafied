@@ -1,0 +1,1 @@
+web: python3 frontend/app.py --port "$PORT" --model_url=https://nasvto62h53j57xlgc47vfpu3e0dlsjf.lambda-url.us-west-1.on.aws/
