@@ -893,6 +893,8 @@ class PredictorBackend:
             pred = response.json()["pred"]
         except req.exceptions.ReadTimeout:
             pred = [None, None, "Sorry, the model took too long to respond. Please try again.", None, None, None]
+        except Exception:
+            pred = [None, None, "Sorry, something went wrong. Please try again.", None, None, None]
 
         return pred
 
