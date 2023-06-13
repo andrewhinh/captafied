@@ -45,10 +45,7 @@ imagehash==4.3.1
     #   visions
     #   ydata-profiling
 importlib-metadata==6.6.0
-    # via
-    #   attrs
-    #   click
-    #   flask
+    # via flask
 itsdangerous==2.1.2
     # via flask
 jinja2==3.1.2
@@ -111,7 +108,7 @@ patsy==0.5.3
     # via statsmodels
 phik==0.12.3
     # via ydata-profiling
-pillow==7.1.2
+pillow==9.3.0
     # via
     #   -r requirements.in
     #   imagehash
@@ -168,11 +165,7 @@ tqdm==4.65.0
 typeguard==2.13.3
     # via ydata-profiling
 typing-extensions==4.6.3
-    # via
-    #   importlib-metadata
-    #   kiwisolver
-    #   pydantic
-    #   seaborn
+    # via pydantic
 urllib3==1.26.16
     # via
     #   botocore

@@ -20,8 +20,6 @@ asgiref==3.5.2
     # via uvicorn
 async-timeout==4.0.2
     # via aiohttp
-asynctest==0.13.0
-    # via aiohttp
 attrs==20.3.0
     # via
     #   aiohttp
@@ -36,8 +34,6 @@ botocore==1.29.118
     # via
     #   boto3
     #   s3transfer
-cached-property==1.5.2
-    # via h5py
 certifi==2021.10.8
     # via
     #   httpcore
@@ -137,12 +133,7 @@ imagehash==4.3.1
 importlib-metadata==4.11.3
     # via
     #   -r requirements/prod.in
-    #   click
     #   flask
-    #   huggingface-hub
-    #   numba
-    #   pynndescent
-    #   transformers
 intel-openmp==2022.2.0
     # via mkl
 itsdangerous==2.1.2
@@ -265,7 +256,7 @@ patsy==0.5.3
     # via statsmodels
 phik==0.12.3
     # via ydata-profiling
-pillow==7.1.2
+pillow==9.3.0
     # via
     #   -r requirements/prod.in
     #   gradio
@@ -431,23 +422,11 @@ typeguard==2.13.3
     # via ydata-profiling
 typing-extensions==4.1.1
     # via
-    #   aiohttp
-    #   anyio
-    #   asgiref
-    #   async-timeout
-    #   gitpython
     #   huggingface-hub
-    #   importlib-metadata
-    #   kiwisolver
-    #   markdown-it-py
-    #   openai
     #   pydantic
-    #   seaborn
     #   starlette
     #   torch
     #   torchvision
-    #   uvicorn
-    #   yarl
 uc-micro-py==1.0.1
     # via linkify-it-py
 umap-learn==0.5.3
