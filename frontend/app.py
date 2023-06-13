@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import shutil
 
-from backend.inference.inference import Pipeline
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -862,12 +861,15 @@ class PredictorBackend:
     """
 
     def __init__(self, url=None):
-        if url is not None:
-            self.url = url
-            self._predict = self._predict_from_endpoint
-        else:
-            model = Pipeline()
-            self._predict = model.predict
+        self.url = url
+        self._predict = self._predict_from_endpoint
+        # if url is not None:
+        #     self.url = url
+        #     self._predict = self._predict_from_endpoint
+        # else:
+        #     from backend.inference.inference import Pipeline
+        #     model = Pipeline()
+        #     self._predict = model.predict
 
     def run(self, df, requests, answers, request_types, image):
         pred = self._predict(df, requests, answers, request_types, image)
