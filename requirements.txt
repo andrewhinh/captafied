@@ -23,7 +23,7 @@ cycler==0.11.0
 dacite==1.8.1
     # via ydata-profiling
 dash==2.10.2
-    # via -r prod.in
+    # via -r requirements.in
 dash-core-components==2.0.0
     # via dash
 dash-html-components==2.0.0
@@ -81,7 +81,7 @@ networkx==2.6.3
     # via visions
 numpy==1.21.6
     # via
-    #   -r prod.in
+    #   -r requirements.in
     #   imagehash
     #   matplotlib
     #   pandas
@@ -101,7 +101,7 @@ packaging==23.1
     #   statsmodels
 pandas==1.3.5
     # via
-    #   -r prod.in
+    #   -r requirements.in
     #   phik
     #   seaborn
     #   statsmodels
@@ -113,14 +113,14 @@ phik==0.12.3
     # via ydata-profiling
 pillow==7.1.2
     # via
-    #   -r prod.in
+    #   -r requirements.in
     #   imagehash
     #   matplotlib
     #   visions
     #   wordcloud
 plotly==5.15.0
     # via
-    #   -r prod.in
+    #   -r requirements.in
     #   dash
 pydantic==1.10.9
     # via ydata-profiling
@@ -139,7 +139,7 @@ pyyaml==6.0
     # via ydata-profiling
 requests==2.31.0
     # via
-    #   -r prod.in
+    #   -r requirements.in
     #   ydata-profiling
 s3transfer==0.6.1
     # via boto3
@@ -156,7 +156,7 @@ six==1.16.0
     #   patsy
     #   python-dateutil
 smart-open[s3]==6.3.0
-    # via -r prod.in
+    # via -r requirements.in
 statsmodels==0.13.5
     # via ydata-profiling
 tangled-up-in-unicode==0.2.0
@@ -178,11 +178,11 @@ urllib3==1.26.16
     #   botocore
     #   requests
 validators==0.20.0
-    # via -r prod.in
+    # via -r requirements.in
 visions[type_image_path]==0.7.5
     # via ydata-profiling
 waitress==2.1.2
-    # via -r prod.in
+    # via -r requirements.in
 werkzeug==2.2.3
     # via
     #   dash
@@ -190,6 +190,6 @@ werkzeug==2.2.3
 wordcloud==1.9.2
     # via ydata-profiling
 ydata-profiling==4.2.0
-    # via -r prod.in
+    # via -r requirements.in
 zipp==3.15.0
     # via importlib-metadata
