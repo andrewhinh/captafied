@@ -1,21 +1,13 @@
 # standard setup
 h5py
 importlib-metadata>=4.4
-mkl-service==2.4.0
 numpy
 pyngrok
 requests
 smart_open[s3]
 tqdm
-# versioned for stability
-gradio==3.0.21
 # versioned to match Google Colab up to minor
-# Jinja2>=2.11,<2.12
 pillow<7.2
-torch>=1.12,<1.13
-torchvision>=0.13.0
-# versioned to avoid breaking change in minor version update
-# markupsafe<2.1
 
 # added for this project
 dash
@@ -25,11 +17,6 @@ pandas
 ydata-profiling
 plotly
 python-dotenv
-scikit-learn
-tabula-py
 tenacity
-timm
-transformers
-umap-learn
 validators
 waitress
