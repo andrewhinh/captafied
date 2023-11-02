@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import shutil
 
+from backend.inference.inference import Pipeline
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -17,58 +18,43 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import flask
 from flask import Flask
+import numpy as np
 import pandas as pd
 import plotly.io as pio
 import requests as req
-from utils.util import checklist_options, encode_b64_image, open_image
+from utils.util import encode_b64_image, open_image
 import validators
 from waitress import serve
 
-
-# Variables
-# Port for Dash app
-DEFAULT_PORT = 11700
-
-# CSS stylesheet
-external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
-
-# Text + background settings
+# Style variables
+external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]  # CSS stylesheet
 font = {
     "family": "Helvetica",
-    "size": "20px",
-}
+    "size": "16px",
+}  # Font family and size
 colors = {
-    "background": "#111111",
-    "text": "#ffffff",
-}
+    "background": "#28282B",
+    "text": "#FBFAF5",
+}  # Background and text colors
 
-# Global variables for downloading table and for backend
-output_tables = []
-requests = []
-requests_types = []
-answers = []
+max_rows, max_col = 5, 5  # Max of table to show when table is shown on frontend
+max_char_length = (
+    40 - 3
+)  # Max html table heading character length (since there are usually no spaces): Width of IPhone screen - "..." at end
+flag_terms = ["incorrect", "offensive", "other"]  # Flagging terms
+button_id_end = "-button-state"  # Button id ending
 
-# Max of table to show when table is sent to backend (From AutoViz)
-max_pred_rows = 150000
-max_pred_cols = 30
+# Server variables
+DEFAULT_PORT = 11700  # Port for Dash app
 
-# Max of table to show when table is shown
-max_rows = 5
-max_col = 2
+output_tables, requests, answers = [], [], []  # Global variables for downloading table and for backend
+max_pred_rows, max_pred_cols = 150000, 30  # Max of table to show when table is sent to backend (From AutoViz)
+multiple_files_error = (
+    "Please upload one file with only one table."  # Example error message when multiple tables are found
+)
 
-# Max html table heading character length (since there are usually no spaces)
-max_char_length = 40 - 3  # Width of IPhone screen - "..." at end
-
-# Example error message when multiple tables are found
-multiple_files_error = "Please upload one file with only one table."
-
-# Flask server for loading assets
-server = Flask(__name__)
-ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
-
-# Button helper variables
-flag_terms = ["incorrect", "offensive", "other"]
-button_id_end = "-button-state"
+server = Flask(__name__)  # Flask server for loading assets
+ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")  # Path to assets
 
 # Examples
 parent_path = Path(__file__).parent / ".."
@@ -313,6 +299,7 @@ def show_image(contents=None, filename=None, url=None, image_answer=False):
         image, error = convert_to_b64(None, None, url)
     if image_answer is not None:
         image = image_answer
+
     if image is not None and not error:
         items = []
         if heading:
@@ -325,12 +312,18 @@ def show_image(contents=None, filename=None, url=None, image_answer=False):
         items.append(
             html.Img(
                 src=image,
-                style=html_settings(),
+                style=html_settings(width="50%"),
             ),
         )
         return html.Div(items)
     else:
         return error
+
+
+# Convert numpy arrays in JSON to lists for Plotly graphs
+def custom_serializer(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
 
 
 # Manage/show output
@@ -349,6 +342,8 @@ def manage_output(
         answers.append(code)
 
     if texts:
+        if type(texts) == str:
+            texts = [texts]
         elements = []
         for text in texts:
             elements.append(html_text(text))
@@ -476,10 +471,10 @@ def make_frontend(predict):
             # Webpage title
             html.Center(
                 [
+                    # Intro
+                    html.Div([html.Br()] * 2),
                     html_text("Captafied", "70px", "bold"),
-                    # Subtitle
-                    html_text("Edit, query, graph, and understand your table!", "30px"),
-                    # Description + usage instructions
+                    html_text("Edit, query, graph, and understand your table!", "30px"),  # Subtitle
                     dcc.Markdown(
                         [
                             """
@@ -494,9 +489,8 @@ def make_frontend(predict):
                     """
                         ],
                         style=html_settings(),
-                    ),
-                    # Line break
-                    html.Br(),
+                    ),  # Description + usage instructions
+                    html.Br(),  # Spacing
                     # Input: table file
                     html_text("Upload your table as a csv, tsv, xls(x), or ods file:"),
                     html.Button(
@@ -505,8 +499,7 @@ def make_frontend(predict):
                         n_clicks=0,
                         style=html_settings(width="50%"),
                     ),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     dcc.Upload(
                         id="before-table-file-uploaded",
                         children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
@@ -527,43 +520,23 @@ def make_frontend(predict):
                         n_clicks=0,
                         style=html_settings(width="50%"),
                     ),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     html_input(id="before-table-url-uploaded", type="url"),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     dcc.Loading(
                         type=spinner,
                         children=html.Div(id="after-table-url-uploaded"),
                     ),
                     html.Br(),
-                    # Input: text request
-                    html_text("What you can ask me:"),
-                    # Width = 390px for Typing SVG for iphone devices
-                    dcc.Markdown(
-                        [
-                            """
-                    [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&vCenter=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;Which+rows+have+more+than+1000+stars%3F;Does+Transformers+have+the+most+stars%3F;What+does+the+distribution+of+stars+look+like%3F;What+does+the+Transformers+icon+look+like%3F;Show+the+summary+clusters.;Which+summary+is+most+like+\Transformers%3F;Which+summary+is+most+like+this+image%3F;Which+icon+is+most+like+\Transformers%3F;Which+icon+is+most+like+this+image%3F;Which+rows+have+anomalies%3F;What+release+year+is+\Transformers%3F;What+release+year+is+this+image%3F)](https://git.io/typing-svg)
-                    """
-                        ],
-                        style=html_settings(),
-                    ),
-                    dcc.Checklist(
-                        id="request-type-uploaded",
-                        options=checklist_options,
-                        value=[],
-                        inline=True,
-                    ),
-                    html.Br(),
-                    html_text("Upload your image file:"),
+                    # Input: image file
+                    html_text("Optionally, upload an image file for searching, classification, and more:"),
                     html.Button(
                         example_phrase,
                         id="image-file-upload-example",
                         n_clicks=0,
                         style=html_settings(width="50%"),
                     ),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     html.Center(
                         [
                             dcc.Upload(
@@ -577,6 +550,7 @@ def make_frontend(predict):
                     html.Br(),
                     html.Div(id="after-image-file-uploaded"),
                     html.Br(),
+                    # Input: image as a URL
                     html_text("Or paste a public URL to it:"),
                     html.Button(
                         example_phrase,
@@ -584,53 +558,60 @@ def make_frontend(predict):
                         n_clicks=0,
                         style=html_settings(width="50%"),
                     ),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     html_input(id="before-image-url-uploaded", type="url"),
                     html.Br(),
                     html.Div(id="after-image-url-uploaded"),
-                    html.Br(),
-                    html_text("Ask me anything:"),
+                    html.Div([html.Br()] * 5),
+                    # Input: text request
+                    html_text("What you can ask me:"),
+                    dcc.Markdown(
+                        [
+                            """
+                    [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;What+is+the+Transformers+repo+description%3F;What+does+the+Transformers+icon+look+like%3F;)](https://git.io/typing-svg)
+                    """
+                        ],
+                        style=html_settings(),
+                    ),  # Width = 390px for Typing SVG for iphone devices
                     html_input(id="request", type="text", debounce=False),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     html.Button(
                         "submit",
                         id="request-uploaded",
                         n_clicks=0,
                         style=html_settings(width="50%"),
                     ),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 5),
                     # Output: table, text, graph, report, and/or error
                     dcc.Loading(
                         type=spinner,
                         children=html.Div(id="pred_output"),
                     ),
-                    html.Br(),
+                    html.Div([html.Br()] * 5),
                     # Flagging buttons
-                    html.Button(
-                        flag_terms[0],
-                        id=flag_button_id(0),
-                        n_clicks=0,
-                        style=html_settings(width="50%"),
+                    html.Div(
+                        [
+                            html.Button(
+                                flag_terms[0],
+                                id=flag_button_id(0),
+                                n_clicks=0,
+                                style=html_settings(width="25%"),
+                            ),
+                            html.Button(
+                                flag_terms[1],
+                                id=flag_button_id(1),
+                                n_clicks=0,
+                                style=html_settings(width="25%"),
+                            ),
+                            html.Button(
+                                flag_terms[2],
+                                id=flag_button_id(2),
+                                n_clicks=0,
+                                style=html_settings(width="25%"),
+                            ),
+                        ]
                     ),
-                    html.Br(),
-                    html.Button(
-                        flag_terms[1],
-                        id=flag_button_id(1),
-                        n_clicks=0,
-                        style=html_settings(width="50%"),
-                    ),
-                    html.Br(),
-                    html.Button(
-                        flag_terms[2],
-                        id=flag_button_id(2),
-                        n_clicks=0,
-                        style=html_settings(width="50%"),
-                    ),
-                    html.Br(),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     dcc.Loading(
                         type=spinner,
                         children=html.Div(id="flag_output"),
@@ -699,7 +680,7 @@ def make_frontend(predict):
         if url:
             return show_image(None, None, url, None)
 
-    # When both table file/url + request are uploaded
+    # When table file/url + request +/- image are uploaded
     @app.callback(
         Output("pred_output", "children"),
         State("after-table-file-uploaded", "children"),
@@ -708,7 +689,6 @@ def make_frontend(predict):
         State("after-image-url-uploaded", "children"),
         Input("request-uploaded", "n_clicks"),
         Input("request", "value"),
-        Input("request-type-uploaded", "value"),
         Input("before-table-file-uploaded", "contents"),
         State("before-table-file-uploaded", "filename"),
         Input("before-table-url-uploaded", "value"),
@@ -724,7 +704,6 @@ def make_frontend(predict):
         show_image_url,
         submit,
         request,
-        request_types,
         table_contents,
         table_filename,
         table_url,
@@ -757,11 +736,8 @@ def make_frontend(predict):
             if df is not None and not error:
                 global output_tables
                 global requests
-                global requests_types
                 output_tables = []
                 requests.append(request)
-                if request_types:
-                    requests_types.append(request_types)
                 df = set_max_rows_cols(df)
                 image = None
                 if image_checks[0]:
@@ -773,9 +749,15 @@ def make_frontend(predict):
                 if (not image_checks[0] and not image_checks[1]) and image_checks[3]:
                     image, error = convert_to_b64(None, None, str(image_url_example))
                 if not error:
-                    code, tables, texts, graphs, images, report = predict(df, requests, answers, request_types, image)
-                    tables = [pd.DataFrame.from_dict(table) for table in tables]
-                    graphs = [pio.from_json(graph) for graph in graphs]
+                    code, tables, texts, graphs, images, report = predict(df, requests, answers, image)
+                    if tables:
+                        tables = [pd.DataFrame.from_dict(table) for table in tables]
+                    if graphs:
+                        graphs = [
+                            graph if type(graph) == "str" else json.dumps(graph, default=custom_serializer)
+                            for graph in graphs
+                        ]
+                        graphs = [pio.from_json(graph) for graph in graphs]
                     return manage_output(code, tables, texts, graphs, images, report)
 
     # When download button is clicked
@@ -861,29 +843,25 @@ class PredictorBackend:
     """
 
     def __init__(self, url=None):
-        self.url = url
-        self._predict = self._predict_from_endpoint
-        # if url is not None:
-        #     self.url = url
-        #     self._predict = self._predict_from_endpoint
-        # else:
-        #     from backend.inference.inference import Pipeline
-        #     model = Pipeline()
-        #     self._predict = model.predict
+        if url is not None:
+            self.url = url
+            self._predict = self._predict_from_endpoint
+        else:
+            model = Pipeline()
+            self._predict = model.predict
 
-    def run(self, df, requests, answers, request_types, image):
-        pred = self._predict(df, requests, answers, request_types, image)
+    def run(self, df, requests, answers, image):
+        pred = self._predict(df, requests, answers, image)
         self._log_inference(pred)
         return pred
 
-    def _predict_from_endpoint(self, df, requests, answers, request_types, image):
+    def _predict_from_endpoint(self, df, requests, answers, image):
         headers = {"Content-type": "application/json"}
         payload = json.dumps(
             {
                 "table": df.to_dict(),
                 "requests": requests,
                 "prev_answers": answers,
-                "request_types": request_types,
                 "image": image,
             }
         )

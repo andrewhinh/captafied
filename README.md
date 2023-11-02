@@ -24,25 +24,12 @@ A website that helps users understand their spreadsheet data without the learnin
 
 ### Inference Pipeline
 
-We provide the user with check-boxes to indicate if they want to use manually-implemented functions that perform the following tasks:
-
-- Clustering (where text and/or images are grouped by similarity)
-- Text search (where results are ranked by relevance to a query string or image)
-- Image search (where results are ranked by relevance to a query string or image)
-- Anomaly detection (where rows that have outliers are identified)
-- Text classification (where text is classified by their most similar label)
-- Image classification (where images are classified by their most similar label)
-
-Once the user submits a table, a request regarding it, and optionally checks one or more of the above boxes, we first check if the user wants to use a manually-implemented function.
-
-If so, we use [OpenAI's CLIP](#credit) to compute image and/or text embeddings and [UMAP](#credit) to reduce the embeddings' dimensionality as necessary. Then, we call the corresponding manually-implemented function to perform the task.
-
-Otherwise, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
+The user must submit a table and corresponding request regarding it. Optionally, there is an option to upload an image for similarity search. Then, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
 - pandas DataFrames
 - Python strings/f-strings
 - Plotly graphs
-- Images opened from URLs in the table
+- Images
 
 that can be used to answer the user's request. If something fails in this process, we use [pandas-profiling](#credit) to generate a descriptive table profile that can be used to help the user understand their data.
 
@@ -50,18 +37,11 @@ that can be used to answer the user's request. If something fails in this proces
 
 Some notes about submitting inputs to the pipeline:
 
-- Because past requests and answers are sent to [OpenAI's API](#credit), you can refer to past requests and answers to help formulate your current request, allowing for more complex requests.
-- For non-manual functions, you can submit multiple requests at one time.
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
 - Only csv, xls(x), tsv, and ods files are currently supported.
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
-- When submitting manual function requests, only submitted text/images can be referenced, not those found in the table. In addition, only clarifications for which columns to use are accepted. Lastly, for all functions besides anomaly detection, images and/or text must be submitted.
-- When submitting text/image search/classification requests, preface the actual query within the request with a backslash ("\"). For example, if you wanted to find text in the 'Product_Description' column that is most similar to {query}, you could submit a request like "What is the most similar product description to \query?".
-- When submitting text/image classification requests, explain which categorical column(s) in the data to use as labels.
-- When submitting clustering requests, up to two continuous variables can be graphed. However, there is no limit on the number of text, image, and categorical variables that can be graphed.
-- Try to explain any co-dependencies between columns that may exist. For example, assume there are two columns, 'Repository_Name' and 'Icon_URLs' and the 'Icon_URLs' column is a list of URLs that correspond to the icons of the repositories in the 'Repository_Name' column. In this case, you could explain this co-dependency in your request by saying something like "Show me the repo's icon." rather than "What does {repo} look like?".
 
-Some examples of requests and questions that the pipeline can handle (with respect to the example table found in the repo and website):
+Some examples of requests and questions that the pipeline can handle (these use the example table found in the repo and the website):
 
 - Add 10 stars to all the repos that have summaries longer than 10 words.
   - Of the repos you just added stars to, which ones have the most stars?
@@ -75,22 +55,6 @@ Some examples of requests and questions that the pipeline can handle (with respe
   - Make it half as tall.
 - How much memory does the dataset use?
   - What's this number in MB?
-- How do the description clusters change with release year?
-  - Plot this graph vs. the number of stars.
-- Which summary is most like \Transformers?
-  - How many words are in this summary?
-- Which summary is most like this image?
-  - How many characters are in this summary?
-- Which icon is most like \Transformers?
-  - How many pixels tall is this icon?
-- Which icon is most like this image?
-  - Make it half as wide.
-- Which rows have anomalies in the summary column?
-  - Plot the stars using theses rows.
-- What release year is most likely for \Transformers?
-  - What about for every categorical column?
-- What release year is most likely for this image?
-  - What about for the first three categorical columns?
 
 ## Production
 
@@ -99,19 +63,19 @@ To setup the production server for the website, we:
 1. Create an AWS Lambda function for the backend:
 
     ```bash
-    python3 utils/build_docker.py --ecr_repo_name captafied-backend --update_lambda_func
+    python utils/build_docker.py --ecr_repo_name captafied-backend --update_lambda_func
     ```
 
 2. Create a Docker image for the frontend and push to AWS ECR:
 
     ```bash
-    python3 utils/build_docker.py --dockerfile_path frontend/Dockerfile
+    python utils/build_docker.py --dockerfile_path frontend/Dockerfile
     ```
 
 3. Pull the frontend Docker image on an AWS EC2 instance:
 
     ```bash
-    python3 utils/build_docker.py --pull_image
+    python utils/build_docker.py --pull_image
     ```
 
 4. Run the Docker image:
@@ -153,33 +117,19 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
     echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
     ```
 
-3. Reinstall PyTorch if using a newer NVIDIA RTX GPU:
-
-    ```bash
-    pip3 uninstall torch torchvision torchaudio -y
-    # Download the PyTorch version that is compatible with your machine: https://pytorch.org/get-started/locally/
-    ```
-
-4. Install pre-commit:
+3. Install pre-commit:
 
     ```bash
     pre-commit install
     ```
 
-5. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
-6. (Optional) Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
-7. Populate a `.env` file with your keys/authtokens in the format of `.env.template`, and reactivate the environment.
-8. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+4. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
+5. (Optional) Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
+6. Populate a `.env` file with your keys/authtokens in the format of `.env.template`, and reactivate the environment.
+7. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 
     ```bash
     aws configure
-    ```
-
-9. Sign up for a Weights and Biases account [here](https://wandb.ai/signup) and download the CLIP ONNX file locally:
-
-    ```bash
-    wandb login
-    python ./backend/inference/artifacts/stage_model.py --fetch
     ```
 
 If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
@@ -194,7 +144,6 @@ The repo is separated into main folders that each describe a part of the ML-proj
     ├── deploy      # the AWS Lambda backend setup and continuous deployment code.
         ├── api_serverless  # the backend handler code using AWS Lambda.
     ├── inference   # the inference code.
-        ├── artifacts   # the model (W&B-synced) storage folder.
     ├── load_test   # the load testing code using Locust.
     ├── monitoring  # the model monitoring code
 ├── frontend        # the frontend code using Dash.
@@ -206,7 +155,7 @@ The repo is separated into main folders that each describe a part of the ML-proj
 - To start the app locally:
 
     ```bash
-    python3 frontend/app.py
+    python frontend/app.py
     ```
 
 ### Code Style
@@ -225,6 +174,5 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 ## Credit
 
-- OpenAI for their [CLIP text and image encoder code](https://huggingface.co/openai/clip-vit-base-patch16) and [GPT-3 API](https://openai.com/api/).
-- [UMAP](https://umap-learn.readthedocs.io/en/latest/index.html) for their dimensionality reduction algorithm.
+- OpenAI for their [GPT-4 API](https://openai.com/api/).
 - YData for their [pandas-profiling](https://github.com/ydataai/pandas-profiling) package.

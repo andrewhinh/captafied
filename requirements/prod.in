@@ -20,8 +20,7 @@ torchvision>=0.13.0
 # added for this project
 dash
 odfpy
-onnxruntime==1.12.1
-openai==0.27.4
+openai
 pandas
 ydata-profiling
 plotly
@@ -34,4 +33,3 @@ transformers
 umap-learn
 validators
 waitress
-wandb==0.12.17

@@ -9,17 +9,6 @@ from PIL import Image
 import smart_open
 
 
-# Variables
-checklist_options = {
-    "cluster": "Clustering",
-    "text_search": "Text Search",
-    "image_search": "Image Search",
-    "anomaly": "Anomaly Detection",
-    "text_class": "Text Classification",
-    "image_class": "Image Classification",
-}
-
-
 # Functions
 def open_image(image_uri: Union[Path, str], grayscale=False) -> Image:
     with smart_open.open(image_uri, "rb") as image_file:
