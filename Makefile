@@ -13,6 +13,7 @@ pip-tools:
 	pip-compile requirements/prod.in && pip-compile requirements/dev.in
 	pip-sync requirements/prod.txt requirements/dev.txt
 	cp requirements/prod.txt frontend/requirements.txt
+	cp requirements/prod.txt backend/requirements.txt
 
 # Compile and install the requirements for local linting (optional)
 pip-tools-lint:
@@ -20,6 +21,7 @@ pip-tools-lint:
 	pip-compile requirements/prod.in && pip-compile requirements/dev.in && pip-compile requirements/dev-lint.in
 	pip-sync requirements/prod.txt requirements/dev.txt requirements/dev-lint.txt
 	cp requirements/prod.txt frontend/requirements.txt
+	cp requirements/prod.txt backend/requirements.txt
 
 # Bump versions of transitive dependencies
 pip-tools-upgrade:
@@ -27,6 +29,7 @@ pip-tools-upgrade:
 	pip-compile --upgrade requirements/prod.in && pip-compile --upgrade requirements/dev.in && pip-compile --upgrade requirements/dev-lint.in
 	pip-sync requirements/prod.txt requirements/dev.txt requirements/dev-lint.txt
 	cp requirements/prod.txt frontend/requirements.txt
+	cp requirements/prod.txt backend/requirements.txt
 
 # Lint
 lint:

@@ -3,7 +3,7 @@
 FROM public.ecr.aws/lambda/python:3.7
 
 # Install Python dependencies
-COPY requirements/prod.txt ./requirements.txt
+COPY ./requirements.txt ./requirements.txt
 RUN pip install --upgrade pip==21.1.3
 RUN pip install -r requirements.txt
 
@@ -17,6 +17,6 @@ RUN mkdir -p /tmp/assets
 COPY .env .env
 COPY inference/ ./inference
 COPY deploy/api_serverless/api.py ./api.py
-COPY util.py ./util.py
+COPY utils/util.py ./utils/util.py
 
 CMD ["api.handler"]

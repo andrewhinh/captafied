@@ -39,24 +39,6 @@ def main():
     os.environ["IMAGE_URI"] = "/".join([os.environ["ECR_URI"], os.environ["LAMBDA_NAME"]])
 
     # Build container image
-    proc = subprocess.run(
-        [
-            "aws",
-            "--region",
-            os.environ["AWS_REGION"],
-            "ecr",
-            "get-login-password",
-            "|",
-            "docker",
-            "login",
-            "--username",
-            "AWS",
-            "--password-stdin",
-            os.environ["AWS_ACCOUNT_ID"] + ".dkr.ecr." + os.environ["AWS_REGION"] + ".amazonaws.com",
-        ],
-        stdout=subprocess.PIPE,
-        text=True,
-    )  # Login to ECR
     subprocess.run(
         [
             "docker",
