@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import shutil
 
-from backend.inference.inference import Pipeline
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -847,6 +846,8 @@ class PredictorBackend:
             self.url = url
             self._predict = self._predict_from_endpoint
         else:
+            from backend.inference.inference import Pipeline  # so that we don't have to install backend as a dependency
+
             model = Pipeline()
             self._predict = model.predict
 
