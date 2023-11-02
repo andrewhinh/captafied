@@ -155,7 +155,7 @@ The repo is separated into main folders that each describe a part of the ML-proj
 - To start the app locally:
 
     ```bash
-    python frontend/app.py
+    python app.py
     ```
 
 ### Code Style

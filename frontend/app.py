@@ -56,19 +56,19 @@ server = Flask(__name__)  # Flask server for loading assets
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")  # Path to assets
 
 # Examples
-parent_path = Path(__file__).parent / ".."
-table_path = parent_path / "backend" / "inference" / "tests" / "support" / "tables"
+parent_path = Path(__file__).parent
+table_path = parent_path / "tables"
 table_file_example = table_path / "0.csv"
 table_url_example = table_path / "1.txt"
 table_url_example = open(table_url_example).readlines()[0]
-image_path = parent_path / "backend" / "inference" / "tests" / "support" / "images"
+image_path = parent_path / "images"
 image_file_example = image_path / "0.png"
 image_url_example = image_path / "8.txt"
 image_url_example = open(image_url_example).readlines()[0]
 example_phrase = "use example"
 
 # Table download settings
-asset_path = parent_path / "frontend" / "assets"
+asset_path = parent_path / "assets"
 download_path = asset_path / "tables"
 # Make this directory if it doesn't exist
 if not os.path.exists(download_path):
@@ -845,11 +845,11 @@ class PredictorBackend:
         if url is not None:
             self.url = url
             self._predict = self._predict_from_endpoint
-        else:
-            from backend.inference.inference import Pipeline  # so that we don't have to install backend as a dependency
+        # else:
+        #     from backend.inference.inference import Pipeline  # so that we don't have to install backend as a dependency
 
-            model = Pipeline()
-            self._predict = model.predict
+        #     model = Pipeline()
+        #     self._predict = model.predict
 
     def run(self, df, requests, answers, image):
         pred = self._predict(df, requests, answers, image)
