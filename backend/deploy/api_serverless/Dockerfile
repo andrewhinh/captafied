@@ -15,8 +15,8 @@ ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 RUN mkdir -p /tmp/assets
 
 COPY .env .env
-COPY backend/inference/ ./backend/inference
-COPY backend/deploy/api_serverless/api.py ./api.py
-COPY utils/util.py ./utils/util.py
+COPY inference/ ./inference
+COPY deploy/api_serverless/api.py ./api.py
+COPY util.py ./util.py
 
 CMD ["api.handler"]

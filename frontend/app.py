@@ -1,5 +1,4 @@
 # Libraries
-import argparse
 import base64
 import datetime
 import io
@@ -15,15 +14,29 @@ from botocore.config import Config
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+from dotenv import load_dotenv
 import flask
 from flask import Flask
 import numpy as np
 import pandas as pd
 import plotly.io as pio
 import requests as req
-from utils.util import encode_b64_image, open_image
+from util import encode_b64_image, open_image
 import validators
-from waitress import serve
+import waitress
+
+# Server variables
+load_dotenv()
+BACKEND_URL = os.getenv("BACKEND_URL")
+DEFAULT_PORT = 11700  # Port for Dash app
+
+output_tables, requests, answers = [], [], []  # Global variables for downloading table and for backend
+max_pred_rows, max_pred_cols = 150000, 30  # Max of table to show when table is sent to backend (From AutoViz)
+multiple_files_error = (
+    "Please upload one file with only one table."  # Example error message when multiple tables are found
+)
+
+asset_server = Flask(__name__)  # Flask server for loading assets
 
 # Style variables
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]  # CSS stylesheet
@@ -43,18 +56,6 @@ max_char_length = (
 flag_terms = ["incorrect", "offensive", "other"]  # Flagging terms
 button_id_end = "-button-state"  # Button id ending
 
-# Server variables
-DEFAULT_PORT = 11700  # Port for Dash app
-
-output_tables, requests, answers = [], [], []  # Global variables for downloading table and for backend
-max_pred_rows, max_pred_cols = 150000, 30  # Max of table to show when table is sent to backend (From AutoViz)
-multiple_files_error = (
-    "Please upload one file with only one table."  # Example error message when multiple tables are found
-)
-
-server = Flask(__name__)  # Flask server for loading assets
-ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")  # Path to assets
-
 # Examples
 parent_path = Path(__file__).parent
 table_path = parent_path / "tables"
@@ -70,8 +71,7 @@ example_phrase = "use example"
 # Table download settings
 asset_path = parent_path / "assets"
 download_path = asset_path / "tables"
-# Make this directory if it doesn't exist
-if not os.path.exists(download_path):
+if not os.path.exists(download_path):  # Make this directory if it doesn't exist
     os.makedirs(download_path)
 zip_name = "temp"
 
@@ -91,18 +91,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 # Helper functions
-# Run frontend
-def main(args):
-    predictor = PredictorBackend(url=args.model_url)
-    frontend = make_frontend(predictor.run)
-    # frontend.run_server(debug=True, port=args.port) # For local testing
-    serve(frontend.server, host="0.0.0.0", port=args.port)
-
-
-# Return stylized HTML text settings
 def html_settings(
     fontSize=font["size"], fontWeight="normal", width="90%", height="100%", lineHeight=None, borderStyle=None
-):
+):  # Return stylized HTML text settings
     temp = {
         "textAlign": "center",
         "fontFamily": font["family"],
@@ -120,16 +111,14 @@ def html_settings(
     return temp
 
 
-# Return stylized HTML text
-def html_text(text, fontSize=font["size"], fontWeight="normal"):
+def html_text(text, fontSize=font["size"], fontWeight="normal"):  # Return stylized HTML text
     return html.Div(
         [text],
         style=html_settings(fontSize, fontWeight),
     )
 
 
-# Return stylized HTML input box
-def html_input(id, type, debounce=True):
+def html_input(id, type, debounce=True):  # Return stylized HTML input box
     return dcc.Input(
         id=id,
         type=type,
@@ -138,18 +127,15 @@ def html_input(id, type, debounce=True):
     )
 
 
-# Return button id
-def flag_button_id(idx):
+def flag_button_id(idx):  # Return button id
     return flag_terms[idx] + button_id_end
 
 
-# Show all clicked buttons
-def total_clicked_buttons():
+def total_clicked_buttons():  # Show all clicked buttons
     return [p["prop_id"] for p in dash.callback_context.triggered][0]
 
 
-# Convert files to pd.DataFrames
-def name_to_pd(name, csv_obj=None, rest_obj=None):
+def name_to_pd(name, csv_obj=None, rest_obj=None):  # Convert files to pd.DataFrames
     if not csv_obj and not rest_obj:  # For local files + URLs
         csv_obj = rest_obj = name
     if "csv" in name:
@@ -165,8 +151,9 @@ def name_to_pd(name, csv_obj=None, rest_obj=None):
     return df
 
 
-# Convert an uploaded table file/typed-in URL to a pd.DataFrame
-def convert_to_pd(contents=None, filename=None, url=None):
+def convert_to_pd(
+    contents=None, filename=None, url=None
+):  # Convert an uploaded table file/typed-in URL to a pd.DataFrame
     empty_df, empty_error = None, None
     error_ending = "csv, tsv, xls(x), or ods file containing a table."
     url_error = "Please enter a valid public URL to a " + error_ending
@@ -198,8 +185,7 @@ def convert_to_pd(contents=None, filename=None, url=None):
             return empty_df, html_text(url_error)
 
 
-# Set maximum number of rows/columns to work with for a table
-def set_max_rows_cols(df):
+def set_max_rows_cols(df):  # Set maximum number of rows/columns to work with for a table
     if len(df) > max_pred_rows:
         df = df.iloc[:max_pred_rows]
     if len(df.columns) > max_pred_cols:
@@ -207,8 +193,9 @@ def set_max_rows_cols(df):
     return df
 
 
-# Show a table from an uploaded file/typed-in URL
-def show_table(contents=None, filename=None, url=None, table_answer=False):
+def show_table(
+    contents=None, filename=None, url=None, table_answer=False
+):  # Show a table from an uploaded file/typed-in URL
     heading = ""
     df, error = None, None
     if not contents and filename:
@@ -252,8 +239,9 @@ def show_table(contents=None, filename=None, url=None, table_answer=False):
         return error
 
 
-# Convert an uploaded image file/typed-in URL to a base64-encoded image
-def convert_to_b64(contents=None, filename=None, url=None):
+def convert_to_b64(
+    contents=None, filename=None, url=None
+):  # Convert an uploaded image file/typed-in URL to a base64-encoded image
     empty_image, empty_error = None, None
     error_ending = "image."
     url_error = "Please enter a valid public URL to an " + error_ending
@@ -283,8 +271,9 @@ def convert_to_b64(contents=None, filename=None, url=None):
             return empty_image, html_text(url_error)
 
 
-# Show an image from an uploaded file/typed-in URL
-def show_image(contents=None, filename=None, url=None, image_answer=False):
+def show_image(
+    contents=None, filename=None, url=None, image_answer=False
+):  # Show an image from an uploaded file/typed-in URL
     heading = ""
     image, error = None, None
     if not contents and filename:
@@ -319,13 +308,11 @@ def show_image(contents=None, filename=None, url=None, image_answer=False):
         return error
 
 
-# Convert numpy arrays in JSON to lists for Plotly graphs
-def custom_serializer(obj):
+def custom_serializer(obj):  # Convert numpy arrays in JSON to lists for Plotly graphs
     if isinstance(obj, np.ndarray):
         return obj.tolist()
 
 
-# Manage/show output
 def manage_output(
     code=None,
     tables=None,
@@ -333,7 +320,7 @@ def manage_output(
     graphs=None,
     images=None,
     report=None,
-):
+):  # Manage/show output
     outputs = []
 
     if code:
@@ -423,8 +410,7 @@ def manage_output(
     return html.Div(style=html_settings(width="100%"), children=outputs)
 
 
-# Flag output
-def flag_output(request, incorrect=None, offensive=None, other=None):
+def flag_output(request, incorrect=None, offensive=None, other=None):  # Flag output
     clicked = ["temp"]
     log = pd.DataFrame(
         {
@@ -453,13 +439,13 @@ def flag_output(request, incorrect=None, offensive=None, other=None):
     return (html_text("Done! Thanks for your feedback."),)
 
 
-# Main frontend code
-def make_frontend(predict):
+# Main app code
+def make_app(predict):
     # Initializing dash app
     app = dash.Dash(
         __name__,
         external_stylesheets=external_stylesheets,
-        server=server,
+        server=asset_server,
         suppress_callback_exceptions=True,
     )
 
@@ -828,11 +814,12 @@ def make_frontend(predict):
     # When report is generated and needs to be displayed
     @app.server.route("/assets/<resource>")
     def serve_assets(resource):
-        return flask.send_from_directory(ASSETS_PATH, resource)
+        return flask.send_from_directory(asset_path, resource)
 
     return app
 
 
+# Main backend code
 class PredictorBackend:
     """Interface to a backend that serves predictions.
 
@@ -845,6 +832,7 @@ class PredictorBackend:
         if url is not None:
             self.url = url
             self._predict = self._predict_from_endpoint
+        # Uncomment this to run the backend locally
         # else:
         #     from backend.inference.inference import Pipeline  # so that we don't have to install backend as a dependency
 
@@ -868,10 +856,8 @@ class PredictorBackend:
         )
 
         try:
-            response = req.post(self.url, data=payload, headers=headers, timeout=20)  # seconds, imposed by Heroku
+            response = req.post(self.url, data=payload, headers=headers)
             pred = response.json()["pred"]
-        except req.exceptions.ReadTimeout:
-            pred = [None, None, "Sorry, the model took too long to respond. Please try again.", None, None, None]
         except Exception:
             pred = [None, None, "Sorry, something went wrong. Please try again.", None, None, None]
 
@@ -881,26 +867,9 @@ class PredictorBackend:
         logging.info(f"PRED >begin\n{pred}\nPRED >end")
 
 
-# Code execution
-def _make_parser():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--model_url",
-        default=None,
-        type=str,
-        help="Identifies a URL to which to send image data. Data is base64-encoded, converted to a utf-8 string, and then set via a POST request as JSON. Default is None, which instead sends the data to a model running locally.",
-    )
-    parser.add_argument(
-        "--port",
-        default=DEFAULT_PORT,
-        type=int,
-        help=f"Port on which to expose this server. Default is {DEFAULT_PORT}.",
-    )
-
-    return parser
+predictor = PredictorBackend(url=BACKEND_URL)
+app = make_app(predictor.run)
 
 
 if __name__ == "__main__":
-    parser = _make_parser()
-    args = parser.parse_args()
-    main(args)
+    waitress.serve(app.server, port=DEFAULT_PORT)

@@ -16,10 +16,10 @@ import plotly
 import plotly.io as pio
 import requests as rq
 from tenacity import retry, stop_after_attempt, wait_random_exponential
-from utils.util import encode_b64_image, open_image, read_b64_image
 import validators
 from ydata_profiling import ProfileReport
 
+from ..utils.util import encode_b64_image, open_image, read_b64_image
 
 # Setup
 load_dotenv()

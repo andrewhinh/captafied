@@ -28,10 +28,10 @@ pip-tools-upgrade:
 	pip-sync requirements/prod.txt requirements/dev.txt requirements/dev-lint.txt
 	cp requirements/prod.txt frontend/requirements.txt
 
-# Example training command
-train-pica-vit2gpt2-ddp:
-	python training/run_experiment.py --max_epochs=10 --gpus=-1 --accelerator=ddp --num_workers=20 --data_class=PICa --model_class=ViT2GPT2
-
 # Lint
 lint:
 	tasks/lint.sh
+
+# Run app
+dev:
+	python frontend/app.py

@@ -1,1 +1,0 @@
-How do the description embeddings change with release year?

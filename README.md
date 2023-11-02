@@ -9,10 +9,11 @@
   - [Description](#description)
     - [Inference Pipeline](#inference-pipeline)
     - [Usage](#usage)
-  - [Production](#production)
   - [Development](#development)
     - [Contributing](#contributing)
     - [Setup](#setup)
+      - [Backend](#backend)
+      - [Frontend](#frontend)
     - [Repository Structure](#repository-structure)
     - [Testing](#testing)
     - [Code Style](#code-style)
@@ -56,40 +57,6 @@ Some examples of requests and questions that the pipeline can handle (these use 
 - How much memory does the dataset use?
   - What's this number in MB?
 
-## Production
-
-To setup the production server for the website, we:
-
-1. Create an AWS Lambda function for the backend:
-
-    ```bash
-    python utils/build_docker.py --ecr_repo_name captafied-backend --update_lambda_func
-    ```
-
-2. Create a Docker image for the frontend and push to AWS ECR:
-
-    ```bash
-    python utils/build_docker.py --dockerfile_path frontend/Dockerfile
-    ```
-
-3. Pull the frontend Docker image on an AWS EC2 instance:
-
-    ```bash
-    python utils/build_docker.py --pull_image
-    ```
-
-4. Run the Docker image:
-
-    ```bash
-    . ./frontend/run_app.sh
-    ```
-
-5. Serve the app over a permanent ngrok tunnel:
-
-    ```bash
-    . ./frontend/serve_ngrok.sh
-    ```
-
 ## Development
 
 ### Contributing
@@ -100,39 +67,44 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
 
 1. Install conda if necessary:
 
-    ```bash
-    # Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
-    # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
-    # choco install make
-    ```
+   ```bash
+   # Install conda: https://conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
+   # If on Windows, install chocolately: https://chocolatey.org/install. Then, run:
+   # choco install make
+   ```
 
 2. Create the conda environment locally:
 
-    ```bash
-    cd captafied
-    make conda-update
-    conda activate captafied
-    make pip-tools
-    export PYTHONPATH=.
-    echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
-    ```
+   ```bash
+   cd captafied
+   make conda-update
+   conda activate captafied
+   make pip-tools
+   export PYTHONPATH=.
+   echo "export PYTHONPATH=.:$PYTHONPATH" >> ~/.bashrc
+   ```
 
 3. Install pre-commit:
 
-    ```bash
-    pre-commit install
-    ```
-
-4. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
-5. (Optional) Sign up for an ngrok account and get an authtoken [here](https://dashboard.ngrok.com/auth).
-6. Populate a `.env` file with your keys/authtokens in the format of `.env.template`, and reactivate the environment.
-7. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
-
-    ```bash
-    aws configure
-    ```
+   ```bash
+   pre-commit install
+   ```
 
 If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
+
+#### Backend
+
+1. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
+2. Populate a `.env` file with your key in the format of `.env.template`, and reactivate the environment.
+3. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+
+   ```bash
+   aws configure
+   ```
+
+#### Frontend
+
+1. Populate a `.env` file with the backend URL in the format of `.env.template`, and reactivate the environment.
 
 ### Repository Structure
 
@@ -152,25 +124,19 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 ### Testing
 
-- To start the app locally:
+- To start the app locally (uncomment code in `PredictorBackend.__init__` to use the local model instead of the API):
 
-    ```bash
-    python app.py
-    ```
+  ```bash
+  make dev
+  ```
 
 ### Code Style
 
-- To run pre-commit hooks:
+- To lint the code:
 
-    ```bash
-    pre-commit run --all-files
-    ```
-
-- To lint the code (after staging your changes):
-
-    ```bash
-    make lint
-    ```
+  ```bash
+  pre-commit run --all-files
+  ```
 
 ## Credit
 

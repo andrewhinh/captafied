@@ -1,1 +1,0 @@
-Add 10 stars to all the repos that have summaries longer than 10 words and icons with a height larger than 500 pixels.

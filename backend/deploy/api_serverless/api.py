@@ -1,7 +1,7 @@
 """AWS Lambda function serving inference predictions."""
 import json
 
-from backend.inference.inference import Pipeline
+from inference.inference import Pipeline
 import pandas as pd
 
 

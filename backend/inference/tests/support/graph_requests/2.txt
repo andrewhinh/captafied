@@ -1,1 +1,0 @@
-How do the summary and icon embeddings change with number of stars?
