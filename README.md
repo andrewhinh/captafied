@@ -124,7 +124,7 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 ### Testing
 
-- To start the app locally (uncomment code in `PredictorBackend.__init__` to use the local model instead of the API):
+- To start the app locally (uncomment code in `PredictorBackend.__init__` and set `use_url=False` to use the local model instead of the API):
 
   ```bash
   make dev
@@ -140,5 +140,5 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 ## Credit
 
-- OpenAI for their [GPT-4 API](https://openai.com/api/).
+- OpenAI for their [API](https://openai.com/api/).
 - YData for their [pandas-profiling](https://github.com/ydataai/pandas-profiling) package.

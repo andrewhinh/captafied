@@ -16,10 +16,9 @@ import plotly
 import plotly.io as pio
 import requests as rq
 from tenacity import retry, stop_after_attempt, wait_random_exponential
+from utils.util import encode_b64_image, open_image, read_b64_image
 import validators
 from ydata_profiling import ProfileReport
-
-from ..utils.util import encode_b64_image, open_image, read_b64_image
 
 # Setup
 load_dotenv()
@@ -96,9 +95,8 @@ class Pipeline:
             temp = global_vars.get("result")
             if temp is None:
                 raise ValueError()
-            return temp
         except Exception:
-            return None
+            return []
 
     def get_report(self, table, message):  # Generate a pandas-profiling report
         report_config = {"df": table, "title": "Pandas Profiling Report", "dark_mode": True, "tsmode": True}
@@ -158,27 +156,30 @@ class Pipeline:
             system_message = {
                 "role": "system",
                 "content": str(
-                    "You are the world's best Python code generator and can only respond to the user in Python code.\n"
+                    "You are the world's best Python code generator and can only respond in Python code.\n"
+                    + "Your task is to answer the user's question by writing a Python script.\n"
                     + "You are given the following:\n"
-                    + "1) an empty list named result,\n"
-                    + "2) a variable named image that either contains a base-64 encoded string of an image or is None,\n"
-                    + "3) and a pandas DataFrame named table. Here are table's columns and data types: "
+                    + "1) an empty list named result\n"
+                    + "2) a pandas DataFrame named table that has the following columns and data types: "
                     + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
                     + "\n"
-                    + "You may be given previous interactions for context.\n"
-                    + "Answer the user's current question by writing a Python script that:\n"
-                    + "1) checks if table can be used to answer the request. If not, "
-                    + " appends to result a Python f-string that explains why not. If so,\n"
-                    + "2) checks if image can be used to answer the request. If so, use it in the next step.\n"
-                    + "3) creates ONLY pandas DataFrames/Series, f-strings, Plotly Graph Objects, and/or numpy array representations of images, "
-                    + "depending on which ones would be best as an answer to the user, and appends them to result.\n"
-                    + "Take note the following about your code:\n"
+                    + "You may also be given the following when appropriate:\n"
+                    + "1) previous interactions for context\n"
+                    + "2) a variable named image containing a base-64 encoded string of an image\n"
+                    + "Note the following before writing any code:\n"
                     + "- Import any necessary libraries."
-                    + "- If necessary to convert a string path or URL (to an image) to a numpy array, use the pre-defined function read_b64_image(b64_string)\n"
-                    + "- If necessary to convert a string path or URL (to an image) to a numpy array, use the pre-defined function open_image(path_or_url)\n"
-                    + "- NEVER reinitialize/redefine/modify the variables table, image, and result in any way."
+                    + "- To convert a base-64 encoded string path or URL (of an image) to a numpy array, use the pre-defined function read_b64_image(b64_string).\n"
+                    + "- To convert a string path or URL (of an image) to a numpy array, use the pre-defined function open_image(path_or_url).\n"
+                    + "- NEVER reinitialize/redefine/reassign/modify the variables table, image, and result."
                     + "- NEVER reference variables created in any previous answers.\n"
-                    + "- NEVER return or print table, image, and result.\n"
+                    + "- NEVER return/show/print table, image, and result.\n"
+                    + "Answer the user's current question by writing a Python script as follows:\n"
+                    + "1) check if table can be used to answer the request. If not, append to result "
+                    + "a Python f-string explaining why not and stop. If so, continue to the next step.\n"
+                    + "2) verify the Python types of the columns in table before using them.\n"
+                    + "3) create ONLY pandas DataFrames/Series, f-strings, Plotly Graph Objects, and/or numpy array representations of images, "
+                    + "depending on which ones would be best as an answer to the user, and append them to result.\n"
+                    + "4) verify result is not empty. If it's empty, return to step 3. If it is not, stop.\n"
                 ),
             }
             user_messages = [{"role": "user", "content": "User: " + request} for request in requests]

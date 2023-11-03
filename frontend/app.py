@@ -828,9 +828,9 @@ class PredictorBackend:
     Otherwise, runs a predictor locally.
     """
 
-    def __init__(self, url=None):
-        if url is not None:
-            self.url = url
+    def __init__(self, use_url=True):
+        if use_url:
+            self.url = BACKEND_URL
             self._predict = self._predict_from_endpoint
         # Uncomment this to run the backend locally
         # else:
@@ -867,7 +867,7 @@ class PredictorBackend:
         logging.info(f"PRED >begin\n{pred}\nPRED >end")
 
 
-predictor = PredictorBackend(url=BACKEND_URL)
+predictor = PredictorBackend(use_url=True)
 app = make_app(predictor.run)
 
 
