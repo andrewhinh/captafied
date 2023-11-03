@@ -48,7 +48,7 @@ colors = {
     "text": "#FBFAF5",
 }  # Background and text colors
 
-max_rows, max_col = 5, 5  # Max of table to show when table is shown on frontend
+max_rows, max_col = 3, 3  # Max of table to show when table is shown on frontend
 max_char_length = (
     40 - 3
 )  # Max html table heading character length (since there are usually no spaces): Width of IPhone screen - "..." at end
@@ -553,11 +553,11 @@ def make_app(predict):
                     dcc.Markdown(
                         [
                             """
-                    [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&width=390&lines=Add+a+column+that+averages+forks+and+stars.;What+is+the+Transformers+repo+description%3F;What+does+the+Transformers+icon+look+like%3F;)](https://git.io/typing-svg)
+                    [![Typing SVG](https://readme-typing-svg.demolab.com?font=Helvetica&duration=2500&pause=1000&center=true&width=350&lines=Plot+stars+over+forks.;Which+description+is+the+longest%3F;What+do+the+icons+look+like%3F;)](https://git.io/typing-svg)
                     """
                         ],
                         style=html_settings(),
-                    ),  # Width = 390px for Typing SVG for iphone devices
+                    ),  # Width = 350px for Typing SVG for iphone devices
                     html_input(id="request", type="text", debounce=False, placeholder="Type your request here..."),
                     html.Div([html.Br()] * 2),
                     html.Button(
@@ -574,27 +574,25 @@ def make_app(predict):
                     ),
                     html.Div([html.Br()] * 2),
                     # Flagging buttons
-                    html.Div(
-                        [
-                            html.Button(
-                                flag_terms[0],
-                                id=flag_button_id(0),
-                                n_clicks=0,
-                                style=html_settings(width="25%"),
-                            ),
-                            html.Button(
-                                flag_terms[1],
-                                id=flag_button_id(1),
-                                n_clicks=0,
-                                style=html_settings(width="25%"),
-                            ),
-                            html.Button(
-                                flag_terms[2],
-                                id=flag_button_id(2),
-                                n_clicks=0,
-                                style=html_settings(width="25%"),
-                            ),
-                        ]
+                    html.Button(
+                        flag_terms[0],
+                        id=flag_button_id(0),
+                        n_clicks=0,
+                        style=html_settings(width="50%"),
+                    ),
+                    html.Br(),
+                    html.Button(
+                        flag_terms[1],
+                        id=flag_button_id(1),
+                        n_clicks=0,
+                        style=html_settings(width="50%"),
+                    ),
+                    html.Br(),
+                    html.Button(
+                        flag_terms[2],
+                        id=flag_button_id(2),
+                        n_clicks=0,
+                        style=html_settings(width="50%"),
                     ),
                     html.Div([html.Br()] * 2),
                     dcc.Loading(
