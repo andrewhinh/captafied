@@ -38,14 +38,11 @@ per-file-ignores =
   */data/*.py:DAR
   data/*.py:F,I
 
-  *backend/inference/util.py:DAR101,F401
-  *frontend/app.py:I202
-
   #ADDED###################################
-  *backend/inference/*:I100,I202,I201,DAR101,F401,DAR201,DAR002
-  *backend/inference/inference.py:S102,C901,S113,S108
-  *backend/load_test/locust_http_user.py:F841
-  *backend/utils/update_aws.py:S404,S607,S603
-  *backend/deploy/deploy.py:S404,S607,S602,S603
-  *frontend/app.py:W605,S104,C901,S113
+  *inference/*:I100,I202,I201,DAR101,F401,DAR201,DAR002
+  *inference/util.py:DAR101,F401
+  *inference/inference.py:S102,C901,S113,S108
+  *load_test/locust_http_user.py:F841
+  *deploy/aws_lambda.py:S404,S607,S602,S603
+  *app.py:I202,W605,S104,C901,S113
   #ADDED###################################

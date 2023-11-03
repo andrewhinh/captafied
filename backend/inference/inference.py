@@ -6,7 +6,7 @@ import tempfile
 import traceback
 from typing import List, Optional
 
-from backend.utils.util import encode_b64_image, open_image, read_b64_image
+from backend.util import encode_b64_image, open_image, read_b64_image
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
