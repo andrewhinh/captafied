@@ -5,6 +5,7 @@ import tempfile
 import traceback
 from typing import List, Optional
 
+from backend.utils.util import encode_b64_image, open_image, read_b64_image
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -16,7 +17,6 @@ import plotly
 import plotly.io as pio
 import requests as rq
 from tenacity import retry, stop_after_attempt, wait_random_exponential
-from utils.util import encode_b64_image, open_image, read_b64_image
 import validators
 from ydata_profiling import ProfileReport
 
@@ -92,9 +92,6 @@ class Pipeline:
     def exec_code(self, global_vars, code):  # Execute code
         try:
             exec(code, global_vars)
-            temp = global_vars.get("result")
-            if temp is None:
-                raise ValueError()
         except Exception:
             return []
 

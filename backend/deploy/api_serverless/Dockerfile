@@ -17,6 +17,6 @@ RUN mkdir -p /tmp/assets
 COPY .env .env
 COPY inference/ ./inference
 COPY deploy/api_serverless/api.py ./api.py
-COPY utils/util.py ./utils/util.py
+COPY utils/util.py ./backend/utils/util.py
 
 CMD ["api.handler"]
