@@ -1,4 +1,5 @@
 # Imports
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -104,6 +105,10 @@ class Pipeline:
             tmp.write(data)
             s3.upload_file(tmp.name, write_bucket, report_name)
         return [message, "/" + str(asset_path / report_name)]  # Dash needs a relative path
+
+    def custom_serializer(self, obj):  # Convert numpy arrays in JSON to lists for Plotly graphs
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
 
     def predict(
         self,
@@ -226,7 +231,9 @@ class Pipeline:
                 elif type(output) == str:
                     outputs[2].append(output)
                 elif type(output) == plotly.graph_objects.Figure:
-                    outputs[3].append(output.to_plotly_json())
+                    json_temp = output.to_plotly_json()
+                    str_temp = json.dumps(json_temp, default=self.custom_serializer)
+                    outputs[3].append(str_temp)
                 elif type(output) == np.ndarray:
                     outputs[4].append(encode_b64_image(output))
 

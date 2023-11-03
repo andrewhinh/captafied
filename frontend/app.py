@@ -17,7 +17,6 @@ from dash.dependencies import Input, Output, State
 from dotenv import load_dotenv
 import flask
 from flask import Flask
-import numpy as np
 import pandas as pd
 import plotly.io as pio
 import requests as req
@@ -307,11 +306,6 @@ def show_image(
         return html.Div(items)
     else:
         return error
-
-
-def custom_serializer(obj):  # Convert numpy arrays in JSON to lists for Plotly graphs
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
 
 
 def manage_output(
@@ -744,10 +738,6 @@ def make_app(predict):
                     if tables:
                         tables = [pd.DataFrame.from_dict(table) for table in tables]
                     if graphs:
-                        graphs = [
-                            graph if type(graph) == "str" else json.dumps(graph, default=custom_serializer)
-                            for graph in graphs
-                        ]
                         graphs = [pio.from_json(graph) for graph in graphs]
                     return manage_output(code, tables, texts, graphs, images, report)
 
