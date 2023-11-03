@@ -118,10 +118,11 @@ def html_text(text, fontSize=font["size"], fontWeight="normal"):  # Return styli
     )
 
 
-def html_input(id, type, debounce=True):  # Return stylized HTML input box
+def html_input(id, type, placeholder, debounce=True):  # Return stylized HTML input box
     return dcc.Input(
         id=id,
         type=type,
+        placeholder=placeholder,
         debounce=debounce,
         style=html_settings(),
     )
@@ -460,6 +461,7 @@ def make_app(predict):
                     html.Div([html.Br()] * 2),
                     html_text("Captafied", "70px", "bold"),
                     html_text("Edit, query, graph, and understand your table!", "30px"),  # Subtitle
+                    html.Div([html.Br()] * 2),  # Spacing
                     dcc.Markdown(
                         [
                             """
@@ -475,9 +477,10 @@ def make_app(predict):
                         ],
                         style=html_settings(),
                     ),  # Description + usage instructions
-                    html.Br(),  # Spacing
+                    html.Div([html.Br()] * 2),
                     # Input: table file
                     html_text("Upload your table as a csv, tsv, xls(x), or ods file:"),
+                    html.Br(),
                     html.Button(
                         example_phrase,
                         id="table-file-upload-example",
@@ -499,6 +502,7 @@ def make_app(predict):
                     html.Br(),
                     # Input: table as a URL
                     html_text("Or paste a public URL to it:"),
+                    html.Br(),
                     html.Button(
                         example_phrase,
                         id="table-url-upload-example",
@@ -506,15 +510,16 @@ def make_app(predict):
                         style=html_settings(width="50%"),
                     ),
                     html.Div([html.Br()] * 2),
-                    html_input(id="before-table-url-uploaded", type="url"),
+                    html_input(id="before-table-url-uploaded", type="url", placeholder="https://"),
                     html.Div([html.Br()] * 2),
                     dcc.Loading(
                         type=spinner,
                         children=html.Div(id="after-table-url-uploaded"),
                     ),
-                    html.Br(),
+                    html.Div([html.Br()] * 2),
                     # Input: image file
                     html_text("Optionally, upload an image file for searching, classification, and more:"),
+                    html.Br(),
                     html.Button(
                         example_phrase,
                         id="image-file-upload-example",
@@ -537,6 +542,7 @@ def make_app(predict):
                     html.Br(),
                     # Input: image as a URL
                     html_text("Or paste a public URL to it:"),
+                    html.Br(),
                     html.Button(
                         example_phrase,
                         id="image-url-upload-example",
@@ -544,12 +550,12 @@ def make_app(predict):
                         style=html_settings(width="50%"),
                     ),
                     html.Div([html.Br()] * 2),
-                    html_input(id="before-image-url-uploaded", type="url"),
-                    html.Br(),
+                    html_input(id="before-image-url-uploaded", type="url", placeholder="https://"),
+                    html.Div([html.Br()] * 2),
                     html.Div(id="after-image-url-uploaded"),
-                    html.Div([html.Br()] * 5),
+                    html.Div([html.Br()] * 2),
                     # Input: text request
-                    html_text("What you can ask me:"),
+                    html_text("Ask me about your table:"),
                     dcc.Markdown(
                         [
                             """
@@ -558,7 +564,7 @@ def make_app(predict):
                         ],
                         style=html_settings(),
                     ),  # Width = 390px for Typing SVG for iphone devices
-                    html_input(id="request", type="text", debounce=False),
+                    html_input(id="request", type="text", debounce=False, placeholder="Type your request here..."),
                     html.Div([html.Br()] * 2),
                     html.Button(
                         "submit",
@@ -566,13 +572,13 @@ def make_app(predict):
                         n_clicks=0,
                         style=html_settings(width="50%"),
                     ),
-                    html.Div([html.Br()] * 5),
+                    html.Div([html.Br()] * 2),
                     # Output: table, text, graph, report, and/or error
                     dcc.Loading(
                         type=spinner,
                         children=html.Div(id="pred_output"),
                     ),
-                    html.Div([html.Br()] * 5),
+                    html.Div([html.Br()] * 2),
                     # Flagging buttons
                     html.Div(
                         [
@@ -602,7 +608,7 @@ def make_app(predict):
                         children=html.Div(id="flag_output"),
                     ),
                     # Extra length at the bottom of the page
-                    html.Div([html.Br()] * 10),
+                    html.Div([html.Br()] * 5),
                 ]
             ),
         ],

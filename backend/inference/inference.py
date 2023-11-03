@@ -89,12 +89,6 @@ class Pipeline:
         )
         return response["choices"][0]["message"]["content"].strip()
 
-    def exec_code(self, global_vars, code):  # Execute code
-        try:
-            exec(code, global_vars)
-        except Exception:
-            return []
-
     def get_report(self, table, message):  # Generate a pandas-profiling report
         report_config = {"df": table, "title": "Pandas Profiling Report", "dark_mode": True, "tsmode": True}
         if len(table) > 1000:
@@ -164,19 +158,17 @@ class Pipeline:
                     + "1) previous interactions for context\n"
                     + "2) a variable named image containing a base-64 encoded string of an image\n"
                     + "Note the following before writing any code:\n"
-                    + "- Import any necessary libraries."
-                    + "- To convert a base-64 encoded string path or URL (of an image) to a numpy array, use the pre-defined function read_b64_image(b64_string).\n"
-                    + "- To convert a string path or URL (of an image) to a numpy array, use the pre-defined function open_image(path_or_url).\n"
                     + "- NEVER reinitialize/redefine/reassign/modify the variables table, image, and result."
                     + "- NEVER reference variables created in any previous answers.\n"
                     + "- NEVER return/show/print table, image, and result.\n"
+                    + "- To convert a base-64 encoded string path or URL (of an image) to a numpy array, use the pre-defined function read_b64_image(b64_string).\n"
+                    + "- To convert a string path or URL (of an image) to a numpy array, use the pre-defined function open_image(path_or_url).\n"
                     + "Answer the user's current question by writing a Python script as follows:\n"
-                    + "1) check if table can be used to answer the request. If not, append to result "
+                    + "1) import as FEW libraries as possible to answer the request.\n"
+                    + "2) check if table can be used to answer the request. If not, append to result "
                     + "a Python f-string explaining why not and stop. If so, continue to the next step.\n"
-                    + "2) verify the Python types of the columns in table before using them.\n"
                     + "3) create ONLY pandas DataFrames/Series, f-strings, Plotly Graph Objects, and/or numpy array representations of images, "
                     + "depending on which ones would be best as an answer to the user, and append them to result.\n"
-                    + "4) verify result is not empty. If it's empty, return to step 3. If it is not, stop.\n"
                 ),
             }
             user_messages = [{"role": "user", "content": "User: " + request} for request in requests]
@@ -223,7 +215,7 @@ class Pipeline:
                 "image": image,
                 "result": self.result,
             }
-            self.result = self.exec_code(vars, code_to_exec)
+            exec(code_to_exec, vars)
 
             # Check the result
             for output in self.result:
