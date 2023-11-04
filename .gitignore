@@ -3,19 +3,6 @@ data/downloaded
 data/processed
 data/interim
 
-#ADDED###################################
-# Production files
-/backend/inference/artifacts/inference/
-
-# AWS EC2 SSH Key
-/captafied-key.pem
-
-# Production-created files
-/frontend/assets/tables/
-/frontend/assets/temp.zip
-/frontend/assets/report.html
-#ADDED###################################
-
 # Editors
 .vscode
 *.sw?
@@ -59,7 +46,6 @@ lightning_logs/
 logs
 */training/logs
 */training/*sweep.yaml
-frontend/flagged
 
 # Misc
 .aws/credentials
@@ -73,3 +59,12 @@ lab9/requirements.txt
 requirements/dev-lint.txt
 bootstrap.py
 **/fixme.py
+
+#ADDED###################################
+# Production-created files
+/frontend/assets/tables/
+/frontend/assets/temp.zip
+/frontend/assets/report.html
+/frontend/flagged
+/frontend/backend
+#ADDED###################################

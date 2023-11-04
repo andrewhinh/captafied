@@ -34,7 +34,3 @@ pip-tools-upgrade:
 # Lint
 lint:
 	tasks/lint.sh
-
-# Run app
-dev:
-	python frontend/app.py

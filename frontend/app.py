@@ -117,12 +117,12 @@ def html_text(text, fontSize=font["size"], fontWeight="normal"):  # Return styli
     )
 
 
-def html_input(id, type, placeholder, debounce=True):  # Return stylized HTML input box
+def html_input(id, type, placeholder):  # Return stylized HTML input box
     return dcc.Input(
         id=id,
         type=type,
         placeholder=placeholder,
-        debounce=debounce,
+        debounce=True,
         style=html_settings(),
     )
 
@@ -218,6 +218,7 @@ def show_table(
                 if len(heading) > max_char_length:
                     heading = heading[:max_char_length] + "..."
                 items.append(html_text(heading))
+        items.append(html.Br())
         rows_to_show = min(len(df), max_rows)
         cols_to_show = min(len(df.columns), max_col)
         items.append(
@@ -297,6 +298,7 @@ def show_image(
                 if len(heading) > max_char_length:
                     heading = heading[:max_char_length] + "..."
                 items.append(html_text(heading))
+        items.append(html.Br())
         items.append(
             html.Img(
                 src=image,
@@ -329,6 +331,7 @@ def manage_output(
         for text in texts:
             elements.append(html_text(text))
             elements.append(html.Br())
+        elements.append(html.Br())
         outputs.extend(
             [
                 html.Center(elements),
@@ -350,6 +353,7 @@ def manage_output(
             output_tables.append(table)
             elements.append(show_table(table_answer=table))
             elements.append(html.Br())
+        elements.append(html.Br())
         outputs.extend(
             [
                 html.Center(elements),
@@ -366,6 +370,7 @@ def manage_output(
                 ),
             )
             elements.append(html.Br())
+        elements.append(html.Br())
         outputs.extend(
             [
                 html.Center(elements),
@@ -377,6 +382,7 @@ def manage_output(
         for image in images:
             elements.append(show_image(image_answer=image))
             elements.append(html.Br())
+        elements.append(html.Br())
         outputs.extend(
             [
                 html.Center(elements),
@@ -392,6 +398,7 @@ def manage_output(
                 html.Center(
                     [
                         html_text(message),
+                        html.Br(),
                         html.Iframe(
                             src=report_path,
                             style=html_settings(height="540px"),
@@ -558,7 +565,7 @@ def make_app(predict):
                         ],
                         style=html_settings(),
                     ),  # Width = 350px for Typing SVG for iphone devices
-                    html_input(id="request", type="text", debounce=False, placeholder="Type your request here..."),
+                    html_input(id="request", type="text", placeholder="Type your request here..."),
                     html.Div([html.Br()] * 2),
                     html.Button(
                         "submit",
@@ -607,14 +614,13 @@ def make_app(predict):
     )
 
     # Event functions
-    # When only table file is uploaded
     @app.callback(
         Output("after-table-file-uploaded", "children"),
         Input("before-table-file-uploaded", "contents"),
         State("before-table-file-uploaded", "filename"),
         Input("table-file-upload-example", "n_clicks"),
     )
-    def show_uploaded_table_file(contents, filename, example_clicked):
+    def show_uploaded_table_file(contents, filename, example_clicked):  # When only table file is uploaded
         if "table-file-upload-example" in total_clicked_buttons():
             return show_table(None, table_file_example, None, None)
         if contents and filename:
@@ -623,26 +629,24 @@ def make_app(predict):
                     return html_text(multiple_files_error)
             return show_table(contents, filename, None, None)
 
-    # Show example/uploaded table URL
     @app.callback(
         Output("after-table-url-uploaded", "children"),
         Input("before-table-url-uploaded", "value"),
         Input("table-url-upload-example", "n_clicks"),
     )
-    def show_uploaded_table_url(url, example_clicked):
+    def show_uploaded_table_url(url, example_clicked):  # Show example/uploaded table URL
         if "table-url-upload-example" in total_clicked_buttons():
             return show_table(None, None, table_url_example, None)
         if url:
             return show_table(None, None, url, None)
 
-    # Show example/uploaded image file
     @app.callback(
         Output("after-image-file-uploaded", "children"),
         Input("before-image-file-uploaded", "contents"),
         State("before-image-file-uploaded", "filename"),
         Input("image-file-upload-example", "n_clicks"),
     )
-    def show_uploaded_image_file(contents, filename, example_clicked=None):
+    def show_uploaded_image_file(contents, filename, example_clicked=None):  # Show example/uploaded image file
         if "image-file-upload-example" in total_clicked_buttons():
             return show_image(None, image_file_example, None, None)
         if contents and filename:
@@ -651,19 +655,17 @@ def make_app(predict):
                     return html_text(multiple_files_error)
             return show_image(contents, filename, None, None)
 
-    # Show example/uploaded image url
     @app.callback(
         Output("after-image-url-uploaded", "children"),
         Input("before-image-url-uploaded", "value"),
         Input("image-url-upload-example", "n_clicks"),
     )
-    def show_uploaded_image_url(url, example_clicked):
+    def show_uploaded_image_url(url, example_clicked):  # Show example/uploaded image url
         if "image-url-upload-example" in total_clicked_buttons():
             return show_image(None, None, image_url_example, None)
         if url:
             return show_image(None, None, url, None)
 
-    # When table file/url + request +/- image are uploaded
     @app.callback(
         Output("pred_output", "children"),
         State("after-table-file-uploaded", "children"),
@@ -678,7 +680,6 @@ def make_app(predict):
         Input("before-image-file-uploaded", "contents"),
         State("before-image-file-uploaded", "filename"),
         Input("before-image-url-uploaded", "value"),
-        prevent_initial_call=True,
     )
     def get_prediction(
         show_table_file,
@@ -693,7 +694,7 @@ def make_app(predict):
         image_contents,
         image_filename,
         image_url,
-    ):
+    ):  # When table file/url + request +/- image are uploaded
         if "request-uploaded" in total_clicked_buttons():
             df, error = None, None
             table_checks = [
@@ -739,13 +740,11 @@ def make_app(predict):
                         graphs = [pio.from_json(graph) for graph in graphs]
                     return manage_output(code, tables, texts, graphs, images, report)
 
-    # When download button is clicked
     @app.callback(
         Output("download-table-csv", "data"),
         Input("download-table" + button_id_end, "n_clicks"),
-        prevent_initial_call=True,
     )
-    def download_table(n_clicks):
+    def download_table(n_clicks):  # When download button is clicked
         if "download-table" + button_id_end in total_clicked_buttons():
             if len(output_tables) > 0 and len(output_tables) < 2:
                 return dcc.send_data_frame(output_tables[0].to_csv, "table.csv")
@@ -758,7 +757,6 @@ def make_app(predict):
             else:
                 pass
 
-    # When flagging button(s) is/are clicked
     @app.callback(
         Output("flag_output", "children"),
         State("after-table-file-uploaded", "children"),
@@ -771,7 +769,9 @@ def make_app(predict):
         Input("offensive-button-state", "n_clicks"),
         Input("other-button-state", "n_clicks"),
     )
-    def flag_pred(show_file, show_url, request, contents, filename, url, inc_clicked, off_clicked, oth_clicked):
+    def flag_pred(
+        show_file, show_url, request, contents, filename, url, inc_clicked, off_clicked, oth_clicked
+    ):  # When flagging button(s) is/are clicked
         changed_id = total_clicked_buttons()
         buttons_clicked = [
             flag_button_id(0) in changed_id,
@@ -805,9 +805,8 @@ def make_app(predict):
         if check and buttons_clicked[2]:
             return flag_output(request, None, None, True)
 
-    # When report is generated and needs to be displayed
     @app.server.route("/assets/<resource>")
-    def serve_assets(resource):
+    def serve_assets(resource):  # When report is generated and needs to be displayed
         return flask.send_from_directory(asset_path, resource)
 
     return app
@@ -861,7 +860,7 @@ class PredictorBackend:
         logging.info(f"PRED >begin\n{pred}\nPRED >end")
 
 
-predictor = PredictorBackend(use_url=True)
+predictor = PredictorBackend()
 app = make_app(predictor.run)
 
 

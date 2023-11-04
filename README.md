@@ -15,7 +15,9 @@
       - [Backend](#backend)
       - [Frontend](#frontend)
     - [Repository Structure](#repository-structure)
-    - [Testing](#testing)
+    - [Workflows](#workflows)
+      - [Front End](#front-end)
+      - [Back End](#back-end)
     - [Code Style](#code-style)
   - [Credit](#credit)
 
@@ -122,12 +124,30 @@ The repo is separated into main folders that each describe a part of the ML-proj
 ├── tasks           # the pipeline testing code.
 ```
 
-### Testing
+### Workflows
+
+Run `cd <folder>` to navigate to the folder of interest.
+
+#### Front End
 
 - To start the app locally (uncomment code in `PredictorBackend.__init__` and set `use_url=False` to use the local model instead of the API):
 
   ```bash
   make dev
+  ```
+
+#### Back End
+
+- To login to AWS before deploying:
+
+  ```bash
+  . ./deploy/aws_login.sh
+  ```
+
+- To deploy the backend to AWS Lambda:
+
+  ```bash
+  python deploy/aws_lambda.py
   ```
 
 ### Code Style
