@@ -56,19 +56,21 @@ flag_terms = ["incorrect", "offensive", "other"]  # Flagging terms
 button_id_end = "-button-state"  # Button id ending
 
 # Examples
-parent_path = Path(__file__).parent
-table_path = parent_path / "tables"
+parent_path = Path(".")
+examples_path = parent_path / "examples"
+table_path = examples_path / "tables"
 table_file_example = table_path / "0.csv"
 table_url_example = table_path / "1.txt"
 table_url_example = open(table_url_example).readlines()[0]
-image_path = parent_path / "images"
+image_path = examples_path / "images"
 image_file_example = image_path / "0.png"
 image_url_example = image_path / "8.txt"
 image_url_example = open(image_url_example).readlines()[0]
 example_phrase = "use example"
 
 # Table download settings
-asset_path = parent_path / "assets"
+frontend_path = parent_path / "frontend"
+asset_path = frontend_path / "assets"
 download_path = asset_path / "tables"
 if not os.path.exists(download_path):  # Make this directory if it doesn't exist
     os.makedirs(download_path)

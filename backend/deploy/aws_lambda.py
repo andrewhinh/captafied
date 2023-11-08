@@ -48,7 +48,7 @@ def main():
             os.environ["LAMBDA_NAME"],
             ".",
             "--file",
-            "./deploy/api_serverless/Dockerfile",
+            "./backend/deploy/api_serverless/Dockerfile",
         ]
     )
 

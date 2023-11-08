@@ -12,12 +12,8 @@
   - [Development](#development)
     - [Contributing](#contributing)
     - [Setup](#setup)
-      - [Backend](#backend)
-      - [Frontend](#frontend)
     - [Repository Structure](#repository-structure)
     - [Workflows](#workflows)
-      - [Front End](#front-end)
-      - [Back End](#back-end)
     - [Code Style](#code-style)
   - [Credit](#credit)
 
@@ -92,21 +88,15 @@ To contribute, check out the [guide](./CONTRIBUTING.md).
    pre-commit install
    ```
 
-If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
-
-#### Backend
-
-1. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
-2. Populate a `.env` file with your key in the format of `.env.template`, and reactivate the environment.
-3. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
+4. Sign up for an OpenAI account and get an API key [here](https://beta.openai.com/account/api-keys).
+5. Populate a `.env` file with your key and the backend URL in the format of `.env.template`, and reactivate the environment.
+6. (Optional) Sign up for an AWS account [here](https://us-west-2.console.aws.amazon.com/ecr/create-repository?region=us-west-2) and set up your AWS credentials locally, referring to [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config) as needed:
 
    ```bash
    aws configure
    ```
 
-#### Frontend
-
-1. Populate a `.env` file with the backend URL in the format of `.env.template`, and reactivate the environment.
+If the instructions aren't working for you, head to [this Google Colab](https://colab.research.google.com/drive/1Z34DLHJm1i1e1tnknICujfZC6IaToU3k?usp=sharing), make a copy of it, and run the cells there to get an environment set up.
 
 ### Repository Structure
 
@@ -126,28 +116,22 @@ The repo is separated into main folders that each describe a part of the ML-proj
 
 ### Workflows
 
-Run `cd <folder>` to navigate to the folder of interest.
-
-#### Front End
-
 - To start the app locally (uncomment code in `PredictorBackend.__init__` and set `use_url=False` to use the local model instead of the API):
 
   ```bash
-  make dev
+  python frontend/app.py
   ```
-
-#### Back End
 
 - To login to AWS before deploying:
 
   ```bash
-  . ./deploy/aws_login.sh
+  . ./backend/deploy/aws_login.sh
   ```
 
 - To deploy the backend to AWS Lambda:
 
   ```bash
-  python deploy/aws_lambda.py
+  python backend/deploy/aws_lambda.py
   ```
 
 ### Code Style

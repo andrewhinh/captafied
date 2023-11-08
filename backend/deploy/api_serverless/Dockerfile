@@ -3,7 +3,7 @@
 FROM public.ecr.aws/lambda/python:3.7
 
 # Install Python dependencies
-COPY ./requirements.txt ./requirements.txt
+COPY ./requirements/prod.txt ./requirements.txt
 RUN pip install --upgrade pip==21.1.3
 RUN pip install -r requirements.txt
 

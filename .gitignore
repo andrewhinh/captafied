@@ -65,6 +65,5 @@ bootstrap.py
 /frontend/assets/tables/
 /frontend/assets/temp.zip
 /frontend/assets/report.html
-/frontend/flagged
-/frontend/backend
+/flagged
 #ADDED###################################
