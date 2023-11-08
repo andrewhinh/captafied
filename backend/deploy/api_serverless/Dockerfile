@@ -13,8 +13,8 @@ RUN pip install -r requirements.txt
 RUN mkdir -p /tmp/assets
 
 COPY .env .env
-COPY inference/ ./inference
-COPY deploy/api_serverless/api.py ./api.py
-COPY util.py ./backend/util.py
+COPY backend/inference/ ./inference
+COPY backend/deploy/api_serverless/api.py ./api.py
+COPY backend/util.py ./backend/util.py
 
 CMD ["api.handler"]

@@ -55,12 +55,12 @@ class Pipeline:
         ]  # Context for system message
 
         # OpenAI params
-        self.model = "gpt-4"
+        self.model = "gpt-4-1106-preview"
         self.temperature = 0.0
-
         self.max_chars = int(
-            4096 * 4
+            128000 * 4
         )  # https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
+
         self.max_answer_chars = int(self.max_chars / 8)  # 2048 chars
         self.max_answer_tokens = int(self.max_answer_chars / 4)  # 512 tokens
         self.max_prompt_chars = int(self.max_chars - self.max_answer_chars)  # Remaining chars
@@ -107,7 +107,7 @@ class Pipeline:
             max_tokens=self.max_answer_tokens,
             **kwargs,
         )
-        return response["choices"][0]["message"]["content"].strip()
+        return response.choices[0].message.content
 
     def run_agent_loop(self, messages, table, image):
         vars = {
