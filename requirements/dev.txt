@@ -84,8 +84,10 @@ entrypoints==0.4
     #   nbconvert
 fastjsonschema==2.15.3
     # via nbformat
-filelock==3.8.0
-    # via virtualenv
+filelock==3.13.1
+    # via
+    #   -c requirements/prod.txt
+    #   virtualenv
 fonttools==4.33.3
     # via
     #   -c requirements/prod.txt
