@@ -36,6 +36,7 @@ multiple_files_error = (
 )
 
 asset_server = Flask(__name__)  # Flask server for loading assets
+ASSETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
 # Style variables
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]  # CSS stylesheet
@@ -56,7 +57,7 @@ flag_terms = ["incorrect", "offensive", "other"]  # Flagging terms
 button_id_end = "-button-state"  # Button id ending
 
 # Examples
-parent_path = Path(".")
+parent_path = Path(__file__).parent / ".."
 examples_path = parent_path / "examples"
 table_path = examples_path / "tables"
 table_file_example = table_path / "0.csv"
@@ -69,8 +70,7 @@ image_url_example = open(image_url_example).readlines()[0]
 example_phrase = "use example"
 
 # Table download settings
-frontend_path = parent_path / "frontend"
-asset_path = frontend_path / "assets"
+asset_path = parent_path / "frontend" / "assets"
 download_path = asset_path / "tables"
 if not os.path.exists(download_path):  # Make this directory if it doesn't exist
     os.makedirs(download_path)
@@ -721,10 +721,9 @@ def make_app(predict):
                 df, error = convert_to_pd(None, None, str(table_url_example))
             if df is not None and not error:
                 global output_tables
-                global requests
                 output_tables = []
-                requests.append(request)
                 df = set_max_rows_cols(df)
+
                 image = None
                 if image_checks[0]:
                     image, error = convert_to_b64(image_contents[0], image_filename[0], None)
@@ -735,7 +734,9 @@ def make_app(predict):
                 if (not image_checks[0] and not image_checks[1]) and image_checks[3]:
                     image, error = convert_to_b64(None, None, str(image_url_example))
                 if not error:
-                    code, tables, texts, graphs, images, report = predict(df, requests, answers, image)
+                    global requests
+                    requests.append({"text": request, "image": image})
+                    code, tables, texts, graphs, images, report = predict(df, requests, answers)
                     if tables:
                         tables = [pd.DataFrame.from_dict(table) for table in tables]
                     if graphs:
@@ -763,7 +764,7 @@ def make_app(predict):
         Output("flag_output", "children"),
         State("after-table-file-uploaded", "children"),
         State("after-table-url-uploaded", "children"),
-        State("request-uploaded", "value"),
+        State("request", "value"),
         State("before-table-file-uploaded", "contents"),
         State("before-table-file-uploaded", "filename"),
         State("before-table-url-uploaded", "value"),
@@ -788,7 +789,6 @@ def make_app(predict):
             show_file and request,
             show_url and request,
         ]
-
         df, error = None, None
         if table_checks[0] and table_checks[1]:
             df, error = convert_to_pd(contents[0], filename[0], None)
@@ -809,7 +809,7 @@ def make_app(predict):
 
     @app.server.route("/assets/<resource>")
     def serve_assets(resource):  # When report is generated and needs to be displayed
-        return flask.send_from_directory(asset_path, resource)
+        return flask.send_from_directory(ASSETS_PATH, resource)
 
     return app
 
@@ -823,7 +823,7 @@ class PredictorBackend:
     Otherwise, runs a predictor locally.
     """
 
-    def __init__(self, use_url=True):
+    def __init__(self, use_url):
         if use_url:
             self.url = BACKEND_URL
             self._predict = self._predict_from_endpoint
@@ -834,19 +834,18 @@ class PredictorBackend:
         #     model = Pipeline()
         #     self._predict = model.predict
 
-    def run(self, df, requests, answers, image):
-        pred = self._predict(df, requests, answers, image)
+    def run(self, df, requests, answers):
+        pred = self._predict(df, requests, answers)
         self._log_inference(pred)
         return pred
 
-    def _predict_from_endpoint(self, df, requests, answers, image):
+    def _predict_from_endpoint(self, df, requests, answers):
         headers = {"Content-type": "application/json"}
         payload = json.dumps(
             {
                 "table": df.to_dict(),
                 "requests": requests,
                 "prev_answers": answers,
-                "image": image,
             }
         )
 
@@ -862,7 +861,7 @@ class PredictorBackend:
         logging.info(f"PRED >begin\n{pred}\nPRED >end")
 
 
-predictor = PredictorBackend()
+predictor = PredictorBackend(use_url=True)
 app = make_app(predictor.run)
 
 

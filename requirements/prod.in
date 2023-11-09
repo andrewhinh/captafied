@@ -18,5 +18,6 @@ ydata-profiling
 plotly
 python-dotenv
 tenacity
+tiktoken
 validators
 waitress

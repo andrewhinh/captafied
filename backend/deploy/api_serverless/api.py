@@ -18,10 +18,9 @@ def handler(event, _context):
     if requests is None:
         return {"statusCode": 400, "message": "requests not found in event"}
     prev_answers = _load_prev_answers(event)
-    image = _load_image(event)
     print("INFO input loaded")
     print("INFO starting inference")
-    pred = model.predict(table, requests, prev_answers, image)
+    pred = model.predict(table, requests, prev_answers)
     print("INFO inference complete")
     print("METRIC num_pred_answers {}".format(sum(len(output) > 0 for output in pred)))
     print("INFO pred {}".format(pred))
@@ -66,15 +65,5 @@ def _load_prev_answers(event):
     if prev_answers is not None:
         print("INFO reading prev_answers from event")
         return prev_answers
-    else:
-        return None
-
-
-def _load_image(event):
-    event = get_event(event)
-    image = event.get("image")
-    if image is not None:
-        print("INFO reading image from event")
-        return image
     else:
         return None

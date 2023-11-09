@@ -1,5 +1,6 @@
 # Imports
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -19,6 +20,7 @@ import plotly
 import plotly.io as pio
 import requests as rq
 from tenacity import retry, stop_after_attempt, wait_random_exponential
+import tiktoken
 import validators
 from ydata_profiling import ProfileReport
 
@@ -55,20 +57,14 @@ class Pipeline:
         ]  # Context for system message
 
         # OpenAI params
-        self.model = "gpt-4-1106-preview"
+        self.model = "gpt-4-vision-preview"
+        self.encoder = tiktoken.encoding_for_model(self.model)
+        self.max_tokens = 128000
+        self.max_output_tokens = 4096
         self.temperature = 0.0
-        self.max_chars = int(
-            128000 * 4
-        )  # https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
+        self.detail = "high"  # https://platform.openai.com/docs/guides/vision/low-or-high-fidelity-image-understanding
 
-        self.max_answer_chars = int(self.max_chars / 8)  # 2048 chars
-        self.max_answer_tokens = int(self.max_answer_chars / 4)  # 512 tokens
-        self.max_prompt_chars = int(self.max_chars - self.max_answer_chars)  # Remaining chars
-
-        self.format_message = {
-            "role": "assistant",
-            "content": "Assistant: ",
-        }
+        self.max_input_tokens = int(self.max_tokens - self.max_output_tokens)
         self.num_exec_retries = 3  # Number of times for the agent to retry executing the code
 
         # Outputs
@@ -90,29 +86,64 @@ class Pipeline:
         else:
             return False
 
-    def sanitize_input(self, query: str) -> str:
-        # Removes Assistant: from start
-        query = re.sub(r"^Assistant:\s*", "", query)
-        # Removes `, whitespace & python from start
-        query = re.sub(r"^(\s|`)*(?i:python)?\s*", "", query)
-        # Removes whitespace & ` from end
-        query = re.sub(r"(\s|`)*$", "", query)
-        return query
+    def count_image_tokens(self, image: np.ndarray) -> int:  # Count the number of tokens in an image
+        # https://platform.openai.com/docs/guides/vision/calculating-costs
+        # Get the dimensions of the image
+        height, width = image.shape[:2]
+
+        # Scale down to fit within a 2048 square if needed
+        if max(width, height) > 2048:
+            scale_factor = 2048 / max(width, height)
+            width, height = int(width * scale_factor), int(height * scale_factor)
+
+        # Further scale down to make the shortest side 768px long
+        scale_factor = 768 / min(width, height)
+        width, height = int(width * scale_factor), int(height * scale_factor)
+
+        # Calculate the number of 512px tiles needed
+        tiles_width = math.ceil(width / 512)
+        tiles_height = math.ceil(height / 512)
+        total_tiles = tiles_width * tiles_height
+
+        # Calculate the cost for this image
+        return total_tiles * 170 + 85
+
+    def count_text_tokens(self, text: str) -> int:  # Count the number of tokens in a string
+        # https://platform.openai.com/docs/guides/vision/calculating-costs
+        return len(self.encoder.encode(text))
+
+    def count_tokens(self, messages: List[str]) -> int:  # Count the number of tokens in a list of messages
+        # https://platform.openai.com/docs/guides/vision/calculating-costs
+        text = "\n".join([message["content"][0]["text"] for message in messages])
+        text_tokens = self.count_text_tokens(text)
+
+        images = []
+        for message in messages:
+            if len(message["content"]) > 1:
+                images.append(message["content"][1]["image_url"]["url"])
+        images = np.array([read_b64_image(image) for image in images])
+        image_tokens = 0
+        if self.detail == "high":
+            for image in images:
+                image_tokens += self.count_image_tokens(image)
+        else:
+            image_tokens = 85 * len(images)  # 85 tokens per image
+
+        return image_tokens + text_tokens
 
     @retry(wait=wait_random_exponential(min=wait_min, max=wait_max), stop=stop_after_attempt(max_attempts))
     def openai_query(self, **kwargs):  # Query OpenAI
         response = openai.ChatCompletion.create(
             model=self.model,
             temperature=self.temperature,
-            max_tokens=self.max_answer_tokens,
+            max_tokens=self.max_output_tokens,
             **kwargs,
         )
         return response.choices[0].message.content
 
-    def run_agent_loop(self, messages, table, image):
+    def run_agent_loop(self, table, messages):
         vars = {
             "table": table,
-            "image": image,
             "open_image": open_image,
             "read_b64_image": read_b64_image,
             "result": self.result,
@@ -121,7 +152,7 @@ class Pipeline:
             code_to_exec = self.openai_query(
                 messages=messages,
             )
-            code_to_exec = self.sanitize_input(code_to_exec)
+            code_to_exec = self.sanitize_exec_code(code_to_exec)
             exec(code_to_exec, vars)
             return code_to_exec
         except Exception:
@@ -131,17 +162,28 @@ class Pipeline:
             self.num_exec_retries -= 1
             system_message = {
                 "role": "system",
-                "content": str(
-                    "Your code failed to execute. This is the error message:\n"
-                    + traceback.format_exc()
-                    + "You have "
-                    + str(self.num_exec_retries)
-                    + " attempts left."
-                ),
+                "content": [
+                    {
+                        "type": "text",
+                        "text": str(
+                            "Your code failed to execute. This is the error message:\n"
+                            + traceback.format_exc()
+                            + "You have "
+                            + str(self.num_exec_retries)
+                            + " attempts left."
+                        ),
+                    }
+                ],
             }
             messages.append(system_message)
-            messages.append(self.format_message)
-            return self.run_agent_loop(messages, table, image)
+            return self.run_agent_loop(table, messages)
+
+    def sanitize_exec_code(self, query: str) -> str:
+        # Removes `, whitespace & python from start
+        query = re.sub(r"^(\s|`)*(?i:python)?\s*", "", query)
+        # Removes whitespace & ` from end
+        query = re.sub(r"(\s|`)*$", "", query)
+        return query
 
     def get_report(self, table, message):  # Generate a pandas-profiling report
         report_config = {"df": table, "title": "Pandas Profiling Report", "dark_mode": True, "tsmode": True}
@@ -166,9 +208,8 @@ class Pipeline:
     def predict(
         self,
         table: pd.DataFrame,
-        requests: List[str],
+        requests: List[dict],
         prev_answers: Optional[List[str]] = None,
-        image: Optional[str] = None,
     ) -> str:
         self.result = []  # clear result from previous call
 
@@ -203,50 +244,91 @@ class Pipeline:
         # Construct OpenAI prompt
         system_message = {
             "role": "system",
-            "content": str(
-                "You are the world's best Python code generator and can only respond in Python code.\n"
-                + "Your task is to answer the user's question by writing a Python script.\n"
-                + "You are given the following:\n"
-                + "1) an empty list named result\n"
-                + "2) a variable named image that either contains a base-64 encoded string of an image or is None\n"
-                + "3) a pandas DataFrame named table that has the following columns and data types: "
-                + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
-                + "\n"
-                + "You may also be given previous interactions for context when appropriate.\n"
-                + "Note the following before writing any code:\n"
-                + "- Assume a clean state for each interaction; NEVER reference previously imported libraries and created variables.\n"
-                + "- NEVER reinitialize/redefine/reassign/modify the variables table, image, and result."
-                + "- NEVER return/show/print table, image, and result.\n"
-                + "- To convert a base-64 encoded string path or URL (of an image) to a numpy array, use the pre-defined function read_b64_image(b64_string).\n"
-                + "- To convert a string path or URL (of an image) to a numpy array, use the pre-defined function open_image(path_or_url).\n"
-                + "Answer the user's current question by writing a Python script as follows:\n"
-                + "1) Import as FEW libraries as possible to answer the request.\n"
-                + "2) Check if table can be used to answer the request. If not, append to result "
-                + "a Python f-string explaining why not and stop. If so, continue to the next step.\n"
-                + "3) create ONLY pandas DataFrames/Series, f-strings, Plotly Graph Objects, and/or numpy array representations of images, "
-                + "depending on which ones would be best as an answer to the user, and append them to result.\n"
-            ),
+            "content": [
+                {
+                    "type": "text",
+                    "text": str(
+                        "You are the world's best Python code generator and can only respond in Python code.\n"
+                        + "Your task is to answer the user's question by writing a Python script.\n"
+                        + "You are given the following:\n"
+                        + "1) an empty list named result\n"
+                        + "2) a pandas DataFrame named table that has the following columns and data types: "
+                        + ", ".join([column + ": " + data_type for column, data_type in column_data.items()])
+                        + "\n"
+                        + "When appropriate, you may also be given the following:\n"
+                        + "1) previous interactions for context\n"
+                        + "2) an image relevant to the user's question\n"
+                        + "Besides the Python Standard Libraries, these are the ONLY libraries you can import:\n"
+                        + "- numpy as np\n"
+                        + "- pandas as pd\n"
+                        + "- plotly\n"
+                        + "- plotly.io as pio\n"
+                        + "- requests as rq\n"
+                        + "- tenacity\n"
+                        + "- tiktoken\n"
+                        + "- validators\n"
+                        + "- ydata_profiling.ProfileReport\n"
+                        + "Note the following before writing any code:\n"
+                        + "- Assume a clean state for each interaction; NEVER reference previously imported libraries and created variables.\n"
+                        + "- NEVER reinitialize/redefine/reassign/modify the variables table and/or result."
+                        + "- NEVER return/show/print table and/or result.\n"
+                        + "- To convert a base-64 encoded string path or URL (of an image) to a numpy array, use the pre-defined function read_b64_image(b64_string).\n"
+                        + "- To convert a string path or URL (of an image) to a numpy array, use the pre-defined function open_image(path_or_url).\n"
+                        + "Answer the user's current question by writing a Python script as follows:\n"
+                        + "1) Import any  libraries as possible to answer the request.\n"
+                        + "2) Check if table can be used to answer the request. If not, append to result "
+                        + "a Python f-string explaining why not and stop. If so, continue to the next step.\n"
+                        + "3) create ONLY pandas DataFrames/Series, f-strings, Plotly Graph Objects, and/or numpy array representations of images, "
+                        + "depending on which ones would be best as an answer to the user, and append them to result.\n"
+                    ),
+                }
+            ],
         }
-        user_messages = [{"role": "user", "content": "User: " + request} for request in requests]
-        assistant_messages = [
-            {"role": "assistant", "content": "Assistant: " + prev_answer} for prev_answer in prev_answers
-        ]
 
+        # Format messages
+        user_messages = []
+        for request in requests:
+            user_messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": request["text"],
+                        },
+                    ],
+                }
+            )
+            if request["image"]:
+                user_messages[-1]["content"].append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": request["image"], "detail": self.detail},
+                    }
+                )
+        assistant_messages = [
+            {"role": "assistant", "content": [{"type": "text", "text": prev_answer}]} for prev_answer in prev_answers
+        ]
         messages = [system_message, user_messages[0]]
         if len(user_messages) > 1 and assistant_messages:  # If there are prior interactions
             messages.extend([message for pair in zip(assistant_messages, user_messages[1:]) for message in pair])
-        messages.append(self.format_message)
-        prompt = "\n".join([message["content"] for message in messages])
-        if len(prompt) > self.max_prompt_chars:
-            while len(prompt) > self.max_prompt_chars and len(messages) > 3:
+
+        # Ensure prompt is not too long
+        num_tokens = self.count_tokens(messages)
+        if num_tokens > self.max_input_tokens:  # If the prompt is too long
+            while num_tokens > self.max_input_tokens and len(messages) > 3:
                 messages.pop(2)  # Remove the user's message
                 messages.pop(3)  # Remove the assistant's message
-                prompt = "\n".join([message["content"] for message in messages])
-            if len(prompt) > self.max_prompt_chars and len(messages) == 3:  # If this is the first question
-                messages[2]["content"] = messages[2]["content"][: self.max_prompt_chars]  # Truncate the user's message
+                num_tokens = self.count_tokens(messages)
+            if num_tokens > self.max_input_tokens and len(messages) == 3:  # If this is the first question
+                user_message = messages[2]["content"][0]["text"]
+                truncated_message = self.encoder.decode(
+                    self.encoder.encode(user_message)[: -num_tokens + self.max_input_tokens]
+                )  # Truncate the text
+                messages[2]["content"][0]["text"] = truncated_message
 
         # Main logic
-        code_to_exec = self.run_agent_loop(messages, table, image)
+        code_to_exec = self.run_agent_loop(table, messages)
         if code_to_exec:  # If the agent successfully executed the code
             # Add the code to execute to the list of outputs
             outputs[0] = code_to_exec
