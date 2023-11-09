@@ -23,7 +23,7 @@ A website that helps users understand their spreadsheet data without the learnin
 
 ### Inference Pipeline
 
-The user must submit a table and corresponding request regarding it. Optionally, there is an option to upload an image for similarity search. Then, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
+The user must submit a table and corresponding request regarding it. Optionally, there is an option to upload an image for similarity search, classification, etc. Then, we use [OpenAI's API](#credit) to generate Python code that returns one or more of the following:
 
 - pandas DataFrames
 - Python strings/f-strings
@@ -37,7 +37,8 @@ that can be used to answer the user's request. If something fails in this proces
 Some notes about submitting inputs to the pipeline:
 
 - Only [long-form data](https://seaborn.pydata.org/tutorial/data_structure.html#long-form-vs-wide-form-data) is currently supported because we rely on [OpenAI's API](#credit) for many tasks, which doesn't actually see the data itself. Rather, it only has access to the variables associated with the data.
-- Only csv, xls(x), tsv, and ods files are currently supported.
+- Tables can only be submitted as .csv, .xls(x), .tsv, and .ods files.
+- Images can only be submitted as .png, .jpeg and .jpg, .webp, and non-animated GIF (.gif).
 - Only up to 150,000 rows and 30 columns of data can be submitted at one time.
 
 Some examples of requests and questions that the pipeline can handle (these use the example table found in the repo and the website):

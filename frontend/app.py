@@ -482,7 +482,7 @@ def make_app(predict):
                     ),  # Description + usage instructions
                     html.Div([html.Br()] * 2),
                     # Input: table file
-                    html_text("Upload your table as a csv, tsv, xls(x), or ods file:"),
+                    html_text("Upload your table:"),
                     html.Br(),
                     html.Button(
                         example_phrase,
@@ -495,7 +495,7 @@ def make_app(predict):
                         id="before-table-file-uploaded",
                         children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
                         style=html_settings(height="400%", lineHeight="400%", borderStyle="dashed"),
-                        # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
+                        accept=".csv, .tsv, .xls, .xlsx, .ods",
                     ),
                     html.Br(),
                     dcc.Loading(
@@ -536,7 +536,7 @@ def make_app(predict):
                                 id="before-image-file-uploaded",
                                 children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
                                 style=html_settings(height="400%", lineHeight="400%", borderStyle="dashed"),
-                                # multiple=True,  # Allow multiple files to be uploaded, temporary since we only want one file but necessary for repeated uses
+                                accept=".png, .jpg, .jpeg, .webp, .gif",
                             ),
                         ]
                     ),
