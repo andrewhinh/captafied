@@ -9,9 +9,9 @@ import traceback
 from typing import List, Optional
 
 from backend.util import encode_b64_image, open_image, read_b64_image
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
+# import boto3
+# from botocore import UNSIGNED
+# from botocore.config import Config
 from dotenv import load_dotenv
 import numpy as np
 import openai
@@ -30,10 +30,10 @@ load_dotenv()
 pio.templates.default = "plotly_dark"
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-write_bucket = "captafied-ydata-report"
-asset_path = Path("assets")
+# write_bucket = "captafied-ydata-report" # Removed S3 dependency
+asset_path = Path("assets") # Relative to backend directory for backend usage
 report_name = "report.html"
-s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+# s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED)) # Removed S3 dependency
 
 
 # Classes
@@ -185,6 +185,13 @@ class Pipeline:
 
     def get_report(self, table, message):  # Generate a pandas-profiling report
         report_config = {"df": table, "title": "Pandas Profiling Report", "dark_mode": True, "tsmode": True}
+        
+        # Define report path and ensure directory exists
+        # Reports are saved in frontend/assets/generated_reports/
+        report_dir = Path("frontend") / asset_path / "generated_reports"
+        os.makedirs(report_dir, exist_ok=True)
+        report_file_path = report_dir / report_name
+
         if len(table) > 1000:
             report_config["minimal"] = True
         else:
@@ -192,12 +199,11 @@ class Pipeline:
 
         report = ProfileReport(**report_config)
 
-        # For Dash
-        with tempfile.NamedTemporaryFile(mode="wt", suffix=".html") as tmp:
-            data = report.to_html()
-            tmp.write(data)
-            s3.upload_file(tmp.name, write_bucket, report_name)
-        return [message, "/" + str(asset_path / report_name)]  # Dash needs a relative path
+        # Save report to frontend/assets/generated_reports/
+        report.to_file(report_file_path)
+        
+        # Return relative path for frontend Iframe
+        return [message, f"/assets/generated_reports/{report_name}"]
 
     def custom_serializer(self, obj):  # Convert numpy arrays in JSON to lists for Plotly graphs
         if isinstance(obj, np.ndarray):

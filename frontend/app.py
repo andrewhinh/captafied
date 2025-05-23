@@ -8,9 +8,9 @@ import os
 from pathlib import Path
 import shutil
 
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
+# import boto3 # Removed S3 dependency
+# from botocore import UNSIGNED # Removed S3 dependency
+# from botocore.config import Config # Removed S3 dependency
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
@@ -76,10 +76,10 @@ if not os.path.exists(download_path):  # Make this directory if it doesn't exist
     os.makedirs(download_path)
 zip_name = "temp"
 
-# S3 Setup
-write_bucket = "captafied-ydata-report"
-report_name = "report.html"
-s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+# S3 Setup - Removed S3 dependency
+# write_bucket = "captafied-ydata-report"
+# report_name = "report.html" # report_name is handled by backend now
+# s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
 # Flagging csv file
 flag_csv_path = parent_path / "flagged" / "log.csv"
@@ -392,9 +392,9 @@ def manage_output(
         )
 
     if report:
-        s3.download_file(Bucket=write_bucket, Key=report_name, Filename=str(asset_path / report_name))
-        s3.delete_object(Bucket=write_bucket, Key=report_name)
-        message, report_path = report[0], report[1]
+        # s3.download_file(Bucket=write_bucket, Key=report_name, Filename=str(asset_path / report_name)) # Removed S3 dependency
+        # s3.delete_object(Bucket=write_bucket, Key=report_name) # Removed S3 dependency
+        message, report_path = report[0], report[1] # report_path is now a direct relative path
         outputs.extend(
             [
                 html.Center(
@@ -828,11 +828,11 @@ class PredictorBackend:
             self.url = BACKEND_URL
             self._predict = self._predict_from_endpoint
         # Uncomment this to run the backend locally
-        # else:
-        #     from backend.inference.inference import Pipeline  # so that we don't have to install backend as a dependency
+        else:
+            from backend.inference.inference import Pipeline  # so that we don't have to install backend as a dependency
 
-        #     model = Pipeline()
-        #     self._predict = model.predict
+            model = Pipeline()
+            self._predict = model.predict
 
     def run(self, df, requests, answers):
         pred = self._predict(df, requests, answers)
@@ -861,7 +861,7 @@ class PredictorBackend:
         logging.info(f"PRED >begin\n{pred}\nPRED >end")
 
 
-predictor = PredictorBackend(use_url=True)
+predictor = PredictorBackend(use_url=False)
 app = make_app(predictor.run)
 
 
